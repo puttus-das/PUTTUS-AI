@@ -1,4 +1,4 @@
-FROM quay.io/puttustech/puttus-bot:latest
+FROM quay.io/qasimtech/mega-bot:latest
 
 WORKDIR /root/puttus-ai
 
