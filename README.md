@@ -44,7 +44,7 @@ Click the button below to fork the Puttus Ai repository to your GitHub account:
 Easily connect to your WhatsApp account by pair code.
 
 <div align="center">
-  <a href="https://puttus-pairing.onrender.com" target="_blank">
+  <a href="https://puttus-pair-2a0c23da2b0b.herokuapp.com" target="_blank">
     <img src="https://img.shields.io/badge/SESSION-ID-ff4d4d?style=for-the-badge" alt="Generate Pair Code"/>
   </a>
 </div>
