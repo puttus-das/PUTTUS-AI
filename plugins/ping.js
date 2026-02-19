@@ -17,8 +17,7 @@ module.exports = {
     const end = Date.now();
     
     await sock.sendMessage(chatId, {
-      text: `🏓PUTTUS-AI Pong!\nLatency: ${end - start}ms`,
-      edit: sent.key
+      text: `⌬•𝐏ᴜᴛᴛᴜꜱ•⌲꯭𝐏꯭ᴏ꯭ɴ꯭ɢ꯭!\nsᴘᴇᴇᴅ →: ${end - start}ᴍs`,
     });
   }
 };
