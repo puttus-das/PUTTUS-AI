@@ -51,7 +51,7 @@ module.exports = {
         text,
         contextInfo: {
           forwardingScore: 999,
-          isForwarded: true,
+          isForwarded: false,
           forwardedNewsletterMessageInfo: {
             newsletterJid: '120363423958562123@newsletter',
             newsletterName: 'PUTTUS-AI',
