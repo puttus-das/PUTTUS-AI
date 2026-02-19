@@ -47,7 +47,7 @@ module.exports = {
     const commandCount = commandHandler.commands.size;
 
     const text =
-      `🤖 *MEGA-MD STATUS*\n\n` +
+      `🤖 *PUTTUS-AI STATUS*\n\n` +
       `⏱ Uptime: ${formatUptime(uptimeMs)}\n` +
       `🚀 Started: ${startedAt}\n` +
       `📦 Plugins: ${commandCount}\n` +
