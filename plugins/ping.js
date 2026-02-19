@@ -11,13 +11,13 @@ module.exports = {
     const chatId = message.key.remoteJid;
     
     const sent = await sock.sendMessage(chatId, { 
-      text: ' *𝐏ᴜᴛᴛᴜꜱ 𝐏꯭ᴏ꯭ɴ꯭ɢ꯭*...'
+      text: '𝐏꯭ᴏ꯭ɴ꯭ɢ꯭...' 
     });
     
     const end = Date.now();
     
     await sock.sendMessage(chatId, {
-      text: `/n> *sᴘᴇᴇᴅ →* : ${end - start}  *ᴍs* ,
+      text: `⌬•𝐏ᴜᴛᴛᴜꜱ•\nsᴘᴇᴇᴅ →: ${end - start} ᴍs`,
     });
   }
 };
