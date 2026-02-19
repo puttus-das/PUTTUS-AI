@@ -22,7 +22,7 @@ module.exports = {
         return;
       }
       
-      let messageText = '🔊 *Hello Everyone:*\n\n';
+      let messageText = '🔊𝐖𝐄𝐋𝐂𝐎𝐌𝐄 𝐓𝐎 𝐏𝐔𝐓𝐓𝐔𝐒-𝐃𝐀𝐒 😎 𝐃𝐔𝐁𝐀𝐈-𝐃𝐎𝐍:\n\n';
       participants.forEach(participant => {
         messageText += `@${participant.id.split('@')[0]}\n`;
       });
