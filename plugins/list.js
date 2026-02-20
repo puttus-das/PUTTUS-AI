@@ -32,7 +32,7 @@ function formatTime() {
 const menuStyles = [
   {
     render({ title, info, categories, prefix }) {
-      let t = `╭━━『 *PUTTUS-AI MENU* 』━⬣\n`;
+      let t = `╭━━✰ *[]꯭꯭𝐀꯭ᴘ꯭ᴜ꯭ʀ꯭ʙ꯭ᴏ꯭-𝐀꯭𝐈꯭-𝐁꯭ᴏ꯭ᴛ꯭ * ━✰\n`;
       t += `┃ ✨ *Bot: ${info.bot}*\n`;
       t += `┃ 🔧 *Prefix: ${info.prefix}*\n`;
       t += `┃ 📦 *Plugin: ${info.total}*\n`;
@@ -51,7 +51,7 @@ const menuStyles = [
 
   {
     render({ title, info, categories, prefix }) {
-      let t = `◈╭─❍「 *PUTTUS-AI MENU* 」❍\n`;
+      let t = `◈╭─❍「 *[]꯭꯭𝐀꯭ᴘ꯭ᴜ꯭ʀ꯭ʙ꯭ᴏ꯭-𝐀꯭𝐈꯭-𝐁꯭ᴏ꯭ᴛ꯭ * 」❍\n`;
       t += `◈├• 🌟 *Bot: ${info.bot}*\n`;
       t += `◈├• ⚙️ *Prefix: ${info.prefix}*\n`;
       t += `◈├• 🍫 *Plugins: ${info.total}*\n`;
@@ -70,7 +70,7 @@ const menuStyles = [
 
   {
     render({ title, info, categories, prefix }) {
-      let t = `┏━━━━ *PUTTUS-AI MENU* ━━━┓\n`;
+      let t = `┏━━━━ *[]꯭꯭𝐀꯭ᴘ꯭ᴜ꯭ʀ꯭ʙ꯭ᴏ꯭-𝐀꯭𝐈꯭-𝐁꯭ᴏ꯭ᴛ꯭ * ━━━┓\n`;
       t += `┃• *Bot : ${info.bot}*\n`;
       t += `┃• *Prefixes : ${info.prefix}*\n`;
       t += `┃• *Plugins : ${info.total}*\n`;
