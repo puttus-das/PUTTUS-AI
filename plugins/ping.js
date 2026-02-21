@@ -17,7 +17,7 @@ module.exports = {
     const end = Date.now();
     
     await sock.sendMessage(chatId, {
-      text: `/n *sᴘᴇᴇᴅ →:* ${end - start} ᴍs`,
+      text: `> *sᴘᴇᴇᴅ →:* ${end - start} ᴍs`,
     });
   }
 };
