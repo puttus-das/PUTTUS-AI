@@ -6,23 +6,14 @@ module.exports = {
   usage: '.ping',
   isPrefixless: true,
   
-   async handler(sock, message, args) {
-    try {
-      const start = Date.now();
-      const chatId = message.key.remoteJid;
-      const imagePath = path.join(__dirname, '../assets/bot_image.jpg');
-      
-      // Newsletter info for forwarding
+// Newsletter info for forwarding
       const newsletterInfo = {
         forwardingScore: 999,
-        isForwarded: true,
+        isForwarded: false,
         forwardedNewsletterMessageInfo: {
           newsletterJid: '120363423958562123@newsletter',
           newsletterName: ' *•𝐏ᴜᴛᴛᴜꜱ•* ',
-          serverMessageId: Date.now() // Using timestamp as serverMessageId
-        }
-      };
-
+          serverMessageId: Date.now() // Using2 timestamp as serverMessageId
   async handler(sock, message, args) {
     const start = Date.now();
     const chatId = message.key.remoteJid;
