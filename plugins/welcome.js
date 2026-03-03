@@ -35,7 +35,7 @@ async function handleJoinEvent(sock, id, participants) {
       isForwarded: true,
       forwardedNewsletterMessageInfo: {
         newsletterJid: '120363423958562123@newsletter',
-        newsletterName: 'PUTTUS-AI',
+        newsletterName: '𝙋𝙐𝙏𝙏𝙐𝙎-𝘼𝙄',
         serverMessageId: -1
       }
     }
