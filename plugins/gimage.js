@@ -1,18 +1,22 @@
-const axios = require('axios');
+const axios = require("axios");
 
 module.exports = {
-  command: 'gimage',
-  aliases: ['googleimage', 'gimg'],
-  category: 'download',
-  description: 'Search and send first 4 Google images',
-  usage: '.gimage <search query>',
+  command: "gimage",
+  aliases: ["googleimage", "gimg"],
+  category: "download",
+  description: "Search and send first 4 Google images",
+  usage: ".gimage <search query>",
 
   async handler(sock, message, args, context = {}) {
     const chatId = context.chatId || message.key.remoteJid;
-    const query = args?.join(' ').trim();
+    const query = args?.join(" ").trim();
 
     if (!query) {
-      return await sock.sendMessage(chatId, { text: 'Please provide a search query.\nExample: .gimage India' }, { quoted: message });
+      return await sock.sendMessage(
+        chatId,
+        { text: "Please provide a search query.\nExample: .gimage India" },
+        { quoted: message },
+      );
     }
 
     try {
@@ -20,25 +24,40 @@ module.exports = {
       const { data } = await axios.get(apiUrl, { timeout: 10000 });
 
       if (!data?.status || !data.imageUrls?.length) {
-        return await sock.sendMessage(chatId, { text: '❌ No images found for this query.' }, { quoted: message });
+        return await sock.sendMessage(
+          chatId,
+          { text: "❌ No images found for this query." },
+          { quoted: message },
+        );
       }
 
       const imagesToSend = data.imageUrls.slice(0, 4);
 
       for (let i = 0; i < imagesToSend.length; i++) {
         const imgUrl = imagesToSend[i];
-        await sock.sendMessage(chatId, { image: { url: imgUrl }, caption: `🖼️ *Google Image ${i + 1}*` }, { quoted: message });
-        await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+        await sock.sendMessage(
+          chatId,
+          { image: { url: imgUrl }, caption: `🖼️ *Google Image ${i + 1}*` },
+          { quoted: message },
+        );
+        await new Promise((resolve) => setTimeout(resolve, 1000)); // 1 second delay
       }
-
     } catch (error) {
-      console.error('GImage plugin error:', error);
+      console.error("GImage plugin error:", error);
 
-      if (error.code === 'ECONNABORTED') {
-        await sock.sendMessage(chatId, { text: '❌ Request timed out. The API may be slow or unreachable.' }, { quoted: message });
+      if (error.code === "ECONNABORTED") {
+        await sock.sendMessage(
+          chatId,
+          { text: "❌ Request timed out. The API may be slow or unreachable." },
+          { quoted: message },
+        );
       } else {
-        await sock.sendMessage(chatId, { text: '❌ Failed to fetch Google images.' }, { quoted: message });
+        await sock.sendMessage(
+          chatId,
+          { text: "❌ Failed to fetch Google images." },
+          { quoted: message },
+        );
       }
     }
-  }
+  },
 };

@@ -1,44 +1,51 @@
 module.exports = {
-  command: 'tagall',
-  aliases: ['everyone', 'all'],
-  category: 'admin',
-  description: 'Tag all group members with their usernames',
-  usage: '.tagall',
+  command: "tagall",
+  aliases: ["everyone", "all"],
+  category: "admin",
+  description: "Tag all group members with their usernames",
+  usage: ".tagall",
   groupOnly: true,
   adminOnly: true,
-  
+
   async handler(sock, message, args, context) {
     const { chatId, channelInfo } = context;
-    
+
     try {
       const groupMetadata = await sock.groupMetadata(chatId);
       const participants = groupMetadata.participants;
 
       if (!participants || participants.length === 0) {
-        await sock.sendMessage(chatId, { 
-          text: 'No participants found in the group.',
-          ...channelInfo
-        }, { quoted: message });
+        await sock.sendMessage(
+          chatId,
+          {
+            text: "No participants found in the group.",
+            ...channelInfo,
+          },
+          { quoted: message },
+        );
         return;
       }
-      
-      let messageText = '🔊𝐖𝐄𝐋𝐂𝐎𝐌𝐄 𝐓𝐎 𝐏𝐔𝐓𝐓𝐔𝐒-𝐃𝐀𝐒 😎 𝐃𝐔𝐁𝐀𝐈-𝐃𝐎𝐍:\n\n';
-      participants.forEach(participant => {
-        messageText += `@${participant.id.split('@')[0]}\n`;
-      });
-      
-      await sock.sendMessage(chatId, {
-        text: messageText,
-        mentions: participants.map(p => p.id),
-        ...channelInfo
+
+      let messageText = "🔊𝐖𝐄𝐋𝐂𝐎𝐌𝐄 𝐓𝐎 𝐏𝐔𝐓𝐓𝐔𝐒-𝐃𝐀𝐒 😎 𝐃𝐔𝐁𝐀𝐈-𝐃𝐎𝐍:\n\n";
+      participants.forEach((participant) => {
+        messageText += `@${participant.id.split("@")[0]}\n`;
       });
 
+      await sock.sendMessage(chatId, {
+        text: messageText,
+        mentions: participants.map((p) => p.id),
+        ...channelInfo,
+      });
     } catch (error) {
-      console.error('Error in tagall command:', error);
-      await sock.sendMessage(chatId, { 
-        text: 'Failed to tag all members.',
-        ...channelInfo
-      }, { quoted: message });
+      console.error("Error in tagall command:", error);
+      await sock.sendMessage(
+        chatId,
+        {
+          text: "Failed to tag all members.",
+          ...channelInfo,
+        },
+        { quoted: message },
+      );
     }
-  }
+  },
 };

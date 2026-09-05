@@ -1,15 +1,15 @@
-const store = require('../lib/lightweight_store')
+const store = require("../lib/lightweight_store");
 
 /**
  * Increment message count for a user in a chat
  * Now uses the unified store system (backward compatible)
  */
 async function incrementMessageCount(chatId, userId) {
-    try {
-        await store.incrementMessageCount(chatId, userId)
-    } catch (error) {
-        console.error('Error incrementing message count:', error)
-    }
+  try {
+    await store.incrementMessageCount(chatId, userId);
+  } catch (error) {
+    console.error("Error incrementing message count:", error);
+  }
 }
 
 /**
@@ -17,13 +17,13 @@ async function incrementMessageCount(chatId, userId) {
  * Returns same format as old JSON file
  */
 async function loadMessageCounts() {
-    try {
-        const data = await store.getAllMessageCounts()
-        return data.messageCount || {}
-    } catch (error) {
-        console.error('Error loading message counts:', error)
-        return {}
-    }
+  try {
+    const data = await store.getAllMessageCounts();
+    return data.messageCount || {};
+  } catch (error) {
+    console.error("Error loading message counts:", error);
+    return {};
+  }
 }
 
 /**
@@ -31,63 +31,73 @@ async function loadMessageCounts() {
  * Data is auto-saved by the store system
  */
 function saveMessageCounts(messageCounts) {
-    console.log('[RANK] saveMessageCounts called (no-op - auto-saved by store)')
+  console.log("[RANK] saveMessageCounts called (no-op - auto-saved by store)");
 }
 
 module.exports = {
-    command: 'rank',
-    aliases: ['top', 'topusers', 'leaderboard', 'ranks'],
-    category: 'group',
-    description: 'Show top 5 most active members based on message count',
-    usage: '.rank',
-    groupOnly: true,
+  command: "rank",
+  aliases: ["top", "topusers", "leaderboard", "ranks"],
+  category: "group",
+  description: "Show top 5 most active members based on message count",
+  usage: ".rank",
+  groupOnly: true,
 
-    async handler(sock, message, args, context = {}) {
-        const chatId = context.chatId || message.key.remoteJid
-        
-        try {
-            const messageCounts = await loadMessageCounts()
-            const groupCounts = messageCounts[chatId] || {}
+  async handler(sock, message, args, context = {}) {
+    const chatId = context.chatId || message.key.remoteJid;
 
-            const sortedMembers = Object.entries(groupCounts)
-                .sort(([, a], [, b]) => b - a)
-                .slice(0, 5)
+    try {
+      const messageCounts = await loadMessageCounts();
+      const groupCounts = messageCounts[chatId] || {};
 
-            if (sortedMembers.length === 0) {
-                await sock.sendMessage(chatId, {
-                    text: '📊 *No message activity recorded yet*\n\nStart chatting to appear on the leaderboard!'
-                }, { quoted: message })
-                return
-            }
+      const sortedMembers = Object.entries(groupCounts)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 5);
 
-            const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣']
-            let messageText = '🏆 *TOP MEMBERS LEADERBOARD*\n\n'
-            
-            sortedMembers.forEach(([userId, count], index) => {
-                const username = userId.split('@')[0]
-                messageText += `${medals[index]} @${username}\n💬 ${count} messages\n\n`
-            })
+      if (sortedMembers.length === 0) {
+        await sock.sendMessage(
+          chatId,
+          {
+            text: "📊 *No message activity recorded yet*\n\nStart chatting to appear on the leaderboard!",
+          },
+          { quoted: message },
+        );
+        return;
+      }
 
-            messageText += '_Keep chatting to climb the ranks!_'
+      const medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"];
+      let messageText = "🏆 *TOP MEMBERS LEADERBOARD*\n\n";
 
-            await sock.sendMessage(chatId, {
-                text: messageText,
-                mentions: sortedMembers.map(([userId]) => userId)
-            }, { quoted: message })
-            
-        } catch (error) {
-            console.error('Rank Command Error:', error)
-            await sock.sendMessage(chatId, {
-                text: '❌ Failed to load leaderboard. Please try again later.'
-            }, { quoted: message })
-        }
-    },
+      sortedMembers.forEach(([userId, count], index) => {
+        const username = userId.split("@")[0];
+        messageText += `${medals[index]} @${username}\n💬 ${count} messages\n\n`;
+      });
 
-    incrementMessageCount,
-    loadMessageCounts,
-    saveMessageCounts
-}
+      messageText += "_Keep chatting to climb the ranks!_";
 
+      await sock.sendMessage(
+        chatId,
+        {
+          text: messageText,
+          mentions: sortedMembers.map(([userId]) => userId),
+        },
+        { quoted: message },
+      );
+    } catch (error) {
+      console.error("Rank Command Error:", error);
+      await sock.sendMessage(
+        chatId,
+        {
+          text: "❌ Failed to load leaderboard. Please try again later.",
+        },
+        { quoted: message },
+      );
+    }
+  },
+
+  incrementMessageCount,
+  loadMessageCounts,
+  saveMessageCounts,
+};
 
 /*
 const fs = require('fs');
@@ -169,4 +179,3 @@ module.exports = {
     saveMessageCounts
 };
 */
-

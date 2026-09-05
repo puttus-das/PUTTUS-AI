@@ -1,31 +1,34 @@
-const axios = require('axios');
+const axios = require("axios");
 
 const AXIOS_DEFAULTS = {
   timeout: 60000,
-  responseType: 'arraybuffer'
+  responseType: "arraybuffer",
 };
 
 module.exports = {
-  command: 'customqr',
-  aliases: ['makeqr', 'qrgen'],
-  category: 'tools',
-  description: 'Generate a custom QR code from text with optional size and color',
-  usage: '.customqr <text> | <size> | <color>',
-  
+  command: "customqr",
+  aliases: ["makeqr", "qrgen"],
+  category: "tools",
+  description:
+    "Generate a custom QR code from text with optional size and color",
+  usage: ".customqr <text> | <size> | <color>",
+
   async handler(sock, message, args) {
     const chatId = message.key.remoteJid;
-    const rawInput = args.join(' ').split('|').map(s => s.trim());
-    
+    const rawInput = args
+      .join(" ")
+      .split("|")
+      .map((s) => s.trim());
+
     const text = rawInput[0];
-    const size = rawInput[1] || '300×300';
-    const color = rawInput[2] || '255-0-0';
+    const size = rawInput[1] || "300×300";
+    const color = rawInput[2] || "255-0-0";
 
     if (!text) {
       return await sock.sendMessage(
         chatId,
         {
-          text:
-`🎨 *Custom QR Generator*
+          text: `🎨 *Custom QR Generator*
 
 📌 Usage:
 .customqr <text> | <size> | <color>
@@ -33,9 +36,9 @@ module.exports = {
 ✨ Example:
 .customqr Puttus | 400×400 | 0-0-255
 
-🧩 Generates a colorful QR image`
+🧩 Generates a colorful QR image`,
         },
-        { quoted: message }
+        { quoted: message },
       );
     }
 
@@ -47,7 +50,7 @@ module.exports = {
         `&color=${encodeURIComponent(color)}`;
 
       await sock.sendMessage(chatId, {
-        react: { text: '🧩', key: message.key }
+        react: { text: "🧩", key: message.key },
       });
 
       const res = await axios.get(apiUrl, AXIOS_DEFAULTS);
@@ -56,21 +59,23 @@ module.exports = {
         chatId,
         {
           image: Buffer.from(res.data),
-          caption:
-`✅ *QR Code Generated*
+          caption: `✅ *QR Code Generated*
 
 📝 Text: ${text}
 📐 Size: ${size}
 🎨 Color: ${color}
 
-BY PUTTUS-AI`
+BY PUTTUS-AI`,
         },
-        { quoted: message }
+        { quoted: message },
       );
-
     } catch (err) {
-      console.error('Custom QR Error:', err);
-      await sock.sendMessage(chatId, { text: '❌ Failed to generate QR code.' }, { quoted: message });
+      console.error("Custom QR Error:", err);
+      await sock.sendMessage(
+        chatId,
+        { text: "❌ Failed to generate QR code." },
+        { quoted: message },
+      );
     }
-  }
+  },
 };

@@ -1,11 +1,14 @@
-const fs = require('fs');
-const path = require('path');
-const isOwnerOrSudo = require('../lib/isOwner');
+const fs = require("fs");
+const path = require("path");
+const isOwnerOrSudo = require("../lib/isOwner");
 
 function clearDirectory(dirPath) {
   try {
     if (!fs.existsSync(dirPath)) {
-      return { success: false, message: `Directory not found: ${path.basename(dirPath)}` };
+      return {
+        success: false,
+        message: `Directory not found: ${path.basename(dirPath)}`,
+      };
     }
 
     const files = fs.readdirSync(dirPath);
@@ -26,39 +29,36 @@ function clearDirectory(dirPath) {
     return {
       success: true,
       message: `Cleared ${deletedCount} items in ${path.basename(dirPath)}`,
-      count: deletedCount
+      count: deletedCount,
     };
   } catch (err) {
-    console.error('clearDirectory error:', err);
+    console.error("clearDirectory error:", err);
     return {
       success: false,
-      message: `Failed clearing ${path.basename(dirPath)}`
+      message: `Failed clearing ${path.basename(dirPath)}`,
     };
   }
 }
 
 async function clearTmpDirectory() {
-  const tmpDir = path.join(process.cwd(), 'tmp');
-  const tempDir = path.join(process.cwd(), 'temp');
+  const tmpDir = path.join(process.cwd(), "tmp");
+  const tempDir = path.join(process.cwd(), "temp");
 
-  const results = [
-    clearDirectory(tmpDir),
-    clearDirectory(tempDir)
-  ];
+  const results = [clearDirectory(tmpDir), clearDirectory(tempDir)];
 
-  const success = results.every(r => r.success);
+  const success = results.every((r) => r.success);
   const totalDeleted = results.reduce((a, b) => a + (b.count || 0), 0);
-  const message = results.map(r => r.message).join(' | ');
+  const message = results.map((r) => r.message).join(" | ");
 
   return { success, message, totalDeleted };
 }
 
 module.exports = {
-  command: 'cleartmp',
-  aliases: ['cleartemp', 'tmpclear'],
-  category: 'owner',
-  description: 'Clear tmp and temp directories',
-  usage: '.cleartmp',
+  command: "cleartmp",
+  aliases: ["cleartemp", "tmpclear"],
+  category: "owner",
+  description: "Clear tmp and temp directories",
+  usage: ".cleartmp",
 
   async handler(sock, message, args, context = {}) {
     const chatId = context.chatId || message.key.remoteJid;
@@ -68,9 +68,13 @@ module.exports = {
       const isOwner = await isOwnerOrSudo(senderId, sock, chatId);
 
       if (!message.key.fromMe && !isOwner) {
-        await sock.sendMessage(chatId, {
-          text: '*This command is only for the owner!*'
-        }, { quoted: message });
+        await sock.sendMessage(
+          chatId,
+          {
+            text: "*This command is only for the owner!*",
+          },
+          { quoted: message },
+        );
         return;
       }
 
@@ -80,17 +84,24 @@ module.exports = {
         ? `✅ *Temporary Files Cleared!*\n\n${result.message}`
         : `❌ *Clear Failed!*\n\n${result.message}`;
 
-      await sock.sendMessage(chatId, {
-        text
-      }, { quoted: message });
-
+      await sock.sendMessage(
+        chatId,
+        {
+          text,
+        },
+        { quoted: message },
+      );
     } catch (error) {
-      console.error('Error in cleartmp command:', error);
-      await sock.sendMessage(chatId, {
-        text: '❌ Failed to clear temporary files!'
-      }, { quoted: message });
+      console.error("Error in cleartmp command:", error);
+      await sock.sendMessage(
+        chatId,
+        {
+          text: "❌ Failed to clear temporary files!",
+        },
+        { quoted: message },
+      );
     }
-  }
+  },
 };
 
 function startAutoClear() {

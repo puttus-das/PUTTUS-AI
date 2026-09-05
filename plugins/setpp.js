@@ -1,14 +1,14 @@
-const fs = require('fs');
-const path = require('path');
-const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
-const isOwnerOrSudo = require('../lib/isOwner');
+const fs = require("fs");
+const path = require("path");
+const { downloadContentFromMessage } = require("@whiskeysockets/baileys");
+const isOwnerOrSudo = require("../lib/isOwner");
 
 module.exports = {
-  command: 'setpp',
-  aliases: ['setppic', 'setdp'],
-  category: 'owner',
-  description: 'Set or update the bot profile picture (owner only)',
-  usage: '.setpp (reply to an image)',
+  command: "setpp",
+  aliases: ["setppic", "setdp"],
+  category: "owner",
+  description: "Set or update the bot profile picture (owner only)",
+  usage: ".setpp (reply to an image)",
   async handler(sock, message, args, context = {}) {
     const chatId = context.chatId || message.key.remoteJid;
 
@@ -17,29 +17,43 @@ module.exports = {
       const isOwner = await isOwnerOrSudo(senderId, sock, chatId);
 
       if (!message.key.fromMe && !isOwner) {
-        await sock.sendMessage(chatId, { 
-          text: '*This command is only available for the owner!*' 
-        }, { quoted: message });
+        await sock.sendMessage(
+          chatId,
+          {
+            text: "*This command is only available for the owner!*",
+          },
+          { quoted: message },
+        );
         return;
       }
-      const quotedMessage = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+      const quotedMessage =
+        message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
       if (!quotedMessage) {
-        await sock.sendMessage(chatId, { 
-          text: '⚠️ Please reply to an image with the .setpp command!' 
-        }, { quoted: message });
+        await sock.sendMessage(
+          chatId,
+          {
+            text: "⚠️ Please reply to an image with the .setpp command!",
+          },
+          { quoted: message },
+        );
         return;
       }
-      const imageMessage = quotedMessage.imageMessage || quotedMessage.stickerMessage;
+      const imageMessage =
+        quotedMessage.imageMessage || quotedMessage.stickerMessage;
       if (!imageMessage) {
-        await sock.sendMessage(chatId, { 
-          text: '*The replied message must contain an image!*' 
-        }, { quoted: message });
+        await sock.sendMessage(
+          chatId,
+          {
+            text: "*The replied message must contain an image!*",
+          },
+          { quoted: message },
+        );
         return;
       }
-      const tmpDir = path.join(process.cwd(), 'tmp');
+      const tmpDir = path.join(process.cwd(), "tmp");
       if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
 
-      const stream = await downloadContentFromMessage(imageMessage, 'image');
+      const stream = await downloadContentFromMessage(imageMessage, "image");
       let buffer = Buffer.from([]);
       for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
 
@@ -49,15 +63,22 @@ module.exports = {
       await sock.updateProfilePicture(sock.user.id, { url: imagePath });
       fs.unlinkSync(imagePath);
 
-      await sock.sendMessage(chatId, { 
-        text: '✅ *⎯꯭⃜ ꯭𔘓⃪꯭[]꯭🩸꯭𝐒꯭ᴜ꯭ᴄ꯭ᴄ꯭ᴇ꯭ꜱ꯭ꜱ꯭ꜰ꯭ᴜ꯭ʟ꯭ʟ꯭ʏ꯭ 𝐔꯭ᴘ꯭ᴅ꯭ᴀ꯭ᴛ꯭ᴇ꯭ᴅ꯭ 𝐁꯭ᴏ꯭ᴛ꯭ 𝐏꯭ɪ꯭ᴄ꯭ ⚡ 𝐀꯭ᴘ꯭ᴜ꯭ʀ꯭ʙ꯭ᴏ꯭/𝐏꯭ᴜ꯭ᴛ꯭ᴛ꯭ᴜ꯭𝐒꯭ ⟶᯦꯭* ' 
-      }, { quoted: message });
-
+      await sock.sendMessage(
+        chatId,
+        {
+          text: "✅ *⎯꯭⃜ ꯭𔘓⃪꯭[]꯭🩸꯭𝐒꯭ᴜ꯭ᴄ꯭ᴄ꯭ᴇ꯭ꜱ꯭ꜱ꯭ꜰ꯭ᴜ꯭ʟ꯭ʟ꯭ʏ꯭ 𝐔꯭ᴘ꯭ᴅ꯭ᴀ꯭ᴛ꯭ᴇ꯭ᴅ꯭ 𝐁꯭ᴏ꯭ᴛ꯭ 𝐏꯭ɪ꯭ᴄ꯭ ⚡ 𝐀꯭ᴘ꯭ᴜ꯭ʀ꯭ʙ꯭ᴏ꯭/𝐏꯭ᴜ꯭ᴛ꯭ᴛ꯭ᴜ꯭𝐒꯭ ⟶᯦꯭* ",
+        },
+        { quoted: message },
+      );
     } catch (error) {
-      console.error('SetPP Command Error:', error);
-      await sock.sendMessage(chatId, { 
-        text: '❌ Failed to update profile picture!' 
-      }, { quoted: message });
+      console.error("SetPP Command Error:", error);
+      await sock.sendMessage(
+        chatId,
+        {
+          text: "❌ Failed to update profile picture!",
+        },
+        { quoted: message },
+      );
     }
-  }
+  },
 };

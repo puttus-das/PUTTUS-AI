@@ -1,18 +1,24 @@
-const axios = require('axios');
+const axios = require("axios");
 
 module.exports = {
-  command: 'string',
-  aliases: ['textinfo', 'textstats'],
-  category: 'info',
-  description: 'Get detailed info about a text string',
-  usage: '.string <text>',
+  command: "string",
+  aliases: ["textinfo", "textstats"],
+  category: "info",
+  description: "Get detailed info about a text string",
+  usage: ".string <text>",
 
   async handler(sock, message, args, context = {}) {
     const chatId = context.chatId || message.key.remoteJid;
-    const textInput = args?.join(' ')?.trim();
+    const textInput = args?.join(" ")?.trim();
 
     if (!textInput) {
-      return await sock.sendMessage(chatId, { text: '*Provide some text to analyze.*\nExample: .string What is AI' }, { quoted: message });
+      return await sock.sendMessage(
+        chatId,
+        {
+          text: "*Provide some text to analyze.*\nExample: .string What is AI",
+        },
+        { quoted: message },
+      );
     }
 
     try {
@@ -20,10 +26,14 @@ module.exports = {
       const { data } = await axios.get(apiUrl, { timeout: 10000 });
 
       if (!data?.status) {
-        return await sock.sendMessage(chatId, { text: '❌ Failed to analyze text.' }, { quoted: message });
+        return await sock.sendMessage(
+          chatId,
+          { text: "❌ Failed to analyze text." },
+          { quoted: message },
+        );
       }
-      
-      const reply = 
+
+      const reply =
         `📝 *Text Analysis*\n\n` +
         `✏️ Text: ${textInput}\n` +
         `🔠 Letters: ${data.letters}\n` +
@@ -32,15 +42,22 @@ module.exports = {
         `💡 Tip: Keep your text concise for better readability!`;
 
       await sock.sendMessage(chatId, { text: reply }, { quoted: message });
-
     } catch (error) {
-      console.error('String plugin error:', error);
+      console.error("String plugin error:", error);
 
-      if (error.code === 'ECONNABORTED') {
-        await sock.sendMessage(chatId, { text: '❌ Request timed out. Please try again later.' }, { quoted: message });
+      if (error.code === "ECONNABORTED") {
+        await sock.sendMessage(
+          chatId,
+          { text: "❌ Request timed out. Please try again later." },
+          { quoted: message },
+        );
       } else {
-        await sock.sendMessage(chatId, { text: '❌ Failed to fetch text information.' }, { quoted: message });
+        await sock.sendMessage(
+          chatId,
+          { text: "❌ Failed to fetch text information." },
+          { quoted: message },
+        );
       }
     }
-  }
+  },
 };

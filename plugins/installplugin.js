@@ -1,13 +1,13 @@
-const axios = require('axios');
-const fs = require('fs');
-const path = require('path');
+const axios = require("axios");
+const fs = require("fs");
+const path = require("path");
 
 module.exports = {
-  command: 'addplugin',
-  aliases: ['installplugin', 'install'],
-  category: 'owner',
-  description: 'Install a plugin from a GitHub Gist URL (owner only)',
-  usage: '.addplugin <Gist URL>',
+  command: "addplugin",
+  aliases: ["installplugin", "install"],
+  category: "owner",
+  description: "Install a plugin from a GitHub Gist URL (owner only)",
+  usage: ".addplugin <Gist URL>",
 
   /**
    * @param {object} sock - Baileys sock
@@ -20,14 +20,22 @@ module.exports = {
 
     const text = args?.[0];
     if (!text) {
-      return await sock.sendMessage(chatId, { 
-        text: 'Please provide a plugin URL.\nExample: .addplugin https://gist.github.com/username/gistid' 
-      }, { quoted: message });
+      return await sock.sendMessage(
+        chatId,
+        {
+          text: "Please provide a plugin URL.\nExample: .addplugin https://gist.github.com/username/gistid",
+        },
+        { quoted: message },
+      );
     }
 
     const gistMatch = text.match(/(?:\/|gist\.github\.com\/)([a-fA-F0-9]+)/);
     if (!gistMatch) {
-      return await sock.sendMessage(chatId, { text: '❌ Invalid plugin URL.' }, { quoted: message });
+      return await sock.sendMessage(
+        chatId,
+        { text: "❌ Invalid plugin URL." },
+        { quoted: message },
+      );
     }
 
     const gistId = gistMatch[1];
@@ -38,10 +46,14 @@ module.exports = {
       const gistData = response.data;
 
       if (!gistData || !gistData.files) {
-        return await sock.sendMessage(chatId, { text: '❌ No valid files found in the Gist.' }, { quoted: message });
+        return await sock.sendMessage(
+          chatId,
+          { text: "❌ No valid files found in the Gist." },
+          { quoted: message },
+        );
       }
 
-      const pluginDir = path.join(__dirname, '..', 'plugins');
+      const pluginDir = path.join(__dirname, "..", "plugins");
 
       for (const file of Object.values(gistData.files)) {
         const pluginName = file.filename;
@@ -50,11 +62,18 @@ module.exports = {
         await fs.promises.writeFile(pluginPath, file.content);
       }
 
-      await sock.sendMessage(chatId, { text: '*✅ Successfully installed plugin from Gist.*' }, { quoted: message });
+      await sock.sendMessage(
+        chatId,
+        { text: "*✅ Successfully installed plugin from Gist.*" },
+        { quoted: message },
+      );
     } catch (error) {
-      console.error('install plugin error:', error);
-      await sock.sendMessage(chatId, { text: `❌ Error fetching or saving the plugin: ${error.message}` }, { quoted: message });
+      console.error("install plugin error:", error);
+      await sock.sendMessage(
+        chatId,
+        { text: `❌ Error fetching or saving the plugin: ${error.message}` },
+        { quoted: message },
+      );
     }
-  }
+  },
 };
-

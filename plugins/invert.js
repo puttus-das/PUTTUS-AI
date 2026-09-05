@@ -1,15 +1,15 @@
-const axios = require('axios');
-const FormData = require('form-data');
-const fs = require('fs');
-const path = require('path');
-const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+const axios = require("axios");
+const FormData = require("form-data");
+const fs = require("fs");
+const path = require("path");
+const { downloadContentFromMessage } = require("@whiskeysockets/baileys");
 
 module.exports = {
-  command: 'invert',
-  aliases: ['negative'],
-  category: 'tools',
-  description: 'Convert an image to negative',
-  usage: 'Reply to an image with .invert',
+  command: "invert",
+  aliases: ["negative"],
+  category: "tools",
+  description: "Convert an image to negative",
+  usage: "Reply to an image with .invert",
 
   async handler(sock, message, args, context = {}) {
     const chatId = context.chatId || message.key.remoteJid;
@@ -21,14 +21,21 @@ module.exports = {
       if (!quoted?.imageMessage) {
         return await sock.sendMessage(
           chatId,
-          { text: '🤍 *Invert Image*\n\nReply to an image to convert it to negative\n\nUsage:\n.invert' },
-          { quoted: message }
+          {
+            text: "🤍 *Invert Image*\n\nReply to an image to convert it to negative\n\nUsage:\n.invert",
+          },
+          { quoted: message },
         );
       }
 
-      await sock.sendMessage(chatId, { react: { text: '🔄', key: message.key } });
+      await sock.sendMessage(chatId, {
+        react: { text: "🔄", key: message.key },
+      });
 
-      const stream = await downloadContentFromMessage(quoted.imageMessage, 'image');
+      const stream = await downloadContentFromMessage(
+        quoted.imageMessage,
+        "image",
+      );
       let buffer = Buffer.from([]);
       for await (const chunk of stream) {
         buffer = Buffer.concat([buffer, chunk]);
@@ -38,17 +45,21 @@ module.exports = {
       fs.writeFileSync(tempFile, buffer);
 
       const form = new FormData();
-      form.append('apikey', 'guru');
-      form.append('file', fs.createReadStream(tempFile));
+      form.append("apikey", "guru");
+      form.append("file", fs.createReadStream(tempFile));
 
       const res = await axios.post(
-        'https://discardapi.dpdns.org/api/image/invert',
+        "https://discardapi.dpdns.org/api/image/invert",
         form,
-        { headers: form.getHeaders(), responseType: 'arraybuffer', timeout: 60000 }
+        {
+          headers: form.getHeaders(),
+          responseType: "arraybuffer",
+          timeout: 60000,
+        },
       );
       fs.unlinkSync(tempFile);
 
-      if (!res?.data) throw new Error('Negative conversion failed');
+      if (!res?.data) throw new Error("Negative conversion failed");
 
       const grayFile = path.join(__dirname, `invert_result_${Date.now()}.jpg`);
       fs.writeFileSync(grayFile, res.data);
@@ -57,19 +68,20 @@ module.exports = {
         chatId,
         {
           image: { url: grayFile },
-          caption: `🤍 *Inverted Image*\n\nProcessed by: PUTTUS-AI`
+          caption: `🤍 *Inverted Image*\n\nProcessed by: PUTTUS-AI`,
         },
-        { quoted: message }
+        { quoted: message },
       );
       fs.unlinkSync(grayFile);
-
     } catch (err) {
-      console.error('Invert Plugin Error:', err);
+      console.error("Invert Plugin Error:", err);
       await sock.sendMessage(
         chatId,
-        { text: '❌ Failed to convert image to sepia. Make sure the image is clear and try again.' },
-        { quoted: message }
+        {
+          text: "❌ Failed to convert image to sepia. Make sure the image is clear and try again.",
+        },
+        { quoted: message },
       );
     }
-  }
+  },
 };

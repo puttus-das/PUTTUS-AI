@@ -1,18 +1,24 @@
-const axios = require('axios');
+const axios = require("axios");
 
 module.exports = {
-  command: 'twitter',
-  aliases: ['xtweet', 'tweetdl', 'twitterdl'],
-  category: 'download',
-  description: 'Download media (video or image) from X/Twitter post',
-  usage: '.twitter <Tweet URL>',
+  command: "twitter",
+  aliases: ["xtweet", "tweetdl", "twitterdl"],
+  category: "download",
+  description: "Download media (video or image) from X/Twitter post",
+  usage: ".twitter <Tweet URL>",
 
   async handler(sock, message, args, context = {}) {
     const chatId = context.chatId || message.key.remoteJid;
     const url = args?.[0];
 
     if (!url) {
-      return await sock.sendMessage(chatId, { text: 'Please provide a Twitter/X URL.\nExample: .twitter https://x.com/i/status/2002054360428167305' }, { quoted: message });
+      return await sock.sendMessage(
+        chatId,
+        {
+          text: "Please provide a Twitter/X URL.\nExample: .twitter https://x.com/i/status/2002054360428167305",
+        },
+        { quoted: message },
+      );
     }
 
     try {
@@ -20,7 +26,11 @@ module.exports = {
       const { data } = await axios.get(apiUrl, { timeout: 10000 });
 
       if (!data?.status || !data.result?.media?.length) {
-        return await sock.sendMessage(chatId, { text: '❌ No media found for this Tweet.' }, { quoted: message });
+        return await sock.sendMessage(
+          chatId,
+          { text: "❌ No media found for this Tweet." },
+          { quoted: message },
+        );
       }
 
       const tweet = data.result;
@@ -33,21 +43,36 @@ module.exports = {
       `.trim();
 
       for (let mediaItem of tweet.media) {
-        if (mediaItem.type === 'video') {
-          await sock.sendMessage(chatId, { video: { url: mediaItem.url }, caption: caption }, { quoted: message });
-        } else if (mediaItem.type === 'image') {
-          await sock.sendMessage(chatId, { image: { url: mediaItem.url }, caption: caption }, { quoted: message });
+        if (mediaItem.type === "video") {
+          await sock.sendMessage(
+            chatId,
+            { video: { url: mediaItem.url }, caption: caption },
+            { quoted: message },
+          );
+        } else if (mediaItem.type === "image") {
+          await sock.sendMessage(
+            chatId,
+            { image: { url: mediaItem.url }, caption: caption },
+            { quoted: message },
+          );
         }
       }
-
     } catch (error) {
-      console.error('Twitter plugin error:', error);
+      console.error("Twitter plugin error:", error);
 
-      if (error.code === 'ECONNABORTED') {
-        await sock.sendMessage(chatId, { text: '❌ Request timed out. The API may be slow or unreachable.' }, { quoted: message });
+      if (error.code === "ECONNABORTED") {
+        await sock.sendMessage(
+          chatId,
+          { text: "❌ Request timed out. The API may be slow or unreachable." },
+          { quoted: message },
+        );
       } else {
-        await sock.sendMessage(chatId, { text: '❌ Failed to fetch Twitter/X media.' }, { quoted: message });
+        await sock.sendMessage(
+          chatId,
+          { text: "❌ Failed to fetch Twitter/X media." },
+          { quoted: message },
+        );
       }
     }
-  }
+  },
 };

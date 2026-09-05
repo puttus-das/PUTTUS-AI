@@ -1,15 +1,15 @@
-const axios = require('axios');
-const FormData = require('form-data');
-const fs = require('fs');
-const path = require('path');
-const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+const axios = require("axios");
+const FormData = require("form-data");
+const fs = require("fs");
+const path = require("path");
+const { downloadContentFromMessage } = require("@whiskeysockets/baileys");
 
 module.exports = {
-  command: 'grayscale',
-  aliases: ['gray', 'grey'],
-  category: 'tools',
-  description: 'Convert an image to grayscale',
-  usage: 'Reply to an image with .grayscale',
+  command: "grayscale",
+  aliases: ["gray", "grey"],
+  category: "tools",
+  description: "Convert an image to grayscale",
+  usage: "Reply to an image with .grayscale",
 
   async handler(sock, message, args, context = {}) {
     const chatId = context.chatId || message.key.remoteJid;
@@ -21,14 +21,21 @@ module.exports = {
       if (!quoted?.imageMessage) {
         return await sock.sendMessage(
           chatId,
-          { text: '🖤 *Grayscale Image*\n\nReply to an image to convert it to grayscale\n\nUsage:\n.grayscale' },
-          { quoted: message }
+          {
+            text: "🖤 *Grayscale Image*\n\nReply to an image to convert it to grayscale\n\nUsage:\n.grayscale",
+          },
+          { quoted: message },
         );
       }
 
-      await sock.sendMessage(chatId, { react: { text: '🔄', key: message.key } });
+      await sock.sendMessage(chatId, {
+        react: { text: "🔄", key: message.key },
+      });
 
-      const stream = await downloadContentFromMessage(quoted.imageMessage, 'image');
+      const stream = await downloadContentFromMessage(
+        quoted.imageMessage,
+        "image",
+      );
       let buffer = Buffer.from([]);
       for await (const chunk of stream) {
         buffer = Buffer.concat([buffer, chunk]);
@@ -38,38 +45,46 @@ module.exports = {
       fs.writeFileSync(tempFile, buffer);
 
       const form = new FormData();
-      form.append('apikey', 'guru');
-      form.append('file', fs.createReadStream(tempFile));
+      form.append("apikey", "guru");
+      form.append("file", fs.createReadStream(tempFile));
 
       const res = await axios.post(
-        'https://discardapi.dpdns.org/api/image/grayscale',
+        "https://discardapi.dpdns.org/api/image/grayscale",
         form,
-        { headers: form.getHeaders(), responseType: 'arraybuffer', timeout: 60000 }
+        {
+          headers: form.getHeaders(),
+          responseType: "arraybuffer",
+          timeout: 60000,
+        },
       );
       fs.unlinkSync(tempFile);
 
-      if (!res?.data) throw new Error('Grayscale conversion failed');
+      if (!res?.data) throw new Error("Grayscale conversion failed");
 
-      const grayFile = path.join(__dirname, `grayscale_result_${Date.now()}.jpg`);
+      const grayFile = path.join(
+        __dirname,
+        `grayscale_result_${Date.now()}.jpg`,
+      );
       fs.writeFileSync(grayFile, res.data);
 
       await sock.sendMessage(
         chatId,
         {
           image: { url: grayFile },
-          caption: `🖤 *Grayscale Image*\n\nProcessed by: PUTTUS-AI`
+          caption: `🖤 *Grayscale Image*\n\nProcessed by: PUTTUS-AI`,
         },
-        { quoted: message }
+        { quoted: message },
       );
       fs.unlinkSync(grayFile);
-
     } catch (err) {
-      console.error('Grayscale Plugin Error:', err);
+      console.error("Grayscale Plugin Error:", err);
       await sock.sendMessage(
         chatId,
-        { text: '❌ Failed to convert image to grayscale. Make sure the image is clear and try again.' },
-        { quoted: message }
+        {
+          text: "❌ Failed to convert image to grayscale. Make sure the image is clear and try again.",
+        },
+        { quoted: message },
       );
     }
-  }
+  },
 };

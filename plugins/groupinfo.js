@@ -1,30 +1,35 @@
 module.exports = {
-  command: 'groupinfo',
-  aliases: ['ginfo', 'gcinfo', 'infogroup'],
-  category: 'group',
-  description: 'Display detailed group information',
-  usage: '.groupinfo',
+  command: "groupinfo",
+  aliases: ["ginfo", "gcinfo", "infogroup"],
+  category: "group",
+  description: "Display detailed group information",
+  usage: ".groupinfo",
   groupOnly: true,
-  
+
   async handler(sock, message, args, context) {
     const { chatId, channelInfo } = context;
-    
+
     try {
       const groupMetadata = await sock.groupMetadata(chatId);
-      
+
       let pp;
       try {
-        pp = await sock.profilePictureUrl(chatId, 'image');
+        pp = await sock.profilePictureUrl(chatId, "image");
       } catch {
-        pp = 'https://files.catbox.moe/fhifrt.jpeg';
+        pp = "https://files.catbox.moe/fhifrt.jpeg";
       }
-      
+
       const participants = groupMetadata.participants;
-      const groupAdmins = participants.filter(p => p.admin);
-      const listAdmin = groupAdmins.map((v, i) => `${i + 1}. @${v.id.split('@')[0]}`).join('\n');
-      
-      const owner = groupMetadata.owner || groupAdmins.find(p => p.admin === 'superadmin')?.id || chatId.split('-')[0] + '@s.whatsapp.net';
-      
+      const groupAdmins = participants.filter((p) => p.admin);
+      const listAdmin = groupAdmins
+        .map((v, i) => `${i + 1}. @${v.id.split("@")[0]}`)
+        .join("\n");
+
+      const owner =
+        groupMetadata.owner ||
+        groupAdmins.find((p) => p.admin === "superadmin")?.id ||
+        chatId.split("-")[0] + "@s.whatsapp.net";
+
       const text = `
 ┌──「 *INFO GROUP* 」
 ▢ *♻️ID:*
@@ -34,27 +39,30 @@ module.exports = {
 ▢ *👥Members* :
 • ${participants.length}
 ▢ *🤿Group Owner:*
-• @${owner.split('@')[0]}
+• @${owner.split("@")[0]}
 ▢ *🕵🏻‍♂️Admins:*
 ${listAdmin}
 
 ▢ *📌Description* :
-   • ${groupMetadata.desc?.toString() || 'No description'}
+   • ${groupMetadata.desc?.toString() || "No description"}
 `.trim();
 
       await sock.sendMessage(chatId, {
         image: { url: pp },
         caption: text,
-        mentions: [...groupAdmins.map(v => v.id), owner],
-        ...channelInfo
+        mentions: [...groupAdmins.map((v) => v.id), owner],
+        ...channelInfo,
       });
-
     } catch (error) {
-      console.error('Error in groupinfo command:', error);
-      await sock.sendMessage(chatId, { 
-        text: 'Failed to get group info!',
-        ...channelInfo
-      }, { quoted: message });
+      console.error("Error in groupinfo command:", error);
+      await sock.sendMessage(
+        chatId,
+        {
+          text: "Failed to get group info!",
+          ...channelInfo,
+        },
+        { quoted: message },
+      );
     }
-  }
+  },
 };

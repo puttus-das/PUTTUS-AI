@@ -1,10 +1,43 @@
 const autoEmojis = [
-  '💘','💝','💖','💗','💓','💞','💕','💟','❣️','❤️',
-  '🧡','💛','💚','💙','💜','🤎','🖤','🤍','♥️',
-  '🎈','🎁','💌','💐','😘','🤗',
-  '🌸','🌹','🥀','🌺','🌼','🌷',
-  '🍁','⭐️','🌟','😊','🥰','😍',
-  '🤩','☺️'
+  "💘",
+  "💝",
+  "💖",
+  "💗",
+  "💓",
+  "💞",
+  "💕",
+  "💟",
+  "❣️",
+  "❤️",
+  "🧡",
+  "💛",
+  "💚",
+  "💙",
+  "💜",
+  "🤎",
+  "🖤",
+  "🤍",
+  "♥️",
+  "🎈",
+  "🎁",
+  "💌",
+  "💐",
+  "😘",
+  "🤗",
+  "🌸",
+  "🌹",
+  "🥀",
+  "🌺",
+  "🌼",
+  "🌷",
+  "🍁",
+  "⭐️",
+  "🌟",
+  "😊",
+  "🥰",
+  "😍",
+  "🤩",
+  "☺️",
 ];
 
 let AUTO_REACT_MESSAGES = false;
@@ -15,34 +48,44 @@ function random(arr) {
 }
 
 module.exports = {
-  command: 'autoreact',
-  aliases: ['areact'],
-  category: 'owner',
-  description: 'Toggle auto-react to messages',
-  usage: '.autoreact on/off',
+  command: "autoreact",
+  aliases: ["areact"],
+  category: "owner",
+  description: "Toggle auto-react to messages",
+  usage: ".autoreact on/off",
   ownerOnly: true,
-  
+
   async handler(sock, message, args, context) {
     const { chatId, channelInfo } = context;
-    
-    if (!args[0] || !['on', 'off'].includes(args[0])) {
-      await sock.sendMessage(chatId, {
-        text: '*Usage:*\n.autoreact on/off',
-        ...channelInfo
-      }, { quoted: message });
+
+    if (!args[0] || !["on", "off"].includes(args[0])) {
+      await sock.sendMessage(
+        chatId,
+        {
+          text: "*Usage:*\n.autoreact on/off",
+          ...channelInfo,
+        },
+        { quoted: message },
+      );
       return;
     }
 
-    AUTO_REACT_MESSAGES = args[0] === 'on';
+    AUTO_REACT_MESSAGES = args[0] === "on";
 
-    await sock.sendMessage(chatId, {
-      text: AUTO_REACT_MESSAGES ? '*✅ Auto-react enabled*' : '*❌ Auto-react disabled*',
-      ...channelInfo
-    }, { quoted: message });
+    await sock.sendMessage(
+      chatId,
+      {
+        text: AUTO_REACT_MESSAGES
+          ? "*✅ Auto-react enabled*"
+          : "*❌ Auto-react disabled*",
+        ...channelInfo,
+      },
+      { quoted: message },
+    );
 
     if (sock.__autoReactAttached) return;
 
-    sock.ev.on('messages.upsert', async ({ messages }) => {
+    sock.ev.on("messages.upsert", async ({ messages }) => {
       if (!AUTO_REACT_MESSAGES) return;
 
       for (const m of messages) {
@@ -50,9 +93,7 @@ module.exports = {
         if (m.key.fromMe) continue;
 
         const text =
-          m.message.conversation ||
-          m.message.extendedTextMessage?.text ||
-          '';
+          m.message.conversation || m.message.extendedTextMessage?.text || "";
 
         if (!text) continue;
         if (/^[!#.$%^&*+=?<>]/.test(text)) continue;
@@ -63,8 +104,8 @@ module.exports = {
         await sock.sendMessage(m.key.remoteJid, {
           react: {
             text: random(autoEmojis),
-            key: m.key
-          }
+            key: m.key,
+          },
         });
 
         lastReactedTime = now;
@@ -72,5 +113,5 @@ module.exports = {
     });
 
     sock.__autoReactAttached = true;
-  }
+  },
 };
