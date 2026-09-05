@@ -9,7 +9,8 @@
     "plugins": "plugins"
   },
   "scripts": {
-    "start": "node index.js",
+    "start": "pm2 start index.js --deep-monitoring --attach --name puttus",
+    "stop": "pm2 stop puttus",
     "dev": "nodemon index.js",
     "check": "node -e \"require('syntax-error'); console.log('Syntax checker ready')\"",
     "lint": "node test.js",
