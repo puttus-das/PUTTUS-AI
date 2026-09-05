@@ -1,62 +1,78 @@
-const fetch = require('node-fetch');
+const fetch = require("node-fetch");
 
 module.exports = {
-  command: 'qmaker',
-  aliases: ['qmkr', 'quozio'],
-  category: 'tools',
-  description: 'Create a quote image from text or replied message',
-  usage: '.qmaker <text> or reply to a message',
+  command: "qmaker",
+  aliases: ["qmkr", "quozio"],
+  category: "tools",
+  description: "Create a quote image from text or replied message",
+  usage: ".qmaker <text> or reply to a message",
 
   async handler(sock, message, args, context = {}) {
     const chatId = context.chatId || message.key.remoteJid;
-    let text = args?.join(' ')?.trim();
+    let text = args?.join(" ")?.trim();
 
     try {
       if (!text) {
-        const quotedText = message?.message?.extendedTextMessage?.contextInfo?.quotedMessage?.conversation;
+        const quotedText =
+          message?.message?.extendedTextMessage?.contextInfo?.quotedMessage
+            ?.conversation;
         if (!quotedText) {
-          return await sock.sendMessage(chatId, { text: '*Provide text or reply to a message to create a quote.*' }, { quoted: message });
+          return await sock.sendMessage(
+            chatId,
+            { text: "*Provide text or reply to a message to create a quote.*" },
+            { quoted: message },
+          );
         }
         text = quotedText;
       }
 
-      const author = message.pushName || message?.key?.participant || 'Anonymous';
+      const author =
+        message.pushName || message?.key?.participant || "Anonymous";
 
-      const createRes = await fetch('https://quozio.com/api/v1/quotes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const createRes = await fetch("https://quozio.com/api/v1/quotes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           author: author,
-          quote: text
-        })
+          quote: text,
+        }),
       });
 
       const quoteData = await createRes.json();
-      if (!quoteData?.quoteId) throw new Error('Quote creation failed');
+      if (!quoteData?.quoteId) throw new Error("Quote creation failed");
 
       const quoteId = quoteData.quoteId;
 
-      const templatesRes = await fetch('https://quozio.com/api/v1/templates');
+      const templatesRes = await fetch("https://quozio.com/api/v1/templates");
       const templatesData = await templatesRes.json();
       const templates = templatesData.data;
 
-      if (!templates?.length) throw new Error('No templates found');
+      if (!templates?.length) throw new Error("No templates found");
 
       const template = templates[Math.floor(Math.random() * templates.length)];
 
       const imageRes = await fetch(
-        `https://quozio.com/api/v1/quotes/${quoteId}/imageUrls?templateId=${template.templateId}`
+        `https://quozio.com/api/v1/quotes/${quoteId}/imageUrls?templateId=${template.templateId}`,
       );
       const imageData = await imageRes.json();
 
-      if (!imageData?.medium) throw new Error('Image generation failed');
+      if (!imageData?.medium) throw new Error("Image generation failed");
 
-      await sock.sendMessage(chatId, { image: { url: imageData.medium }, caption: `📝 Quote Created\n\nAuthor: ${author}\n\n${text}` }, { quoted: message });
-
+      await sock.sendMessage(
+        chatId,
+        {
+          image: { url: imageData.medium },
+          caption: `📝 Quote Created\n\nAuthor: ${author}\n\n${text}`,
+        },
+        { quoted: message },
+      );
     } catch (error) {
-      console.error('Quote plugin error:', error);
-      await sock.sendMessage(chatId, { text: '❌ Failed to create quote. Try again later.' }, { quoted: message });
+      console.error("Quote plugin error:", error);
+      await sock.sendMessage(
+        chatId,
+        { text: "❌ Failed to create quote. Try again later." },
+        { quoted: message },
+      );
     }
-  }
+  },
 };
-

@@ -1,20 +1,31 @@
-const axios = require('axios');
+const axios = require("axios");
 
 module.exports = {
-  command: 'apkpure',
-  aliases: ['apkpur', 'pureapk'],
-  category: 'apks',
-  description: 'Search APKs from APKPure and get download link',
-  usage: '.apkpure <apk_name>',
+  command: "apkpure",
+  aliases: ["apkpur", "pureapk"],
+  category: "apks",
+  description: "Search APKs from APKPure and get download link",
+  usage: ".apkpure <apk_name>",
 
   async handler(sock, message, args, context = {}) {
     const chatId = context.chatId || message.key.remoteJid;
-    const query = args.join(' ').trim();
+    const query = args.join(" ").trim();
 
     try {
-      if (!query) return await sock.sendMessage(chatId, { text: '*Please provide an app name.*\nExample: .apkpure Instagram' }, { quoted: message });
+      if (!query)
+        return await sock.sendMessage(
+          chatId,
+          {
+            text: "*Please provide an app name.*\nExample: .apkpure Instagram",
+          },
+          { quoted: message },
+        );
 
-      await sock.sendMessage(chatId, { text: '🔎 Searching APKPure...' }, { quoted: message });
+      await sock.sendMessage(
+        chatId,
+        { text: "🔎 Searching APKPure..." },
+        { quoted: message },
+      );
 
       /* 🔍 SEARCH */
       const searchUrl = `https://discardapi.dpdns.org/api/apk/search/apkpure?apikey=guru&query=${encodeURIComponent(query)}`;
@@ -22,18 +33,36 @@ module.exports = {
 
       const results = searchRes.data?.result;
       if (!Array.isArray(results) || results.length === 0)
-        return await sock.sendMessage(chatId, { text: '❌ No results found.' }, { quoted: message });
+        return await sock.sendMessage(
+          chatId,
+          { text: "❌ No results found." },
+          { quoted: message },
+        );
 
       let caption = `📦 *APKPure Results for:* *${query}*\n\n↩️ *Reply with a number to get download link*\n\n`;
-      results.forEach((v, i) => caption += `*${i + 1}.* ${v.name}\n👨‍💻 ${v.developer}\n🔗 ${v.url}\n\n`);
+      results.forEach(
+        (v, i) =>
+          (caption += `*${i + 1}.* ${v.name}\n👨‍💻 ${v.developer}\n🔗 ${v.url}\n\n`),
+      );
 
-      const sentMsg = await sock.sendMessage(chatId, { text: caption }, { quoted: message });
+      const sentMsg = await sock.sendMessage(
+        chatId,
+        { text: caption },
+        { quoted: message },
+      );
 
       /* ⏱ AUTO EXPIRE */
-      const timeout = setTimeout(async () => {
-        sock.ev.off('messages.upsert', listener);
-        await sock.sendMessage(chatId, { text: '⌛ Selection expired. Please search again.' }, { quoted: sentMsg });
-      }, 3 * 60 * 1000);
+      const timeout = setTimeout(
+        async () => {
+          sock.ev.off("messages.upsert", listener);
+          await sock.sendMessage(
+            chatId,
+            { text: "⌛ Selection expired. Please search again." },
+            { quoted: sentMsg },
+          );
+        },
+        3 * 60 * 1000,
+      );
 
       /* 📥 REPLY HANDLER */
       const listener = async ({ messages }) => {
@@ -43,16 +72,25 @@ module.exports = {
         const ctx = m.message?.extendedTextMessage?.contextInfo;
         if (!ctx?.stanzaId || ctx.stanzaId !== sentMsg.key.id) return;
 
-        const replyText = m.message.conversation || m.message.extendedTextMessage?.text || '';
+        const replyText =
+          m.message.conversation || m.message.extendedTextMessage?.text || "";
         const choice = parseInt(replyText.trim());
         if (isNaN(choice) || choice < 1 || choice > results.length)
-          return await sock.sendMessage(chatId, { text: `❌ Invalid choice. Pick 1-${results.length}.` }, { quoted: m });
+          return await sock.sendMessage(
+            chatId,
+            { text: `❌ Invalid choice. Pick 1-${results.length}.` },
+            { quoted: m },
+          );
 
         clearTimeout(timeout);
-        sock.ev.off('messages.upsert', listener);
+        sock.ev.off("messages.upsert", listener);
 
         const selected = results[choice - 1];
-        await sock.sendMessage(chatId, { text: `⬇️ Fetching download info for *${selected.name}*...` }, { quoted: m });
+        await sock.sendMessage(
+          chatId,
+          { text: `⬇️ Fetching download info for *${selected.name}*...` },
+          { quoted: m },
+        );
 
         /* 📦 DOWNLOAD INFO */
         const dlUrl = `https://discardapi.dpdns.org/api/apk/dl/apkpure?apikey=guru&url=${encodeURIComponent(selected.url)}`;
@@ -60,7 +98,11 @@ module.exports = {
 
         const apk = dlRes.data?.result;
         if (!apk?.file?.url)
-          return await sock.sendMessage(chatId, { text: '❌ Failed to fetch download link.' }, { quoted: m });
+          return await sock.sendMessage(
+            chatId,
+            { text: "❌ Failed to fetch download link." },
+            { quoted: m },
+          );
 
         const info =
           `📦 *APK Download Info*\n\n` +
@@ -75,11 +117,14 @@ module.exports = {
         await sock.sendMessage(chatId, { text: info }, { quoted: m });
       };
 
-      sock.ev.on('messages.upsert', listener);
-
+      sock.ev.on("messages.upsert", listener);
     } catch (err) {
-      console.error('❌ APKPure Plugin Error:', err);
-      await sock.sendMessage(chatId, { text: '❌ Failed to process request.' }, { quoted: message });
+      console.error("❌ APKPure Plugin Error:", err);
+      await sock.sendMessage(
+        chatId,
+        { text: "❌ Failed to process request." },
+        { quoted: message },
+      );
     }
-  }
+  },
 };

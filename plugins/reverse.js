@@ -1,18 +1,24 @@
-const axios = require('axios');
+const axios = require("axios");
 
 module.exports = {
-  command: 'reverse',
-  aliases: ['revt', 'reversetext'],
-  category: 'tools',
-  description: 'Reverse any text',
-  usage: '.reverse <text>',
+  command: "reverse",
+  aliases: ["revt", "reversetext"],
+  category: "tools",
+  description: "Reverse any text",
+  usage: ".reverse <text>",
 
   async handler(sock, message, args, context = {}) {
     const chatId = context.chatId || message.key.remoteJid;
-    const textToReverse = args?.join(' ')?.trim();
+    const textToReverse = args?.join(" ")?.trim();
 
     if (!textToReverse) {
-      return await sock.sendMessage(chatId, { text: 'Please provide text to reverse.\nExample: .reverse Hello World' }, { quoted: message });
+      return await sock.sendMessage(
+        chatId,
+        {
+          text: "Please provide text to reverse.\nExample: .reverse Hello World",
+        },
+        { quoted: message },
+      );
     }
 
     try {
@@ -20,21 +26,32 @@ module.exports = {
       const { data } = await axios.get(apiUrl, { timeout: 10000 });
 
       if (!data?.status || !data.result) {
-        return await sock.sendMessage(chatId, { text: '❌ Failed to reverse the text.' }, { quoted: message });
+        return await sock.sendMessage(
+          chatId,
+          { text: "❌ Failed to reverse the text." },
+          { quoted: message },
+        );
       }
 
       const reply = `*Reversed:* ${data.result}`;
 
       await sock.sendMessage(chatId, { text: reply }, { quoted: message });
-
     } catch (error) {
-      console.error('Reverse plugin error:', error);
+      console.error("Reverse plugin error:", error);
 
-      if (error.code === 'ECONNABORTED') {
-        await sock.sendMessage(chatId, { text: '❌ Request timed out. Please try again.' }, { quoted: message });
+      if (error.code === "ECONNABORTED") {
+        await sock.sendMessage(
+          chatId,
+          { text: "❌ Request timed out. Please try again." },
+          { quoted: message },
+        );
       } else {
-        await sock.sendMessage(chatId, { text: '❌ Failed to reverse the text.' }, { quoted: message });
+        await sock.sendMessage(
+          chatId,
+          { text: "❌ Failed to reverse the text." },
+          { quoted: message },
+        );
       }
     }
-  }
+  },
 };

@@ -1,32 +1,36 @@
-const fetch = require('node-fetch');
+const fetch = require("node-fetch");
 
 module.exports = {
-  command: 'pokedex',
-  aliases: ['pokemon', 'poke'],
-  category: 'info',
-  description: 'Get information about a Pokémon',
-  usage: '.pokedex <pokemon name>',
+  command: "pokedex",
+  aliases: ["pokemon", "poke"],
+  category: "info",
+  description: "Get information about a Pokémon",
+  usage: ".pokedex <pokemon name>",
   async handler(sock, message, args, context = {}) {
     const chatId = context.chatId || message.key.remoteJid;
-    const text = args.join(' ').trim();
+    const text = args.join(" ").trim();
     if (!text) {
-      return await sock.sendMessage(chatId, {
-        text: '*Please provide a Pokémon name to search for.*\nExample: `.pokedex pikachu`'
-      }, { quoted: message });
+      return await sock.sendMessage(
+        chatId,
+        {
+          text: "*Please provide a Pokémon name to search for.*\nExample: `.pokedex pikachu`",
+        },
+        { quoted: message },
+      );
     }
 
     try {
       const url = `https://some-random-api.com/pokemon/pokedex?pokemon=${encodeURIComponent(text)}`;
       const res = await fetch(url);
       const json = await res.json();
-      if (!res.ok) throw json.error || 'Unknown error';
+      if (!res.ok) throw json.error || "Unknown error";
 
       const messageText = `
 *≡ Name:* ${json.name}
 *≡ ID:* ${json.id}
-*≡ Type:* ${Array.isArray(json.type) ? json.type.join(', ') : json.type}
-*≡ Abilities:* ${Array.isArray(json.abilities) ? json.abilities.join(', ') : json.abilities}
-*≡ Species:* ${Array.isArray(json.species) ? json.species.join(', ') : json.species}
+*≡ Type:* ${Array.isArray(json.type) ? json.type.join(", ") : json.type}
+*≡ Abilities:* ${Array.isArray(json.abilities) ? json.abilities.join(", ") : json.abilities}
+*≡ Species:* ${Array.isArray(json.species) ? json.species.join(", ") : json.species}
 *≡ Height:* ${json.height}
 *≡ Weight:* ${json.weight}
 *≡ Experience:* ${json.base_experience}
@@ -34,8 +38,12 @@ module.exports = {
       `.trim();
       await sock.sendMessage(chatId, { text: messageText, quoted: message });
     } catch (error) {
-      console.error('Pokedex Command Error:', error);
-      await sock.sendMessage(chatId, { text: `❌ Error: ${error}` }, { quoted: message });
+      console.error("Pokedex Command Error:", error);
+      await sock.sendMessage(
+        chatId,
+        { text: `❌ Error: ${error}` },
+        { quoted: message },
+      );
     }
-  }
+  },
 };

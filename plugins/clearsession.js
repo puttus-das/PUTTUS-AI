@@ -1,25 +1,25 @@
-const fs = require('fs');
-const path = require('path');
-const isOwnerOrSudo = require('../lib/isOwner');
+const fs = require("fs");
+const path = require("path");
+const isOwnerOrSudo = require("../lib/isOwner");
 
 const channelInfo = {
   contextInfo: {
     forwardingScore: 999,
     isForwarded: true,
     forwardedNewsletterMessageInfo: {
-      newsletterJid: '120363423958562123@newsletter',
-      newsletterName: 'PUTTUS-AI',
-      serverMessageId: -1
-    }
-  }
+      newsletterJid: "120363423958562123@newsletter",
+      newsletterName: "PUTTUS-AI",
+      serverMessageId: -1,
+    },
+  },
 };
 
 module.exports = {
-  command: 'clearsession',
-  aliases: ['clearses', 'csession'],
-  category: 'owner',
-  description: 'Clear session files',
-  usage: '.clearsession',
+  command: "clearsession",
+  aliases: ["clearses", "csession"],
+  category: "owner",
+  description: "Clear session files",
+  usage: ".clearsession",
 
   async handler(sock, message, args, context = {}) {
     const chatId = context.chatId || message.key.remoteJid;
@@ -28,31 +28,40 @@ module.exports = {
       const isOwner = await isOwnerOrSudo(senderId, sock, chatId);
 
       if (!message.key.fromMe && !isOwner) {
-        return await sock.sendMessage(chatId, { text: '*This command can only be used by the owner!*', ...channelInfo });
+        return await sock.sendMessage(chatId, {
+          text: "*This command can only be used by the owner!*",
+          ...channelInfo,
+        });
       }
 
-      const sessionDir = path.join(__dirname, '../session');
+      const sessionDir = path.join(__dirname, "../session");
       if (!fs.existsSync(sessionDir)) {
-        return await sock.sendMessage(chatId, { text: '*Session directory not found!*', ...channelInfo });
+        return await sock.sendMessage(chatId, {
+          text: "*Session directory not found!*",
+          ...channelInfo,
+        });
       }
 
       let filesCleared = 0;
       let errors = 0;
       let errorDetails = [];
 
-      await sock.sendMessage(chatId, { text: '🔍 Optimizing session files for better performance...', ...channelInfo });
+      await sock.sendMessage(chatId, {
+        text: "🔍 Optimizing session files for better performance...",
+        ...channelInfo,
+      });
 
       const files = fs.readdirSync(sessionDir);
       let appStateSyncCount = 0;
       let preKeyCount = 0;
 
       for (const file of files) {
-        if (file.startsWith('app-state-sync-')) appStateSyncCount++;
-        if (file.startsWith('pre-key-')) preKeyCount++;
+        if (file.startsWith("app-state-sync-")) appStateSyncCount++;
+        if (file.startsWith("pre-key-")) preKeyCount++;
       }
 
       for (const file of files) {
-        if (file === 'creds.json') continue;
+        if (file === "creds.json") continue;
         try {
           fs.unlinkSync(path.join(sessionDir, file));
           filesCleared++;
@@ -62,17 +71,22 @@ module.exports = {
         }
       }
 
-      const msgText = `✅ Session files cleared successfully!\n\n` +
-                      `📊 Statistics:\n` +
-                      `• Total files cleared: ${filesCleared}\n` +
-                      `• App state sync files: ${appStateSyncCount}\n` +
-                      `• Pre-key files: ${preKeyCount}\n` +
-                      (errors > 0 ? `\n⚠️ Errors encountered: ${errors}\n${errorDetails.join('\n')}` : '');
+      const msgText =
+        `✅ Session files cleared successfully!\n\n` +
+        `📊 Statistics:\n` +
+        `• Total files cleared: ${filesCleared}\n` +
+        `• App state sync files: ${appStateSyncCount}\n` +
+        `• Pre-key files: ${preKeyCount}\n` +
+        (errors > 0
+          ? `\n⚠️ Errors encountered: ${errors}\n${errorDetails.join("\n")}`
+          : "");
 
       await sock.sendMessage(chatId, { text: msgText, ...channelInfo });
-
     } catch {
-      await sock.sendMessage(chatId, { text: '❌ Failed to clear session files!', ...channelInfo });
+      await sock.sendMessage(chatId, {
+        text: "❌ Failed to clear session files!",
+        ...channelInfo,
+      });
     }
-  }
+  },
 };

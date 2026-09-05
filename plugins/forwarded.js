@@ -13,52 +13,58 @@
  *                                                                           *
  *****************************************************************************/
 
-
 module.exports = {
-  command: 'forwarded',
-  aliases: ['viral', 'fakeforward'],
-  category: 'tools',
+  command: "forwarded",
+  aliases: ["viral", "fakeforward"],
+  category: "tools",
   description: 'Send text with a fake "Frequently Forwarded" tag',
-  usage: '.viral <text> OR reply to a message',
+  usage: ".viral <text> OR reply to a message",
 
   async handler(sock, message, args, context = {}) {
     const chatId = context.chatId || message.key.remoteJid;
-    
+
     try {
       let txt = "";
-      const quoted = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-      
+      const quoted =
+        message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+
       if (quoted) {
-        txt = quoted.conversation || 
-              quoted.extendedTextMessage?.text || 
-              quoted.imageMessage?.caption || 
-              quoted.videoMessage?.caption || 
-              "";
-      } 
-      
-      if (!txt || txt.trim() === "") {
-        txt = args?.join(' ') || "";
+        txt =
+          quoted.conversation ||
+          quoted.extendedTextMessage?.text ||
+          quoted.imageMessage?.caption ||
+          quoted.videoMessage?.caption ||
+          "";
       }
 
       if (!txt || txt.trim() === "") {
-        return await sock.sendMessage(chatId, { 
-          text: 'Please provide text or reply to a message to forward.' 
-        }, { quoted: message });
+        txt = args?.join(" ") || "";
       }
 
-      await sock.sendMessage(chatId, { 
+      if (!txt || txt.trim() === "") {
+        return await sock.sendMessage(
+          chatId,
+          {
+            text: "Please provide text or reply to a message to forward.",
+          },
+          { quoted: message },
+        );
+      }
+
+      await sock.sendMessage(chatId, {
         text: txt,
-        contextInfo: { 
-          isForwarded: true, 
-          forwardingScore: 999 
-        } 
+        contextInfo: {
+          isForwarded: true,
+          forwardingScore: 999,
+        },
       });
-
     } catch (err) {
-      console.error('Forwarding Spoof Error:', err);
-      await sock.sendMessage(chatId, { text: '❌ Failed to spoof forwarding.' });
+      console.error("Forwarding Spoof Error:", err);
+      await sock.sendMessage(chatId, {
+        text: "❌ Failed to spoof forwarding.",
+      });
     }
-  }
+  },
 };
 
 /*****************************************************************************
@@ -75,4 +81,3 @@ module.exports = {
  *                 Unauthorized copying or distribution is prohibited.       *
  *                                                                           *
  *****************************************************************************/
-

@@ -3,11 +3,11 @@ const process = require("process");
 const settings = require("../settings");
 
 module.exports = {
-  command: 'alive',
-  aliases: ['status', 'bot'],
-  category: 'general',
-  description: 'Check bot status and system info',
-  usage: '.alive',
+  command: "alive",
+  aliases: ["status", "bot"],
+  category: "general",
+  description: "Check bot status and system info",
+  usage: ".alive",
   isPrefixless: true,
 
   async handler(sock, message, args, context = {}) {
@@ -29,7 +29,7 @@ module.exports = {
       if (minutes) uptimeParts.push(`${minutes}m`);
       if (seconds || uptimeParts.length === 0) uptimeParts.push(`${seconds}s`);
 
-      const uptimeText = uptimeParts.join(' ');
+      const uptimeText = uptimeParts.join(" ");
       const totalMem = (os.totalmem() / 1024 / 1024).toFixed(2);
       const freeMem = (os.freemem() / 1024 / 1024).toFixed(2);
       const usedMem = (totalMem - freeMem).toFixed(2);
@@ -47,22 +47,29 @@ module.exports = {
         `*Platform:* ${platform} (${arch})\n` +
         `*Node.js:* ${nodeVersion}\n`;
 
-      await sock.sendMessage(chatId, {
-        text,
-        contextInfo: {
-          forwardingScore: 999,
-          isForwarded: false,
-          forwardedNewsletterMessageInfo: {
-            newsletterJid: '120363423958562123@newsletter',
-            newsletterName: '𝙋𝙐𝙏𝙏𝙐𝙎-𝘼𝙄',
-            serverMessageId: -1
-          }
-        }
-      }, { quoted: message });
-
+      await sock.sendMessage(
+        chatId,
+        {
+          text,
+          contextInfo: {
+            forwardingScore: 999,
+            isForwarded: false,
+            forwardedNewsletterMessageInfo: {
+              newsletterJid: "120363423958562123@newsletter",
+              newsletterName: "𝙋𝙐𝙏𝙏𝙐𝙎-𝘼𝙄",
+              serverMessageId: -1,
+            },
+          },
+        },
+        { quoted: message },
+      );
     } catch (error) {
-      console.error('Error in alive command:', error);
-      await sock.sendMessage(chatId, { text: '✅ Bot is alive and running!' }, { quoted: message });
+      console.error("Error in alive command:", error);
+      await sock.sendMessage(
+        chatId,
+        { text: "✅ Bot is alive and running!" },
+        { quoted: message },
+      );
     }
-  }
+  },
 };

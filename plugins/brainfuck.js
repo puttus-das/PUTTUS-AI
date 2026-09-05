@@ -1,28 +1,34 @@
 module.exports = {
-  command: 'brainfuck',
-  aliases: ['bfcode', 'obfuscate'],
-  category: 'tools',
-  description: 'Convert text into Brainfuck code',
-  usage: '.brainfuck <text> OR reply to a message',
+  command: "brainfuck",
+  aliases: ["bfcode", "obfuscate"],
+  category: "tools",
+  description: "Convert text into Brainfuck code",
+  usage: ".brainfuck <text> OR reply to a message",
 
   async handler(sock, message, args, context = {}) {
     const chatId = context.chatId || message.key.remoteJid;
     try {
-      let text = args?.join(' ') || "";
+      let text = args?.join(" ") || "";
 
-      const quoted = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+      const quoted =
+        message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
       if (quoted) {
-        text = quoted.conversation || 
-               quoted.extendedTextMessage?.text || 
-               quoted.imageMessage?.caption || 
-               quoted.videoMessage?.caption || 
-               text;
+        text =
+          quoted.conversation ||
+          quoted.extendedTextMessage?.text ||
+          quoted.imageMessage?.caption ||
+          quoted.videoMessage?.caption ||
+          text;
       }
 
-      text = text.replace(/^\.\w+\s*/, '').trim();
+      text = text.replace(/^\.\w+\s*/, "").trim();
 
       if (!text) {
-        return await sock.sendMessage(chatId, { text: '*Please provide text or reply to a message to obfuscate!*' }, { quoted: message });
+        return await sock.sendMessage(
+          chatId,
+          { text: "*Please provide text or reply to a message to obfuscate!*" },
+          { quoted: message },
+        );
       }
 
       let bfCode = "";
@@ -39,16 +45,19 @@ module.exports = {
         }
 
         bfCode += ".";
-        lastAscii = ascii; 
+        lastAscii = ascii;
       }
 
       const response = `*❄️ Brainfuck Obfuscated Text:*\n\n${bfCode}`;
-      
-      await sock.sendMessage(chatId, { text: response }, { quoted: message });
 
+      await sock.sendMessage(chatId, { text: response }, { quoted: message });
     } catch (err) {
-      console.error('BF Encoding Error:', err);
-      await sock.sendMessage(chatId, { text: '❌ Error generating code.' }, { quoted: message });
+      console.error("BF Encoding Error:", err);
+      await sock.sendMessage(
+        chatId,
+        { text: "❌ Error generating code." },
+        { quoted: message },
+      );
     }
-  }
+  },
 };
