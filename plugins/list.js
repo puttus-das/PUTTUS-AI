@@ -4,7 +4,7 @@
  *                                                                           *
  *  🌐  GitHub   : https://github.com/puttus-das                         *
  *  ▶️  WhatsApp  : https://chat.whatsapp.com/FVLqJnjKPywKZiiMqi1XWH                       *
- *  💬  WhatsApp : https://whatsapp.com/channel/0029Vb7pmbEEwEjzdGSM4G3B     *
+ *  💬  WhatsApp : https://whatsapp.com/channel/0029Vb8RL4F1HspsNlYYOE3e     *
  *                                                                           *
  *    © 2026 puttus-das. All rights reserved.                            *
  *                                                                           *
@@ -103,7 +103,7 @@ const menuStyles = [
 
   {
     render({ title, info, categories, prefix }) {
-      let t = `❀━━━ *PUTTUS-AI MENU* ━━━❀\n`;
+      let t = `❀ *━[ 𝐏ᴜᴛᴛᴜꜱ - 𝐃ᴀꜱ]━* ❀\n`;
       t += `┃☞ *Bot: ${info.bot}*\n`;
       t += `┃☞ *Prefixes: ${info.prefix}*\n`;
       t += `┃☞ *Plugins: ${info.total}*\n`;
@@ -121,7 +121,7 @@ const menuStyles = [
 
   {
     render({ title, info, categories, prefix }) {
-      let t = `◆━━━ *PUTTUS-AI MENU* ━━━◆\n`;
+      let t = `◆━━━ *━[ 𝐏ᴜᴛᴛᴜꜱ - 𝐃ᴀꜱ]━* ━━━◆\n`;
       t += `┃ ¤ *Bot: ${info.bot}*\n`;
       t += `┃ ¤ *Prefixes: ${info.prefix}*\n`;
       t += `┃ ¤ *Plugins: ${info.total}*\n`;
@@ -138,7 +138,7 @@ const menuStyles = [
 
   {
     render({ title, info, categories, prefix }) {
-      let t = `╭───⬣ *PUTTUS-AI MENU* ──⬣\n`;
+      let t = `╭───⬣ *━[ 𝐏ᴜᴛᴛᴜꜱ - 𝐃ᴀꜱ]━* ──⬣\n`;
       t += ` | ● *Bot: ${info.bot}*\n`;
       t += ` | ● *Prefixes: ${info.prefix}*\n`;
       t += ` | ● *Plugins: ${info.total}*\n`;
@@ -260,7 +260,7 @@ module.exports = {
  *                                                                           *
  *  🌐  GitHub   : https://github.com/puttus-das                         *
  *  ▶️  WhatsApp  : https://chat.whatsapp.com/FVLqJnjKPywKZiiMqi1XWH                       *
- *  💬  WhatsApp : https://whatsapp.com/channel/0029Vb7pmbEEwEjzdGSM4G3B     *
+ *  💬  WhatsApp : https://whatsapp.com/channel/0029Vb8RL4F1HspsNlYYOE3e     *
  *                                                                           *
  *    © 2026 puttus-das. All rights reserved.                            *
  *                                                                           *
