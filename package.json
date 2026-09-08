@@ -9,7 +9,7 @@
     "plugins": "plugins"
   },
   "scripts": {
-  "start": "node index.js--deep-monitoring --attach --name puttus",
+    "start": "node index.js",
     "stop": "pm2 stop puttus",
     "dev": "nodemon index.js",
     "check": "node -e \"require('syntax-error'); console.log('Syntax checker ready')\"",
@@ -32,7 +32,6 @@
     "whatsApp",
     "puttus-bot",
     "puttus-md",
-    "multi-device",
     "puttus-ai"
   ],
   "homepage": "https://github.com/puttus-das/PUTTUS-AI",
@@ -72,7 +71,7 @@
     "mongoose": "^9.0.2",
     "mumaker": "^2.0.0",
     "mysql2": "^3.16.0",
-    "node-cache": "^5.1.2",
+    "node-cache": "^5.1.0",
     "node-fetch": "^2.7.0",
     "node-id3": "^0.2.3",
     "node-telegram-bot-api": "0.67.0",
