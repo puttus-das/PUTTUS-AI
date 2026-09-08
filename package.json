@@ -25,14 +25,11 @@
     "format": "prettier --write ."
   },
   "keywords": [
-    "termux-whatsapp-bot",
-    "whatsapp-bot",
-    "whatsapp-api",
-    "baileys-bot",
-    "whatsApp",
-    "puttus-bot",
-    "puttus-md",
-    "puttus-ai"
+    "whatsapp",
+    "bot",
+    "baileys",
+    "telegram",
+    "puttus"
   ],
   "homepage": "https://github.com/puttus-das/PUTTUS-AI",
   "repository": {
@@ -79,11 +76,13 @@
     "node-youtube-music": "^0.8.3",
     "performance-now": "^2.1.0",
     "pg": "^8.16.3",
+    "pino": "^9.0.0",
     "qrcode": "^1.5.4",
     "ruhend-scraper": "^9.0.8",
     "sharp": "^0.32.6",
     "simple-git": "^3.30.0",
     "syntax-error": "^1.4.0",
+    "telegraf": "^4.16.3",
     "wa-sticker-formatter": "^4.4.4",
     "yt-search": "^2.12.1",
     "ytdl-core": "^4.11.5"
@@ -109,14 +108,7 @@
     "node": ">=20.0.0"
   },
   "contributors": [
-    {
-      "name": "Puttus Das",
-      "role": "Lead Developer"
-    },
-    {
-      "name": "puttus-das",
-      "role": "Maintainer"
-    }
+    "puttus-das"
   ],
   "devDependencies": {
     "prettier": "^3.9.6"
