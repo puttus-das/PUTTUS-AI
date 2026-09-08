@@ -8,8 +8,8 @@
     "data": "data",
     "plugins": "plugins"
   },
-  "scripts": {
-    "start": "node index.js" --deep-monitoring --attach --name puttus",
+  ""scripts": {
+  "start": "node index.js--deep-monitoring --attach --name puttus",
     "stop": "pm2 stop puttus",
     "dev": "nodemon index.js",
     "check": "node -e \"require('syntax-error'); console.log('Syntax checker ready')\"",
