@@ -1,7 +1,6 @@
 FROM quay.io/qasimtech/mega-bot:latest
 
 USER root
-
 WORKDIR /root/puttus-ai
 
 RUN apt-get update && \
