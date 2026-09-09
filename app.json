@@ -1,64 +1,53 @@
 {
-"name": "PUTTUS-AI",
-"description": " Whatsapp automation",
-"keywords": ["whatsapp Bot"],
-"repository": "https://github.com/puttus-das/PUTTUS-AI",
-"stack": "container",
-"env": {
-"MONGO_URL": {
-"description": "Put if you have mongodb database url",
-"required": false,
-"value": ""
-},
-"MYSQL_URL": {
-"description": "Put if you have mysql database url",
-"required": false,
-"value": ""
-},
-"POSTGRES_URL": {
-"description": "Put if you have postgres database url",
-"required": false,
-"value": ""
-},
-"HKEY": {
-"description": "Put your Heroku api key Here , Get one from here https://dashboard.heroku.com/account",
-"required": true,
-"value": ""
-},
-"HAPP": {
-"description": "Put the Heroku app name, same as above entered",
-"required": true,
-"value": ""
-},
-"SESSION_ID": {
-"description": "Put your session id",
-"required": false,
-"value": ""
-},
-"REMOVEBG_KEY": {
-"description": "Put your Remove background api key",
-"required": false,
-"value": ""
-}
-},
-"buildpacks": [
-{
-"url": "heroku/nodejs"
-},
-{
-"url": "https://github.com/DuckyTeam/heroku-buildpack-imagemagick.git"
-},
-{
-"url": "https://github.com/jonathanong/heroku-buildpack-ffmpeg-latest"
-},
-{
-"url": "https://github.com/clhuang/heroku-buildpack-webp-binaries.git"
-}
-],
-"formation": {
-"web": {
-"quantity": 1,
-"size": "basic"
-}
-}
+  "name": "PUTTUS-AI",
+  "description": "WhatsApp automation bot with Telegram pairing",
+  "keywords": [
+    "whatsapp",
+    "bot",
+    "baileys",
+    "telegram"
+  ],
+  "repository": "https://github.com/puttus-das/PUTTUS-AI",
+  "env": {
+    "TELEGRAM_BOT_TOKEN": {
+      "description": "Telegram bot token from BotFather",
+      "required": true
+    },
+    "REMOVEBG_KEY": {
+      "description": "Optional Remove.bg API key",
+      "required": false
+    },
+    "MONGO_URL": {
+      "description": "Optional MongoDB connection URL",
+      "required": false
+    },
+    "MYSQL_URL": {
+      "description": "Optional MySQL connection URL",
+      "required": false
+    },
+    "POSTGRES_URL": {
+      "description": "Optional PostgreSQL connection URL",
+      "required": false
+    }
+  },
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    },
+    {
+      "url": "https://github.com/DuckyTeam/heroku-buildpack-imagemagick.git"
+    },
+    {
+      "url": "https://github.com/jonathanong/heroku-buildpack-ffmpeg-latest"
+    },
+    {
+      "url": "https://github.com/clhuang/heroku-buildpack-webp-binaries.git"
+    }
+  ],
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  }
 }
