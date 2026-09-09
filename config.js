@@ -4,7 +4,7 @@ global.SESSION_ID = process.env.SESSION_ID || ""; // put your session id here
 global.PAIRING_NUMBER = process.env.PAIRING_NUMBER || ""; // In Case if you don't have session id get pairing code by putting your number here
 
 global.TG_TOKEN =
-  process.env.TG_TOKEN || "8604210896:AAGTOYG2AEihDLG2QdrRIsTUcqQeoulLgsU";
+  process.env.TG_TOKEN || "";
 
 global.APIs = {
   xteam: "https://api.xteam.xyz",
