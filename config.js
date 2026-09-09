@@ -1,10 +1,11 @@
 require("dotenv").config();
 
-global.SESSION_ID = process.env.SESSION_ID || ""; // put your session id here
-global.PAIRING_NUMBER = process.env.PAIRING_NUMBER || ""; // In Case if you don't have session id get pairing code by putting your number here
+global.SESSION_ID = process.env.SESSION_ID || "";
+global.PAIRING_NUMBER = process.env.PAIRING_NUMBER || "";
 
-global.TG_TOKEN =
-  process.env.TG_TOKEN || "";
+// Keep the Telegram token in Heroku Config Vars,
+// not directly inside this file.
+global.TG_TOKEN = process.env.TG_TOKEN || "";
 
 global.APIs = {
   xteam: "https://api.xteam.xyz",
@@ -17,20 +18,23 @@ global.APIs = {
   akuari2: "https://apimu.my.id",
   nrtm: "https://fg-nrtm.ddns.net",
   bg: "http://bochil.ddns.net",
-  fgmods: "https://api-fgmods.ddns.net",
+  fgmods: "https://api-fgmods.ddns.net"
 };
 
+// Do not place real API keys directly in this file.
+// Add them through Heroku Config Vars if required.
 global.APIKeys = {
-  "https://api.xteam.xyz": "d90a9e986e18778b",
-  "https://api.lolhuman.xyz": "85faf717d0545d14074659ad",
-  "https://api.neoxr.my.id": "yourkey",
-  "https://violetics.pw": "beta",
-  "https://zenzapis.xyz": "yourkey",
-  "https://api-fgmods.ddns.net": "fg-dylux",
+  "https://api.xteam.xyz": "",
+  "https://api.lolhuman.xyz": "",
+  "https://api.neoxr.my.id": "",
+  "https://violetics.pw": "",
+  "https://zenzapis.xyz": "",
+  "https://api-fgmods.ddns.net": ""
 };
 
 module.exports = {
   WARN_COUNT: 3,
   APIs: global.APIs,
-  APIKeys: global.APIKeys,
+  APIKeys: global.APIKeys
 };
+  
