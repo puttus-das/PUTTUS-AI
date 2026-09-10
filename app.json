@@ -28,7 +28,7 @@
     },
     "MONGO_URL": {
       "description": "MongoDB connection URL",
-      "required": true
+      "required": false
     },
     "MONGO_DATABASE": {
       "description": "MongoDB database name",
