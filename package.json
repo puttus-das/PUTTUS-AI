@@ -1,16 +1,17 @@
 {
   "name": "puttus-mini-bot",
-  "version": "1.0.0",
+  "version": "6.0.0",
   "private": true,
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "engines": {
-    "node": "24.x"
+    "node": ">=20"
   },
   "dependencies": {
     "@distube/ytdl-core": "^4.16.12",
+    "@hapi/boom": "^10.0.1",
     "@whiskeysockets/baileys": "^7.0.0-rc14",
     "acrcloud": "^1.4.0",
     "api-qasim": "^4.0.2",
@@ -29,6 +30,7 @@
     "jimp": "^1.6.1",
     "megajs": "^1.3.10",
     "moment-timezone": "^0.6.3",
+    "mongodb": "^6.18.0",
     "mongoose": "^9.9.5",
     "mumaker": "^2.0.0",
     "mysql2": "^3.24.4",
@@ -37,7 +39,7 @@
     "node-id3": "^0.2.9",
     "node-telegram-bot-api": "^0.66.0",
     "node-webpmux": "^3.2.1",
-    "node-youtube-music": "^0.10.3",
+    "node-youtube-music": "^0.10.0",
     "pg": "^8.23.0",
     "pino": "^9.9.0",
     "qrcode": "^1.5.4",
