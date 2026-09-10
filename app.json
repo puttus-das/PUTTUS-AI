@@ -1,61 +1,24 @@
 {
-  "name": "PUTTUS-XD",
-  "description": "PUTTUS-XD WhatsApp automation bot with Telegram pairing",
+  "name": "PUTTUS-AI",
+  "description": "WhatsApp automation bot with Telegram pairing",
   "keywords": [
     "whatsapp",
     "bot",
     "baileys",
-    "telegram",
-    "puttus-xd"
+    "telegram"
   ],
   "repository": "https://github.com/puttus-das/PUTTUS-AI",
   "env": {
-    "BOT_NAME": {
-      "description": "Bot name",
-      "value": "PUTTUS-XD"
-    },
-    "BOT_OWNER": {
-      "description": "Bot owner name",
-      "value": "Puttus Das"
-    },
-    "OWNER_NUMBER": {
-      "description": "Owner WhatsApp number",
-      "value": "918967360566"
-    },
-    "BOT_PREFIX": {
-      "description": "Bot command prefix",
-      "value": "."
-    },
-    "MONGO_URL": {
-      "description": "MongoDB connection URL",
-      "required": false
-    },
-    "MONGO_DATABASE": {
-      "description": "MongoDB database name",
-      "value": "puttus_xd"
-    },
     "TELEGRAM_BOT_TOKEN": {
       "description": "Telegram bot token from BotFather",
       "required": true
     },
-    "MENU_IMAGE_URL": {
-      "description": "Public image URL for bot menu",
-      "required": false
-    },
-    "CHANNEL_LINK": {
-      "description": "WhatsApp channel link",
-      "required": false
-    },
-    "OWNER_CONTACT": {
-      "description": "Owner WhatsApp contact",
-      "value": "https://wa.me/918967360566"
-    },
-    "REPOSITORY_URL": {
-      "description": "Bot GitHub repository",
-      "value": "https://github.com/puttus-das/PUTTUS-AI"
-    },
     "REMOVEBG_KEY": {
       "description": "Optional Remove.bg API key",
+      "required": false
+    },
+    "MONGO_URL": {
+      "description": "Optional MongoDB connection URL",
       "required": false
     },
     "MYSQL_URL": {
