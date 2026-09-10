@@ -1,11 +1,11 @@
 {
   "name": "PUTTUS-AI",
-  "description": "WhatsApp automation bot with Telegram pairing",
+  "description": "PUTTUS-XD WhatsApp bot with Telegram pairing",
   "keywords": [
     "whatsapp",
-    "bot",
     "baileys",
-    "telegram"
+    "telegram",
+    "bot"
   ],
   "repository": "https://github.com/puttus-das/PUTTUS-AI",
   "env": {
@@ -13,20 +13,14 @@
       "description": "Telegram bot token from BotFather",
       "required": true
     },
-    "REMOVEBG_KEY": {
-      "description": "Optional Remove.bg API key",
+    "BOT_NAME": {
+      "description": "Bot name",
+      "value": "PUTTUS-XD",
       "required": false
     },
-    "MONGO_URL": {
-      "description": "Optional MongoDB connection URL",
-      "required": false
-    },
-    "MYSQL_URL": {
-      "description": "Optional MySQL connection URL",
-      "required": false
-    },
-    "POSTGRES_URL": {
-      "description": "Optional PostgreSQL connection URL",
+    "BOT_PREFIX": {
+      "description": "Command prefix",
+      "value": ".",
       "required": false
     }
   },
