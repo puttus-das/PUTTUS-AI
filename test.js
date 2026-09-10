@@ -60,4 +60,4 @@ if (errorFiles > 0) {
 } else {
   console.log(chalk.green("✨ All files passed validation!\n"));
   process.exit(0);
-}
+            }
