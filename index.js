@@ -1,4 +1,4 @@
-/* * PUTTUS-AI - clean main entry point * WhatsApp/Baileys stays here. * Telegram pairing is handled by ./telegram.js */ const fs = require("fs");
+const fs = require("fs");
 const path = require("path");
 const pino = require("pino");
 const NodeCache = require("node-cache");
@@ -6,30 +6,20 @@ const PhoneNumber = require("awesome-phonenumber");
 const { Boom } = require("@hapi/boom");
 const {
   default: makeWASocket,
-  useMultiFileAuthState,
-  DisconnectReason,
   fetchLatestBaileysVersion,
   Browsers,
   makeCacheableSignalKeyStore,
   jidDecode,
   jidNormalizedUser,
+  DisconnectReason,
 } = require("@whiskeysockets/baileys");
 require("./config");
 const settings = require("./settings");
 const store = require("./lib/lightweight_store");
-const SaveCreds = require("./lib/session");
-const pairStore = require("./lib/pairStore");
-const { app, server, PORT } = require("./lib/server");
+const MultiSessionManager = require("./lib/multiSessionManager");
+const { app, server } = require("./lib/server");
 const { printLog } = require("./lib/print");
 const { smsg } = require("./lib/myfunc");
-const libIndex = require("./lib/index");
-
-// Export isSudo before loading messageHandler to avoid circular require issues.
-async function isSudo(userId) {
-  return libIndex.isSudo(userId);
-}
-
-module.exports.isSudo = isSudo;
 const commandHandler = require("./lib/commandHandler");
 const {
   handleMessages,
@@ -37,406 +27,168 @@ const {
   handleStatus,
   handleCall,
 } = require("./lib/messageHandler");
-const SESSION_DIR = path.join(__dirname, "session");
+
+const PORT = Number(process.env.PORT || 5000);
 const TEMP_DIR = path.join(__dirname, "temp");
-if (!fs.existsSync(SESSION_DIR)) fs.mkdirSync(SESSION_DIR, { recursive: true });
 if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR, { recursive: true });
 process.env.TMPDIR = TEMP_DIR;
 process.env.TEMP = TEMP_DIR;
 process.env.TMP = TEMP_DIR;
-global.botname = process.env.BOT_NAME || settings.botName || "PUTTUS-AI";
+global.botname = settings.botName;
 global.themeemoji = "•";
 global.conns = global.conns || [];
-let sock = null;
-let starting = false;
-let reconnectTimer = null;
-let pairingRequestRunning = false;
-let intentionalLogout = false;
-let telegramStarted = false;
-function cleanNumber(value) {
-  return String(value || "")
-    .replace(/\D/g, "")
-    .replace(/^00/, "");
+
+const manager = new MultiSessionManager({
+  mongoUrl: settings.mongoUrl,
+  database: settings.mongoDatabase,
+});
+const sessions = new Map();
+const starting = new Set();
+let telegramBot = null;
+
+async function isSudo(userId) {
+  try { return require("./lib/isOwner")(userId); } catch { return false; }
 }
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+module.exports.isSudo = isSudo;
+
+function statusCode(error) {
+  return error?.output?.statusCode || error?.data?.statusCode || error?.statusCode || null;
 }
-function statusCodeFrom(error) {
-  return (
-    error?.output?.statusCode ||
-    error?.data?.statusCode ||
-    error?.statusCode ||
-    null
-  );
-}
-function ensureSessionDirectory() {
-  if (!fs.existsSync(SESSION_DIR)) {
-    fs.mkdirSync(SESSION_DIR, { recursive: true });
-  }
-}
-function hasValidSession() {
-  try {
-    const credsPath = path.join(SESSION_DIR, "creds.json");
-    if (!fs.existsSync(credsPath)) return false;
-    const creds = JSON.parse(fs.readFileSync(credsPath, "utf8"));
-    return Boolean(
-      creds &&
-        creds.noiseKey &&
-        creds.signedIdentityKey &&
-        creds.signedPreKey &&
-        creds.registered !== false,
-    );
-  } catch {
-    return false;
-  }
-}
-async function initializeSession() {
-  ensureSessionDirectory();
-  if (hasValidSession()) return true;
-  const sessionId = global.SESSION_ID || process.env.SESSION_ID;
-  if (!sessionId) return false;
-  try {
-    printLog("info", "Downloading SESSION_ID credentials...");
-    await SaveCreds(sessionId);
-    return hasValidSession();
-  } catch (error) {
-    printLog("error", `Session download failed: ${error.message}`);
-    return false;
-  }
-}
-function removeSession() {
-  try {
-    fs.rmSync(SESSION_DIR, { recursive: true, force: true });
-  } catch (error) {
-    printLog("error", `Could not remove session: ${error.message}`);
-  }
-  ensureSessionDirectory();
-}
+function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
+function cleanNumber(value) { return String(value || "").replace(/\D/g, "").replace(/^00/, ""); }
+
 function setupSocketHelpers(client) {
   client.decodeJid = (jid) => {
     if (!jid) return jid;
     if (/:(\d+)@/gi.test(jid)) {
       const decoded = jidDecode(jid) || {};
-      return decoded.user && decoded.server
-        ? `${decoded.user}@${decoded.server}`
-        : jid;
+      return decoded.user && decoded.server ? `${decoded.user}@${decoded.server}` : jid;
     }
     return jid;
   };
   client.getName = (jid, withoutContact = false) => {
     const id = client.decodeJid(jid);
-    if (!id) return "Unknown";
-    if (id.endsWith("@g.us")) {
-      return (async () => {
-        let contact = store.contacts?.[id] || {};
-        if (!(contact.name || contact.subject)) {
-          try {
-            contact = await client.groupMetadata(id);
-          } catch {}
-        }
-        return (
-          (withoutContact ? "" : contact.name) ||
-          contact.subject ||
-          PhoneNumber(`+${id.replace("@g.us", "")}`).getNumber(
-            "international",
-          ) ||
-          id
-        );
-      })();
-    }
-    const contact =
-      id === "0@s.whatsapp.net"
-        ? { name: "WhatsApp" }
-        : id === jidNormalizedUser(client.user?.id)
-          ? client.user
-          : store.contacts?.[id] || {};
-    return (
-      (withoutContact ? "" : contact.name) ||
-      contact.subject ||
-      contact.verifiedName ||
-      PhoneNumber(`+${id.replace("@s.whatsapp.net", "")}`).getNumber(
-        "international",
-      ) ||
-      id
-    );
+    const contact = id === jidNormalizedUser(client.user?.id) ? client.user : store.contacts?.[id] || {};
+    return (withoutContact ? "" : contact.name) || contact.subject || contact.verifiedName || id;
   };
   client.public = true;
   client.serializeM = (message) => smsg(client, message, store);
-  client.msgRetryCounterCache = client.msgRetryCounterCache || new NodeCache();
+  client.msgRetryCounterCache = new NodeCache();
 }
-async function createSocket() {
-  if (sock) return sock;
-  if (starting) {
-    while (starting) await sleep(250);
-    return sock;
+
+async function createSocket(userId, numberForPairing = "") {
+  const uid = String(userId);
+  if (sessions.has(uid)) return sessions.get(uid).sock;
+  if (starting.has(uid)) {
+    while (starting.has(uid)) await sleep(250);
+    return sessions.get(uid)?.sock || null;
   }
-  starting = true;
+  starting.add(uid);
   try {
-    ensureSessionDirectory();
+    const { state, saveCreds } = await manager.authState(uid);
     const { version } = await fetchLatestBaileysVersion();
-    const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
-    const msgRetryCounterCache = new NodeCache();
-    const client = makeWASocket({
+    const sock = makeWASocket({
       version,
       logger: pino({ level: "silent" }),
       browser: Browsers.macOS("Chrome"),
-      auth: {
-        creds: state.creds,
-        keys: makeCacheableSignalKeyStore(
-          state.keys,
-          pino({ level: "fatal" }).child({ level: "fatal" }),
-        ),
-      },
+      auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })) },
       markOnlineOnConnect: true,
       generateHighQualityLinkPreview: true,
       syncFullHistory: false,
-      msgRetryCounterCache,
+      msgRetryCounterCache: new NodeCache(),
       defaultQueryTimeoutMs: 60000,
       connectTimeoutMs: 60000,
       keepAliveIntervalMs: 10000,
       getMessage: async (key) => {
-        const jid = jidNormalizedUser(key.remoteJid);
-        const message = await store.loadMessage(jid, key.id);
+        const message = await store.loadMessage(jidNormalizedUser(key.remoteJid), key.id);
         return message?.message || undefined;
       },
     });
-    sock = client;
-    sock.authState = { creds: state.creds, keys: state.keys };
     setupSocketHelpers(sock);
+    sock.authState = state;
+    sessions.set(uid, { sock, saveCreds, number: numberForPairing });
+    manager.sessions.set(uid, sock);
     store.bind(sock.ev);
     sock.ev.on("creds.update", saveCreds);
-    sock.ev.on("contacts.update", (updates) => {
-      for (const contact of updates || []) {
-        const id = sock.decodeJid(contact.id);
-        if (id && store.contacts) {
-          store.contacts[id] = { id, name: contact.notify };
-        }
-      }
-    });
     sock.ev.on("messages.upsert", async (update) => {
       try {
         const message = update?.messages?.[0];
         if (!message?.message) return;
-        if (Object.keys(message.message)[0] === "ephemeralMessage") {
-          message.message =
-            message.message.ephemeralMessage?.message || message.message;
-        }
-        if (message.key?.remoteJid === "status@broadcast") {
-          await handleStatus(sock, update);
-          return;
-        }
-        if (message.key?.id?.startsWith("BAE5") && message.key.id.length === 16)
-          return;
+        if (message.key?.remoteJid === "status@broadcast") return handleStatus(sock, update);
+        if (message.key?.id?.startsWith("BAE5") && message.key.id.length === 16) return;
         await handleMessages(sock, update);
-      } catch (error) {
-        printLog("error", `messages.upsert: ${error.message}`);
-      }
+      } catch (e) { printLog("error", `user ${uid} message error: ${e.message}`); }
     });
-    sock.ev.on("group-participants.update", async (update) => {
-      try {
-        await handleGroupParticipantUpdate(sock, update);
-      } catch (error) {
-        printLog("error", `group event: ${error.message}`);
-      }
-    });
-    sock.ev.on("status.update", async (update) => {
-      try {
-        await handleStatus(sock, update);
-      } catch (error) {
-        printLog("error", `status event: ${error.message}`);
-      }
-    });
-    sock.ev.on("messages.reaction", async (update) => {
-      try {
-        await handleStatus(sock, update);
-      } catch (error) {
-        printLog("error", `reaction event: ${error.message}`);
-      }
-    });
-    sock.ev.on("call", async (calls) => {
-      try {
-        await handleCall(sock, calls);
-      } catch (error) {
-        printLog("error", `call event: ${error.message}`);
-      }
-    });
+    sock.ev.on("group-participants.update", (u) => handleGroupParticipantUpdate(sock, u).catch(() => {}));
+    sock.ev.on("status.update", (u) => handleStatus(sock, u).catch(() => {}));
+    sock.ev.on("messages.reaction", (u) => handleStatus(sock, u).catch(() => {}));
+    sock.ev.on("call", (u) => handleCall(sock, u).catch(() => {}));
     sock.ev.on("connection.update", async (update) => {
       const { connection, lastDisconnect } = update || {};
-      if (connection === "connecting") {
-        printLog("connection", "Connecting to WhatsApp...");
-      }
       if (connection === "open") {
-        printLog("success", "PUTTUS-AI connected successfully!");
-        pairStore.updateSession({
-          status: "connected",
-          number: sock.user?.id?.split(":")[0]?.split("@")[0] || undefined,
-        });
-        try {
-          const { startAutoBio } = require("./plugins/setbio");
-          if (typeof startAutoBio === "function") await startAutoBio(sock);
-        } catch (error) {
-          printLog("warning", `AutoBio skipped: ${error.message}`);
-        }
-        console.log(`\n■  ${global.botname}`);
-        console.log(`■  Loaded Commands: ${commandHandler.commands.size}`);
-        console.log(`■  Prefixes: ${settings.prefixes.join(", ")}`);
+        const number = sock.user?.id?.split(":")[0]?.split("@")[0] || numberForPairing;
+        await manager.setMeta(uid, { status: "connected", number });
+        printLog("success", `WhatsApp connected for Telegram user ${uid}`);
       }
       if (connection === "close") {
-        const code = statusCodeFrom(lastDisconnect?.error);
-        printLog("error", `WhatsApp connection closed: ${code || "unknown"}`);
-        const loggedOut = code === DisconnectReason.loggedOut || code === 401;
-        const oldSock = sock;
-        sock = null;
-        starting = false;
-        if (loggedOut || intentionalLogout) {
-          intentionalLogout = false;
-          pairStore.clearSession();
-          removeSession();
-          return;
+        const code = statusCode(lastDisconnect?.error);
+        sessions.delete(uid); manager.sessions.delete(uid);
+        if (code !== DisconnectReason.loggedOut && code !== 401) {
+          setTimeout(() => createSocket(uid).catch((e) => printLog("error", e.message)), 5000);
+        } else {
+          await manager.setMeta(uid, { status: "logged_out" });
         }
-        if (!reconnectTimer) {
-          reconnectTimer = setTimeout(() => {
-            reconnectTimer = null;
-            createSocket().catch((error) =>
-              printLog("error", `Reconnect failed: ${error.message}`),
-            );
-          }, 5000);
-        }
-        void oldSock;
       }
     });
-    starting = false;
+    await manager.setMeta(uid, { status: "pairing", number: numberForPairing });
     return sock;
-  } catch (error) {
-    sock = null;
-    starting = false;
-    throw error;
-  }
-}
-async function requestPairingCode(phoneNumber) {
-  const number = cleanNumber(phoneNumber);
-  if (number.length < 8 || number.length > 15) {
-    throw new Error("Invalid WhatsApp number");
-  }
-  if (pairingRequestRunning) {
-    throw new Error("Another pairing request is already running");
-  }
-  pairingRequestRunning = true;
-  try {
-    if (hasValidSession()) {
-      throw new Error(
-        "A WhatsApp session is already registered. Use /logout first.",
-      );
-    }
-    const client = await createSocket();
-    await sleep(2500);
-    if (client.authState?.creds?.registered === true) {
-      throw new Error(
-        "WhatsApp session is already registered. Use /logout first.",
-      );
-    }
-    let code = await client.requestPairingCode(number);
-    code =
-      String(code || "")
-        .match(/.{1,4}/g)
-        ?.join("-") || String(code || "");
-    if (!code) throw new Error("WhatsApp did not return a pairing code");
-    return code;
-  } finally {
-    pairingRequestRunning = false;
-  }
+  } finally { starting.delete(uid); }
 }
 
-async function logoutWhatsApp() {
-  intentionalLogout = true;
-  try {
-    if (sock) {
-      try {
-        await sock.logout();
-      } catch {}
-    }
-  } finally {
-    sock = null;
-    pairStore.clearSession();
-    removeSession();
-  }
+async function pairUser(userId, phone) {
+  const uid = String(userId);
+  const existing = await manager.getMeta(uid);
+  if (existing?.status === "connected") throw new Error("Your WhatsApp is already connected. Use /logout first.");
+  const sock = await createSocket(uid, phone);
+  await sleep(2500);
+  if (sock.authState.creds.registered) throw new Error("Your WhatsApp is already registered. Use /logout first.");
+  const code = await sock.requestPairingCode(cleanNumber(phone));
+  return code;
+}
+
+async function logoutUser(userId) {
+  const uid = String(userId);
+  const item = sessions.get(uid);
+  try { if (item?.sock) await item.sock.logout(); } catch {}
+  sessions.delete(uid); manager.sessions.delete(uid);
+  await manager.clear(uid);
+}
+
+async function getStatus(userId) {
+  const uid = String(userId);
+  const item = sessions.get(uid);
+  const meta = await manager.getMeta(uid);
+  return { connected: Boolean(item?.sock?.user), number: item?.sock?.user?.id?.split(":")[0] || meta?.number || "" };
 }
 
 async function startTelegram() {
-  if (telegramStarted) return;
-  telegramStarted = true;
-  try {
-    const { startTelegramPairing } = require("./lib/telegramBot");
-    startTelegramPairing({
-      onPairRequest: requestPairingCode,
-      onLogoutRequest: logoutWhatsApp,
-      getStatus: () => ({
-        connected: Boolean(sock?.user),
-        user: sock?.user || null,
-        session: pairStore.getActiveSession(),
-      }),
-    });
-  } catch (error) {
-    telegramStarted = false;
-    printLog("error", `Telegram startup failed: ${error.message}`);
-  }
+  const { startTelegramPairing } = require("./lib/telegramBot");
+  telegramBot = startTelegramPairing({ pair: pairUser, logout: logoutUser, status: getStatus });
 }
+
 async function main() {
-  printLog("info", "Starting PUTTUS-AI...");
+  if (!settings.mongoUrl) throw new Error("MONGO_URL is required for multi-device mode");
+  await manager.connect();
   store.readFromFile();
-  setInterval(() => store.writeToFile(), settings.storeWriteInterval || 10000);
   commandHandler.loadCommands();
-  printLog("success", `Loaded ${commandHandler.commands.size} commands`);
-  const sessionReady = await initializeSession();
-  if (sessionReady) {
-    await createSocket();
-  } else {
-    printLog(
-      "warning",
-      "No saved WhatsApp session. Use Telegram /pair <number>.",
-    );
-  }
   await startTelegram();
-} // Keep the existing HTTP server/health page for Heroku, Render and Replit.
-server.listen(PORT, "0.0.0.0", () => {
-  printLog("success", `HTTP server listening on ${PORT}`);
-});
-setInterval(
-  () => {
-    try {
-      for (const file of fs.readdirSync(TEMP_DIR)) {
-        const filePath = path.join(TEMP_DIR, file);
-        const stat = fs.statSync(filePath);
-        if (Date.now() - stat.mtimeMs > 3 * 60 * 60 * 1000) {
-          fs.unlinkSync(filePath);
-        }
-      }
-    } catch {}
-  },
-  60 * 60 * 1000,
-);
-process.on("uncaughtException", (error) => {
-  printLog("error", `Uncaught Exception: ${error.message}`);
-  console.error(error.stack);
-});
-process.on("unhandledRejection", (error) => {
-  printLog("error", `Unhandled Rejection: ${error?.message || error}`);
-  console.error(error);
-});
-process.on("SIGINT", async () => {
-  try {
-    if (sock) sock.end(undefined);
-  } catch {}
-  process.exit(0);
-});
+  printLog("success", `Loaded ${commandHandler.commands.size} commands for multi-device mode`);
+}
 
-// Public helpers for existing modules.
-module.exports.requestPairingCode = requestPairingCode;
-module.exports.logoutWhatsApp = logoutWhatsApp;
-module.exports.getSocket = () => sock;
-
-main().catch((error) => {
-  printLog("error", `Fatal startup error: ${error.message}`);
-  console.error(error.stack);
-  process.exit(1);
-});
+server.listen(PORT, "0.0.0.0", () => printLog("success", `HTTP server listening on ${PORT}`));
+process.on("SIGINT", async () => { try { await manager.close(); } finally { process.exit(0); } });
+process.on("uncaughtException", (e) => printLog("error", `Uncaught Exception: ${e.message}`));
+process.on("unhandledRejection", (e) => printLog("error", `Unhandled Rejection: ${e?.message || e}`));
+main().catch((e) => { printLog("error", `Fatal startup error: ${e.message}`); process.exit(1); });
+module.exports.getSocket = (userId) => sessions.get(String(userId))?.sock || null;
+            
