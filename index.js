@@ -1,452 +1,485 @@
 const fs = require("fs");
 const path = require("path");
-const pino = require("pino");
-const NodeCache = require("node-cache");
-const {
-  default: makeWASocket,
-  fetchLatestBaileysVersion,
-  Browsers,
-  makeCacheableSignalKeyStore,
-  jidDecode,
-  jidNormalizedUser,
-  DisconnectReason,
-} = require("@whiskeysockets/baileys");
+const store = require("./lightweight_store");
 
-require("./config");
+const MONGO_URL = process.env.MONGO_URL;
+const POSTGRES_URL = process.env.POSTGRES_URL;
+const MYSQL_URL = process.env.MYSQL_URL;
+const SQLITE_URL = process.env.DB_URL;
+const HAS_DB = !!(MONGO_URL || POSTGRES_URL || MYSQL_URL || SQLITE_URL);
 
-const settings = require("./settings");
-const store = require("./lib/lightweight_store");
-const MultiSessionManager = require("./lib/multiSessionManager");
-const { server } = require("./lib/server");
-const { printLog } = require("./lib/print");
-const { smsg } = require("./lib/myfunc");
-const commandHandler = require("./lib/commandHandler");
+const dataPath = path.join(__dirname, "../data/userGroupData.json");
 
-const {
-  handleMessages,
-  handleGroupParticipantUpdate,
-  handleStatus,
-  handleCall,
-} = require("./lib/messageHandler");
-
-const PORT = Number(process.env.PORT || 5000);
-const TEMP_DIR = path.join(__dirname, "temp");
-
-if (!fs.existsSync(TEMP_DIR)) {
-  fs.mkdirSync(TEMP_DIR, { recursive: true });
-}
-
-process.env.TMPDIR = TEMP_DIR;
-process.env.TEMP = TEMP_DIR;
-process.env.TMP = TEMP_DIR;
-
-global.botname = settings.botName || "PUTTUS-XD";
-global.themeemoji = "•";
-global.conns = global.conns || [];
-
-const manager = new MultiSessionManager({
-  mongoUrl: settings.mongoUrl,
-  database: settings.mongoDatabase || "puttus_xd",
-});
-
-const sessions = new Map();
-const starting = new Set();
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function cleanNumber(value) {
-  return String(value || "")
-    .replace(/\D/g, "")
-    .replace(/^00/, "");
-}
-
-function getStatusCode(error) {
-  return (
-    error?.output?.statusCode ||
-    error?.data?.statusCode ||
-    error?.statusCode ||
-    null
-  );
-}
-
-function setupSocketHelpers(client) {
-  client.decodeJid = (jid) => {
-    if (!jid) return jid;
-
-    if (/:(\d+)@/gi.test(jid)) {
-      const decoded = jidDecode(jid) || {};
-
-      if (decoded.user && decoded.server) {
-        return `${decoded.user}@${decoded.server}`;
-      }
-    }
-
-    return jid;
-  };
-
-  client.getName = (jid, withoutContact = false) => {
-    const id = client.decodeJid(jid);
-
-    if (!id) {
-      return "Unknown";
-    }
-
-    const contact =
-      id === jidNormalizedUser(client.user?.id)
-        ? client.user
-        : store.contacts?.[id] || {};
-
-    return (
-      (withoutContact ? "" : contact?.name) ||
-      contact?.subject ||
-      contact?.verifiedName ||
-      id
-    );
-  };
-
-  client.public = true;
-  client.serializeM = (message) => smsg(client, message, store);
-  client.msgRetryCounterCache = new NodeCache();
-}
-
-async function createSocket(userId, numberForPairing = "") {
-  const uid = String(userId);
-
-  if (sessions.has(uid)) {
-    return sessions.get(uid).sock;
-  }
-
-  if (starting.has(uid)) {
-    while (starting.has(uid)) {
-      await sleep(250);
-    }
-
-    return sessions.get(uid)?.sock || null;
-  }
-
-  starting.add(uid);
-
+async function loadUserGroupData() {
   try {
-    const { state, saveCreds } = await manager.authState(uid);
-    const { version } = await fetchLatestBaileysVersion();
-
-    const sock = makeWASocket({
-      version,
-
-      logger: pino({
-        level: "silent",
-      }),
-
-      browser: Browsers.macOS("Chrome"),
-
-      auth: {
-        creds: state.creds,
-
-        keys: makeCacheableSignalKeyStore(
-          state.keys,
-          pino({
-            level: "fatal",
-          }),
-        ),
-      },
-
-      markOnlineOnConnect: true,
-      generateHighQualityLinkPreview: true,
-      syncFullHistory: false,
-
-      msgRetryCounterCache: new NodeCache(),
-
-      defaultQueryTimeoutMs: 60000,
-      connectTimeoutMs: 60000,
-      keepAliveIntervalMs: 10000,
-
-      getMessage: async (key) => {
-        const jid = jidNormalizedUser(key.remoteJid);
-        const message = await store.loadMessage(jid, key.id);
-
-        return message?.message || undefined;
-      },
-    });
-
-    setupSocketHelpers(sock);
-
-    sock.authState = state;
-
-    sessions.set(uid, {
-      sock,
-      saveCreds,
-      number: numberForPairing,
-    });
-
-    manager.sessions.set(uid, sock);
-
-    store.bind(sock.ev);
-
-    sock.ev.on("creds.update", saveCreds);
-
-    sock.ev.on("messages.upsert", async (update) => {
-      try {
-        const message = update?.messages?.[0];
-
-        if (!message?.message) {
-          return;
+    if (HAS_DB) {
+      const data = await store.getSetting("global", "userGroupData");
+      return (
+        data || {
+          antibadword: {},
+          antilink: {},
+          welcome: {},
+          goodbye: {},
+          chatbot: {},
+          warnings: {},
+          sudo: [],
+          antitag: {},
         }
-
-        if (message.key?.remoteJid === "status@broadcast") {
-          await handleStatus(sock, update);
-          return;
-        }
-
-        if (
-          message.key?.id?.startsWith("BAE5") &&
-          message.key.id.length === 16
-        ) {
-          return;
-        }
-
-        await handleMessages(sock, update);
-      } catch (error) {
-        printLog(
-          "error",
-          `Message error for Telegram user ${uid}: ${error.message}`,
-        );
+      );
+    } else {
+      if (!fs.existsSync(dataPath)) {
+        const defaultData = {
+          antibadword: {},
+          antilink: {},
+          welcome: {},
+          goodbye: {},
+          chatbot: {},
+          warnings: {},
+          sudo: [],
+          antitag: {},
+        };
+        fs.writeFileSync(dataPath, JSON.stringify(defaultData, null, 2));
+        return defaultData;
       }
-    });
-
-    sock.ev.on("group-participants.update", async (update) => {
-      try {
-        await handleGroupParticipantUpdate(sock, update);
-      } catch (error) {
-        printLog("error", `Group event error: ${error.message}`);
-      }
-    });
-
-    sock.ev.on("status.update", async (update) => {
-      try {
-        await handleStatus(sock, update);
-      } catch (error) {
-        printLog("error", `Status event error: ${error.message}`);
-      }
-    });
-
-    sock.ev.on("messages.reaction", async (update) => {
-      try {
-        await handleStatus(sock, update);
-      } catch (error) {
-        printLog("error", `Reaction event error: ${error.message}`);
-      }
-    });
-
-    sock.ev.on("call", async (calls) => {
-      try {
-        await handleCall(sock, calls);
-      } catch (error) {
-        printLog("error", `Call event error: ${error.message}`);
-      }
-    });
-
-    sock.ev.on("connection.update", async (update) => {
-      const { connection, lastDisconnect } = update || {};
-
-      if (connection === "connecting") {
-        printLog(
-          "info",
-          `Connecting WhatsApp for Telegram user ${uid}...`,
-        );
-      }
-
-      if (connection === "open") {
-        const number =
-          sock.user?.id?.split(":")[0]?.split("@")[0] ||
-          numberForPairing;
-
-        await manager.setMeta(uid, {
-          status: "connected",
-          number,
-        });
-
-        printLog(
-          "success",
-          `WhatsApp connected for Telegram user ${uid}`,
-        );
-      }
-
-      if (connection === "close") {
-        const code = getStatusCode(lastDisconnect?.error);
-
-        sessions.delete(uid);
-        manager.sessions.delete(uid);
-
-        const loggedOut =
-          code === DisconnectReason.loggedOut || code === 401;
-
-        if (loggedOut) {
-          await manager.setMeta(uid, {
-            status: "logged_out",
-          });
-
-          return;
-        }
-
-        setTimeout(() => {
-          createSocket(uid).catch((error) => {
-            printLog(
-              "error",
-              `Reconnect failed for ${uid}: ${error.message}`,
-            );
-          });
-        }, 5000);
-      }
-    });
-
-    await manager.setMeta(uid, {
-      status: "pairing",
-      number: numberForPairing,
-    });
-
-    return sock;
-  } finally {
-    starting.delete(uid);
-  }
-}
-
-async function pairUser(userId, phoneNumber) {
-  const uid = String(userId);
-  const phone = cleanNumber(phoneNumber);
-
-  if (!/^\d{8,15}$/.test(phone)) {
-    throw new Error("Invalid WhatsApp number");
-  }
-
-  const existing = await manager.getMeta(uid);
-
-  if (existing?.status === "connected") {
-    throw new Error(
-      "Your WhatsApp is already connected. Use /logout first.",
-    );
-  }
-
-  const sock = await createSocket(uid, phone);
-
-  await sleep(2500);
-
-  if (sock.authState?.creds?.registered === true) {
-    throw new Error(
-      "Your WhatsApp is already registered. Use /logout first.",
-    );
-  }
-
-  const code = await sock.requestPairingCode(phone);
-
-  return code;
-}
-
-async function logoutUser(userId) {
-  const uid = String(userId);
-  const session = sessions.get(uid);
-
-  try {
-    if (session?.sock) {
-      await session.sock.logout();
+      const data = JSON.parse(fs.readFileSync(dataPath, "utf8"));
+      return data;
     }
   } catch (error) {
-    printLog("warning", `Logout warning for ${uid}: ${error.message}`);
+    console.error("Error loading user group data:", error);
+    return {
+      antibadword: {},
+      antilink: {},
+      welcome: {},
+      goodbye: {},
+      chatbot: {},
+      warnings: {},
+      sudo: [],
+      antitag: {},
+    };
   }
-
-  sessions.delete(uid);
-  manager.sessions.delete(uid);
-
-  await manager.clear(uid);
 }
 
-async function getUserStatus(userId) {
-  const uid = String(userId);
-  const session = sessions.get(uid);
-  const meta = await manager.getMeta(uid);
-
-  return {
-    connected: Boolean(session?.sock?.user),
-
-    number:
-      session?.sock?.user?.id?.split(":")[0] ||
-      meta?.number ||
-      "",
-
-    status: meta?.status || "disconnected",
-  };
-}
-
-async function startTelegram() {
-  const { startTelegramPairing } = require("./lib/telegramBot");
-
-  return startTelegramPairing({
-    pair: pairUser,
-    logout: logoutUser,
-    status: getUserStatus,
-  });
-}
-
-async function main() {
-  if (!settings.mongoUrl) {
-    throw new Error(
-      "MONGO_URL is missing. Add MONGO_URL in Heroku Config Vars.",
-    );
-  }
-
-  await manager.connect();
-
-  store.readFromFile();
-
-  commandHandler.loadCommands();
-
-  await startTelegram();
-
-  printLog(
-    "success",
-    `Loaded ${commandHandler.commands.size} commands for multi-device mode`,
-  );
-}
-
-server.listen(PORT, "0.0.0.0", () => {
-  printLog(
-    "success",
-    `HTTP server listening on port ${PORT}`,
-  );
-});
-
-process.on("SIGINT", async () => {
+async function saveUserGroupData(data) {
   try {
-    await manager.close();
+    if (HAS_DB) {
+      await store.saveSetting("global", "userGroupData", data);
+    } else {
+      const dir = path.dirname(dataPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(dataPath, JSON.stringify(data, null, 2));
+    }
+    return true;
   } catch (error) {
-    printLog("error", `Shutdown error: ${error.message}`);
-  } finally {
-    process.exit(0);
+    console.error("Error saving user group data:", error);
+    return false;
   }
-});
+}
 
-process.on("uncaughtException", (error) => {
-  printLog("error", `Uncaught Exception: ${error.message}`);
-  console.error(error.stack);
-});
+async function setAntilink(groupId, type, action) {
+  try {
+    const data = await loadUserGroupData();
+    if (!data.antilink) data.antilink = {};
+    if (!data.antilink[groupId]) data.antilink[groupId] = {};
 
-process.on("unhandledRejection", (error) => {
-  printLog(
-    "error",
-    `Unhandled Rejection: ${error?.message || error}`,
-  );
+    data.antilink[groupId] = {
+      enabled: type === "on",
+      action: action || "delete",
+    };
 
-  console.error(error);
-});
+    await saveUserGroupData(data);
+    return true;
+  } catch (error) {
+    console.error("Error setting antilink:", error);
+    return false;
+  }
+}
 
-main().catch((error) => {
-  printLog("error", `Fatal startup error: ${error.message}`);
-  console.error(error.stack);
-  process.exit(1);
-});
+async function getAntilink(groupId, type) {
+  try {
+    const data = await loadUserGroupData();
+    if (!data.antilink || !data.antilink[groupId]) return null;
 
-module.exports.getSocket = (userId) => {
-  return sessions.get(String(userId))?.sock || null;
+    return type === "on" ? data.antilink[groupId] : null;
+  } catch (error) {
+    console.error("Error getting antilink:", error);
+    return null;
+  }
+}
+
+async function removeAntilink(groupId, type) {
+  try {
+    const data = await loadUserGroupData();
+    if (data.antilink && data.antilink[groupId]) {
+      delete data.antilink[groupId];
+      await saveUserGroupData(data);
+    }
+    return true;
+  } catch (error) {
+    console.error("Error removing antilink:", error);
+    return false;
+  }
+}
+
+async function setAntitag(groupId, type, action) {
+  try {
+    const data = await loadUserGroupData();
+    if (!data.antitag) data.antitag = {};
+    if (!data.antitag[groupId]) data.antitag[groupId] = {};
+
+    data.antitag[groupId] = {
+      enabled: type === "on",
+      action: action || "delete",
+    };
+
+    await saveUserGroupData(data);
+    return true;
+  } catch (error) {
+    console.error("Error setting antitag:", error);
+    return false;
+  }
+}
+
+async function getAntitag(groupId, type) {
+  try {
+    const data = await loadUserGroupData();
+    if (!data.antitag || !data.antitag[groupId]) return null;
+
+    return type === "on" ? data.antitag[groupId] : null;
+  } catch (error) {
+    console.error("Error getting antitag:", error);
+    return null;
+  }
+}
+
+async function removeAntitag(groupId, type) {
+  try {
+    const data = await loadUserGroupData();
+    if (data.antitag && data.antitag[groupId]) {
+      delete data.antitag[groupId];
+      await saveUserGroupData(data);
+    }
+    return true;
+  } catch (error) {
+    console.error("Error removing antitag:", error);
+    return false;
+  }
+}
+
+async function incrementWarningCount(groupId, userId) {
+  try {
+    const data = await loadUserGroupData();
+    if (!data.warnings) data.warnings = {};
+    if (!data.warnings[groupId]) data.warnings[groupId] = {};
+    if (!data.warnings[groupId][userId]) data.warnings[groupId][userId] = 0;
+
+    data.warnings[groupId][userId]++;
+    await saveUserGroupData(data);
+    return data.warnings[groupId][userId];
+  } catch (error) {
+    console.error("Error incrementing warning count:", error);
+    return 0;
+  }
+}
+
+async function resetWarningCount(groupId, userId) {
+  try {
+    const data = await loadUserGroupData();
+    if (
+      data.warnings &&
+      data.warnings[groupId] &&
+      data.warnings[groupId][userId]
+    ) {
+      data.warnings[groupId][userId] = 0;
+      await saveUserGroupData(data);
+    }
+    return true;
+  } catch (error) {
+    console.error("Error resetting warning count:", error);
+    return false;
+  }
+}
+
+async function isSudo(userId) {
+  try {
+    const data = await loadUserGroupData();
+    return data.sudo && data.sudo.includes(userId);
+  } catch (error) {
+    console.error("Error checking sudo:", error);
+    return false;
+  }
+}
+
+async function addSudo(userJid) {
+  try {
+    const data = await loadUserGroupData();
+    if (!data.sudo) data.sudo = [];
+    if (!data.sudo.includes(userJid)) {
+      data.sudo.push(userJid);
+      await saveUserGroupData(data);
+    }
+    return true;
+  } catch (error) {
+    console.error("Error adding sudo:", error);
+    return false;
+  }
+}
+
+async function removeSudo(userJid) {
+  try {
+    const data = await loadUserGroupData();
+    if (!data.sudo) data.sudo = [];
+    const idx = data.sudo.indexOf(userJid);
+    if (idx !== -1) {
+      data.sudo.splice(idx, 1);
+      await saveUserGroupData(data);
+    }
+    return true;
+  } catch (error) {
+    console.error("Error removing sudo:", error);
+    return false;
+  }
+}
+
+async function getSudoList() {
+  try {
+    const data = await loadUserGroupData();
+    return Array.isArray(data.sudo) ? data.sudo : [];
+  } catch (error) {
+    console.error("Error getting sudo list:", error);
+    return [];
+  }
+}
+
+async function addWelcome(jid, enabled, message) {
+  try {
+    const data = await loadUserGroupData();
+    if (!data.welcome) data.welcome = {};
+
+    data.welcome[jid] = {
+      enabled: enabled,
+      message:
+        message ||
+        "╔═⚔️ WELCOME ⚔️═╗\n║ 🛡️ User: {user}\n║ 🏰 Kingdom: {group}\n╠═══════════════╣\n║ 📜 Message:\n║ {description}\n╚═══════════════╝",
+      channelId: "120363423958562123@newsletter",
+    };
+
+    await saveUserGroupData(data);
+    return true;
+  } catch (error) {
+    console.error("Error in addWelcome:", error);
+    return false;
+  }
+}
+
+async function delWelcome(jid) {
+  try {
+    const data = await loadUserGroupData();
+    if (data.welcome && data.welcome[jid]) {
+      delete data.welcome[jid];
+      await saveUserGroupData(data);
+    }
+    return true;
+  } catch (error) {
+    console.error("Error in delWelcome:", error);
+    return false;
+  }
+}
+
+async function isWelcomeOn(jid) {
+  try {
+    const data = await loadUserGroupData();
+    return data.welcome && data.welcome[jid] && data.welcome[jid].enabled;
+  } catch (error) {
+    console.error("Error in isWelcomeOn:", error);
+    return false;
+  }
+}
+
+async function addGoodbye(jid, enabled, message) {
+  try {
+    const data = await loadUserGroupData();
+    if (!data.goodbye) data.goodbye = {};
+
+    data.goodbye[jid] = {
+      enabled: enabled,
+      message:
+        message ||
+        "╔═⚔️ GOODBYE ⚔️═╗\n║ 🛡️ User: {user}\n║ 🏰 Kingdom: {group}\n╠═══════════════╣\n║ ⚰️ We will never miss you!\n╚═══════════════╝",
+      channelId: "120363423958562123@newsletter",
+    };
+
+    await saveUserGroupData(data);
+    return true;
+  } catch (error) {
+    console.error("Error in addGoodbye:", error);
+    return false;
+  }
+}
+
+async function delGoodBye(jid) {
+  try {
+    const data = await loadUserGroupData();
+    if (data.goodbye && data.goodbye[jid]) {
+      delete data.goodbye[jid];
+      await saveUserGroupData(data);
+    }
+    return true;
+  } catch (error) {
+    console.error("Error in delGoodBye:", error);
+    return false;
+  }
+}
+
+async function isGoodByeOn(jid) {
+  try {
+    const data = await loadUserGroupData();
+    return data.goodbye && data.goodbye[jid] && data.goodbye[jid].enabled;
+  } catch (error) {
+    console.error("Error in isGoodByeOn:", error);
+    return false;
+  }
+}
+
+async function getWelcome(jid) {
+  try {
+    const data = await loadUserGroupData();
+    return data.welcome && data.welcome[jid] ? data.welcome[jid].message : null;
+  } catch (error) {
+    console.error("Error in getWelcome:", error);
+    return null;
+  }
+}
+
+async function getGoodbye(jid) {
+  try {
+    const data = await loadUserGroupData();
+    return data.goodbye && data.goodbye[jid] ? data.goodbye[jid].message : null;
+  } catch (error) {
+    console.error("Error in getGoodbye:", error);
+    return null;
+  }
+}
+
+async function setAntiBadword(groupId, type, action) {
+  try {
+    const data = await loadUserGroupData();
+    if (!data.antibadword) data.antibadword = {};
+    if (!data.antibadword[groupId]) data.antibadword[groupId] = {};
+
+    data.antibadword[groupId] = {
+      enabled: type === "on",
+      action: action || "delete",
+    };
+
+    await saveUserGroupData(data);
+    return true;
+  } catch (error) {
+    console.error("Error setting antibadword:", error);
+    return false;
+  }
+}
+
+async function getAntiBadword(groupId, type) {
+  try {
+    const data = await loadUserGroupData();
+
+    if (!data.antibadword || !data.antibadword[groupId]) {
+      return null;
+    }
+
+    const config = data.antibadword[groupId];
+
+    return type === "on" ? config : null;
+  } catch (error) {
+    console.error("Error getting antibadword:", error);
+    return null;
+  }
+}
+
+async function removeAntiBadword(groupId, type) {
+  try {
+    const data = await loadUserGroupData();
+    if (data.antibadword && data.antibadword[groupId]) {
+      delete data.antibadword[groupId];
+      await saveUserGroupData(data);
+    }
+    return true;
+  } catch (error) {
+    console.error("Error removing antibadword:", error);
+    return false;
+  }
+}
+
+async function setChatbot(groupId, enabled) {
+  try {
+    const data = await loadUserGroupData();
+    if (!data.chatbot) data.chatbot = {};
+
+    data.chatbot[groupId] = {
+      enabled: enabled,
+    };
+
+    await saveUserGroupData(data);
+    return true;
+  } catch (error) {
+    console.error("Error setting chatbot:", error);
+    return false;
+  }
+}
+
+async function getChatbot(groupId) {
+  try {
+    const data = await loadUserGroupData();
+    return data.chatbot?.[groupId] || null;
+  } catch (error) {
+    console.error("Error getting chatbot:", error);
+    return null;
+  }
+}
+
+async function removeChatbot(groupId) {
+  try {
+    const data = await loadUserGroupData();
+    if (data.chatbot && data.chatbot[groupId]) {
+      delete data.chatbot[groupId];
+      await saveUserGroupData(data);
+    }
+    return true;
+  } catch (error) {
+    console.error("Error removing chatbot:", error);
+    return false;
+  }
+}
+
+module.exports = {
+  setAntilink,
+  getAntilink,
+  removeAntilink,
+  setAntitag,
+  getAntitag,
+  removeAntitag,
+  incrementWarningCount,
+  resetWarningCount,
+  isSudo,
+  addSudo,
+  removeSudo,
+  getSudoList,
+  addWelcome,
+  delWelcome,
+  isWelcomeOn,
+  getWelcome,
+  addGoodbye,
+  delGoodBye,
+  isGoodByeOn,
+  getGoodbye,
+  setAntiBadword,
+  getAntiBadword,
+  removeAntiBadword,
+  setChatbot,
+  getChatbot,
+  removeChatbot,
+  loadUserGroupData,
+  saveUserGroupData,
 };
-      
