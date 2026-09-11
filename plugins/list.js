@@ -608,15 +608,3 @@ module.exports = {
  *    © 2026 puttus-das. All rights reserved.                               *
  *                                                                           *
  *****************************************************************************/
-
-এখন output হবে এরকম:
-
-┃ ➤ .ᴘɪɴɢ
-┃ ➤ .ᴍᴇɴᴜ
-┃ ➤ .ᴀʟɪᴠᴇ
-┃ ➤ .ᴏᴡɴᴇʀ
-┃ ➤ .sᴄʀɪᴘᴛ
-
-এবং ".menu ping" করলেও command name small font হবে।
-
-Image path-ও fixed: "assets/puttus_bot_image_png.png" এবং local image Buffer হিসেবে পাঠানো হচ্ছে।
