@@ -38,7 +38,7 @@ module.exports = {
       txt += `𓆩⚡𓆪 𝐏𝐔𝐓𝐓𝐔𝐒-𝐀𝐈`;
 
       // Image
-      const imgPath = path.join(__dirname, "../assets/bot_image.jpg");
+      const imgPath = path.join(__dirname, "../assets/puttus_bot_image_png.png");
 
       if (fs.existsSync(imgPath)) {
         const imgBuffer = fs.readFileSync(imgPath);
