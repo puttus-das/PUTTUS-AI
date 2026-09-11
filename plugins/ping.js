@@ -11,7 +11,7 @@ module.exports = {
       const start = Date.now();
       const chatId = message.key.remoteJid;
 
-      // Initial message
+      // Initial Ping
       await sock.sendMessage(
         chatId,
         {
@@ -20,10 +20,9 @@ module.exports = {
         { quoted: message }
       );
 
-      const end = Date.now();
-      const speed = end - start;
+      const speed = Date.now() - start;
 
-      // PUTTUS-BOT VCard
+      // ━━━━━ PUTTUS BOT VCARD ━━━━━
       const vcard =
         "BEGIN:VCARD\n" +
         "VERSION:3.0\n" +
@@ -34,7 +33,7 @@ module.exports = {
         "TEL;type=CELL;type=VOICE;waid=918967360566:+91 8967360566\n" +
         "END:VCARD";
 
-      // Speed message
+      // ━━━━━ PING RESULT ━━━━━
       await sock.sendMessage(
         chatId,
         {
@@ -48,7 +47,7 @@ module.exports = {
         { quoted: message }
       );
 
-      // VCard
+      // ━━━━━ SEND VCARD ━━━━━
       await sock.sendMessage(
         chatId,
         {
@@ -56,7 +55,7 @@ module.exports = {
             displayName: "🌸•𝐏𝐮𝐭ᴛᴜꜱ•⌲",
             contacts: [
               {
-                displayName: "🌸•𝐏𝐮ᴛᴛᴜꜱ•⌲",
+                displayName: "🌸•𝐏𝐮𝐭ᴛᴜꜱ•⌲",
                 vcard: vcard,
               },
             ],
@@ -64,13 +63,16 @@ module.exports = {
         },
         { quoted: message }
       );
+
     } catch (error) {
-      console.error("PING ERROR:", error);
+      console.error("PUTTUS PING ERROR:", error);
 
       await sock.sendMessage(
         message.key.remoteJid,
         {
-          text: `❌ Ping Error!\n\n${error.message}`,
+          text:
+            "❌ *PING ERROR*\n\n" +
+            `└─ ${error.message}`,
         },
         { quoted: message }
       );
