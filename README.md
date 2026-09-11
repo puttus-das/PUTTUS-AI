@@ -2,7 +2,7 @@
 
 <div align="center"> 
   <a href="https://youtube.com/@Tohidkhan_6332"> 
-    <img src="https://github.com/puttus-das/PUTTUS-AI/blob/main/assets/puttus-bot.mp4" alt="PUTTUS-AI" height="300"> 
+    <img src="https://github.com/puttus-das/PUTTUS-AI/blob/main/assets/puttus_bot_image_png.png" alt="PUTTUS-AI" height="300"> 
   </a> 
 </div>
 
