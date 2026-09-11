@@ -42,7 +42,10 @@ function smallFont(text) {
   return String(text || "")
     .split("")
     .map((char) => {
-      return map[char.toLowerCase()] || char;
+      return (
+        map[char.toLowerCase()] ||
+        char
+      );
     })
     .join("");
 }
@@ -97,15 +100,43 @@ function cleanJid(jid) {
 function getMessageText(message) {
   return (
     message?.message?.conversation ||
-    message?.message?.extendedTextMessage?.text ||
-    message?.message?.imageMessage?.caption ||
-    message?.message?.videoMessage?.caption ||
-    message?.message?.buttonsResponseMessage
+    message?.message?.extendedTextMessage
+      ?.text ||
+    message?.message?.imageMessage
+      ?.caption ||
+    message?.message?.videoMessage
+      ?.caption ||
+    message?.message
+      ?.buttonsResponseMessage
       ?.selectedButtonId ||
     message?.text ||
     message?.body ||
     ""
   );
+}
+
+/* ═══════════════════════════════════════
+   GET SOCKET
+═══════════════════════════════════════ */
+
+function getSocket(bot) {
+  if (
+    bot &&
+    typeof bot.sendMessage ===
+      "function"
+  ) {
+    return bot;
+  }
+
+  if (
+    bot?.sock &&
+    typeof bot.sock.sendMessage ===
+      "function"
+  ) {
+    return bot.sock;
+  }
+
+  return null;
 }
 
 /* ═══════════════════════════════════════
@@ -119,49 +150,53 @@ async function sendText(
   quoted = null,
   mentions = [],
 ) {
-  if (!bot || !chatId) return false;
+  try {
+    if (!bot || !chatId) {
+      return false;
+    }
 
-  const sock =
-    bot?.sendMessage
-      ? bot
-      : bot?.sock;
+    const sock = getSocket(bot);
 
-  if (
-    !sock ||
-    typeof sock.sendMessage !==
-      "function"
-  ) {
+    if (!sock) {
+      console.error(
+        "AntiLink: sendMessage not available",
+      );
+
+      return false;
+    }
+
+    const data = {
+      text: String(text || ""),
+    };
+
+    if (
+      Array.isArray(mentions) &&
+      mentions.length
+    ) {
+      data.mentions = mentions;
+    }
+
+    const options = {};
+
+    if (quoted) {
+      options.quoted = quoted;
+    }
+
+    await sock.sendMessage(
+      chatId,
+      data,
+      options,
+    );
+
+    return true;
+  } catch (error) {
     console.error(
-      "AntiLink: sendMessage not available",
+      "AntiLink sendText error:",
+      error.message,
     );
 
     return false;
   }
-
-  const data = {
-    text,
-  };
-
-  if (
-    Array.isArray(mentions) &&
-    mentions.length
-  ) {
-    data.mentions = mentions;
-  }
-
-  const options = {};
-
-  if (quoted) {
-    options.quoted = quoted;
-  }
-
-  await sock.sendMessage(
-    chatId,
-    data,
-    options,
-  );
-
-  return true;
 }
 
 async function sendReply(
@@ -186,55 +221,91 @@ async function sendReply(
    PUTTUS VCARD
 ═══════════════════════════════════════ */
 
+const PUTTUS_VCARD =
+  "BEGIN:VCARD\n" +
+  "VERSION:3.0\n" +
+  "FN:🌸•𝐏ᴜᴛᴛᴜꜱ•⌲\n" +
+  "ORG:PUTTUS BOT;\n" +
+  "TEL;type=CELL;type=VOICE;waid=918967360566:+91 8967360566\n" +
+  "END:VCARD";
+
+/* ═══════════════════════════════════════
+   SEND PUTTUS VCARD
+═══════════════════════════════════════ */
+
 async function sendPuttusVCard(
   bot,
   message,
+  quoted = null,
 ) {
   try {
     const jid =
       getChatId(message);
 
-    if (!jid) return false;
+    if (!jid) {
+      console.error(
+        "AntiLink VCard: chatId missing",
+      );
 
-    const vcard =
-      "BEGIN:VCARD\n" +
-      "VERSION:3.0\n" +
-      "FN:🌸•𝐏ᴜᴛᴛᴜꜱ•⌲\n" +
-      "ORG:PUTTUS BOT;\n" +
-      "TEL;type=CELL;type=VOICE;waid=918967360566:+918967360566\n" +
-      "END:VCARD";
+      return false;
+    }
+
+    const sock =
+      getSocket(bot);
+
+    if (!sock) {
+      console.error(
+        "AntiLink VCard: socket unavailable",
+      );
+
+      return false;
+    }
+
+    /*
+      IMPORTANT:
+      WhatsApp contact must be sent
+      using contacts payload.
+    */
 
     const contactMessage = {
       contacts: {
         displayName:
-          "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
+          "⎯꯭̽ꪹ𝐏ᴜᴛᴜᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜".replace(
+            "𝐏ᴜᴛᴜᴛᴜs",
+            "𝐏ᴜᴛᴛᴜs",
+          ),
+
         contacts: [
           {
-            vcard,
+            vcard:
+              PUTTUS_VCARD,
           },
         ],
       },
     };
 
-    const sock =
-      bot?.sendMessage
-        ? bot
-        : bot?.sock;
+    const options = {};
 
-    if (
-      sock &&
-      typeof sock.sendMessage ===
-        "function"
-    ) {
-      await sock.sendMessage(
-        jid,
-        contactMessage,
-      );
+    /*
+      Don't quote a message that has
+      already been deleted.
+    */
 
-      return true;
+    if (quoted) {
+      options.quoted = quoted;
     }
 
-    return false;
+    await sock.sendMessage(
+      jid,
+      contactMessage,
+      options,
+    );
+
+    console.log(
+      `[ANTILINK] PUTTUS VCard sent to ${jid}`,
+    );
+
+    return true;
   } catch (error) {
     console.error(
       "AntiLink VCard error:",
@@ -330,14 +401,6 @@ async function checkAdmin(
       return false;
     }
 
-    /*
-      Your messageHandler uses:
-
-      isAdmin(sock, chatId, senderId)
-
-      So AntiLink uses the same format.
-    */
-
     if (
       typeof isAdmin ===
       "function"
@@ -363,7 +426,7 @@ async function checkAdmin(
       ) {
         return Boolean(
           result.isSenderAdmin ||
-          result.isAdmin,
+            result.isAdmin,
         );
       }
     }
@@ -397,16 +460,6 @@ async function checkOwnerOrSudo(
     if (!senderId) {
       return false;
     }
-
-    /*
-      Your messageHandler uses:
-
-      isOwnerOrSudo(
-        senderId,
-        sock,
-        chatId
-      )
-    */
 
     if (
       typeof isOwnerOrSudo ===
@@ -464,7 +517,9 @@ async function isProtectedUser(
 ═══════════════════════════════════════ */
 
 function containsLink(text) {
-  if (!text) return false;
+  if (!text) {
+    return false;
+  }
 
   const value =
     String(text);
@@ -525,15 +580,9 @@ async function deleteMessage(
     }
 
     const sock =
-      bot?.sendMessage
-        ? bot
-        : bot?.sock;
+      getSocket(bot);
 
-    if (
-      !sock ||
-      typeof sock.sendMessage !==
-        "function"
-    ) {
+    if (!sock) {
       return false;
     }
 
@@ -903,11 +952,6 @@ async function handleCommand(
       ),
     );
 
-    await sendPuttusVCard(
-      bot,
-      message,
-    );
-
     return true;
   }
 
@@ -940,11 +984,6 @@ async function handleCommand(
           `*❌ ᴀɴᴛɪʟɪɴᴋ ᴅɪsᴀʙʟᴇᴅ*\n\n` +
           `*🔗 ᴀɴᴛɪʟɪɴᴋ ɪs ɴᴏᴡ ᴅɪsᴀʙʟᴇᴅ.*`,
       ),
-    );
-
-    await sendPuttusVCard(
-      bot,
-      message,
     );
 
     return true;
@@ -1020,11 +1059,6 @@ async function handleCommand(
       ),
     );
 
-    await sendPuttusVCard(
-      bot,
-      message,
-    );
-
     return true;
   }
 
@@ -1080,9 +1114,7 @@ async function handleIncomingMessage(
       return false;
     }
 
-    /*
-      Admin / Owner / Sudo exempt
-    */
+    /* ADMIN / OWNER / SUDO EXEMPT */
 
     if (
       await isProtectedUser(
@@ -1108,7 +1140,9 @@ async function handleIncomingMessage(
       setting.action ||
       "delete";
 
-    /* DELETE */
+    /* ═══════════════════════════════
+       DELETE
+    ═══════════════════════════════ */
 
     if (action === "delete") {
       const deleted =
@@ -1118,13 +1152,27 @@ async function handleIncomingMessage(
         );
 
       if (deleted) {
+        /*
+          Message is already deleted,
+          so VCard is sent WITHOUT
+          quoting the deleted message.
+        */
+
+        await sendPuttusVCard(
+          bot,
+          message,
+          null,
+        );
+
         return true;
       }
 
       return false;
     }
 
-    /* KICK */
+    /* ═══════════════════════════════
+       KICK
+    ═══════════════════════════════ */
 
     if (action === "kick") {
       await deleteMessage(
@@ -1139,10 +1187,6 @@ async function handleIncomingMessage(
         );
 
       if (!kicked) {
-        /*
-          If bot isn't admin, send warning.
-        */
-
         await sendReply(
           bot,
           message,
@@ -1154,10 +1198,22 @@ async function handleIncomingMessage(
         );
       }
 
+      /*
+        Send VCard after AntiLink action.
+      */
+
+      await sendPuttusVCard(
+        bot,
+        message,
+        null,
+      );
+
       return true;
     }
 
-    /* WARN */
+    /* ═══════════════════════════════
+       WARN
+    ═══════════════════════════════ */
 
     if (action === "warn") {
       await deleteMessage(
@@ -1165,9 +1221,23 @@ async function handleIncomingMessage(
         message,
       );
 
+      /*
+        Warning is sent first.
+      */
+
       await warnUser(
         bot,
         message,
+      );
+
+      /*
+        Then VCard is sent.
+      */
+
+      await sendPuttusVCard(
+        bot,
+        message,
+        null,
       );
 
       return true;
@@ -1191,15 +1261,6 @@ async function handleIncomingMessage(
 /* ═══════════════════════════════════════
    IMPORTANT ALIAS
 ═══════════════════════════════════════ */
-
-/*
-  messageHandler.js calls:
-
-  handleLinkDetection(...)
-
-  So we export the same function
-  under that exact name.
-*/
 
 const handleLinkDetection =
   handleIncomingMessage;
@@ -1244,4 +1305,6 @@ module.exports = {
   containsLink,
 
   sendPuttusVCard,
+
+  vcard: PUTTUS_VCARD,
 };
