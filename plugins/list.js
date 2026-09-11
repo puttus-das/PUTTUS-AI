@@ -1,23 +1,14 @@
-"use strict";
-
 const settings = require("../settings");
 const commandHandler = require("../lib/commandHandler");
-const {
-  sendMenuButtons,
-} = require("../lib/ButtonsMessage");
-
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
 
-/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   DATE & TIME
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* ───────────── TIME ───────────── */
 
 function getDateTime() {
   const now = new Date();
-  const timeZone =
-    settings.timeZone || "Asia/Kolkata";
+  const timeZone = settings.timeZone || "Asia/Kolkata";
 
   return {
     date: now.toLocaleDateString("en-GB", {
@@ -37,44 +28,25 @@ function getDateTime() {
   };
 }
 
-/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   UPTIME
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* ───────────── UPTIME ───────────── */
 
 function formatUptime() {
-  const totalSeconds =
-    Math.floor(process.uptime());
+  const totalSeconds = Math.floor(process.uptime());
 
-  const days =
-    Math.floor(totalSeconds / 86400);
-
-  const hours =
-    Math.floor(
-      (totalSeconds % 86400) / 3600,
-    );
-
-  const minutes =
-    Math.floor(
-      (totalSeconds % 3600) / 60,
-    );
-
-  const seconds =
-    totalSeconds % 60;
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
 
   return `${days}d ${hours}h ${minutes}m ${seconds}s`;
 }
 
-/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   SERVER MEMORY
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* ───────────── SERVER MEMORY ───────────── */
 
 function getServerMemory() {
   try {
     const totalGB =
-      os.totalmem() /
-      1024 /
-      1024 /
-      1024;
+      os.totalmem() / 1024 / 1024 / 1024;
 
     return `${totalGB.toFixed(1)} GB`;
   } catch {
@@ -82,9 +54,7 @@ function getServerMemory() {
   }
 }
 
-/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   SMALL FONT
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* ───────────── SMALL FONT ───────────── */
 
 function smallFont(text) {
   const map = {
@@ -118,17 +88,11 @@ function smallFont(text) {
 
   return String(text)
     .split("")
-    .map(
-      (char) =>
-        map[char.toLowerCase()] ||
-        char,
-    )
+    .map((char) => map[char.toLowerCase()] || char)
     .join("");
 }
 
-/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   MENU IMAGE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* ───────────── MENU IMAGE ───────────── */
 
 const imagePath = path.join(
   __dirname,
@@ -141,9 +105,7 @@ function getMenuImage() {
       return null;
     }
 
-    return fs.readFileSync(
-      imagePath,
-    );
+    return fs.readFileSync(imagePath);
   } catch (error) {
     console.error(
       "[MENU] Image error:",
@@ -154,271 +116,202 @@ function getMenuImage() {
   }
 }
 
-/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   BOT INFORMATION
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* ───────────── BOT INFO ───────────── */
 
 function createBotInfo({
   pushName,
   prefix,
   pluginCount,
 }) {
-  const {
-    date,
-    time,
-  } = getDateTime();
+  const { date, time } = getDateTime();
 
   return `
 ╭━━〔 愛 ᴘᴜᴛᴛᴜs 〕━━╮
 │
 │  𖤐 ɴᴀᴍᴇ     ➜ ${smallFont(
-    settings.botName ||
-      "PUTTUS-XD",
+    settings.botName || "PUTTUS-XD",
   )}
 │  𖤐 ᴍᴏᴅᴇ     ➜ ${
-    settings.mode ||
-    "public"
+    settings.mode || "public"
   }
 │  𖤐 ᴘʀᴇꜰɪx    ➜ ${prefix}
 │  𖤐 ᴜꜱᴇʀ      ➜ ${smallFont(
-    pushName ||
-      "ᴘᴜᴛᴛᴜs",
+    pushName || "ᴘᴜᴛᴛᴜs",
   )}
 │  𖤐 ᴅᴇᴠ       ➜ ᴘᴜᴛᴛᴜs ᴅᴀs
 │  𖤐 ᴏᴡɴᴇʀ     ➜ ᴘᴜᴛᴛᴜs ᴅᴀs
-│  𖤐 ᴅᴀᴛᴇ     ➜ ${date}
-│  𖤐 ᴛɪᴍᴇ     ➜ ${time}
-│  𖤐 ᴜᴘᴛɪᴍᴇ   ➜ ${formatUptime()}
-│  𖤐 ᴘʟᴜɢɪɴꜱ  ➜ ${pluginCount}
-│  𖤐 ᴠᴇʀꜱɪᴏɴ  ➜ ${
-    settings.version ||
-    "1.0.0"
+│  𖤐 ᴅᴀᴛᴇ      ➜ ${date}
+│  𖤐 ᴛɪᴍᴇ      ➜ ${time}
+│  𖤐 ᴜᴘᴛɪᴍᴇ    ➜ ${formatUptime()}
+│  𖤐 ᴘʟᴜɢɪɴꜱ   ➜ ${pluginCount}
+│  𖤐 ᴠᴇʀꜱɪᴏɴ   ➜ ${
+    settings.version || "1.0.0"
   }
-│  𖤐 ᴛᴢ       ➜ ${
-    settings.timeZone ||
-    "Asia/Kolkata"
+│  𖤐 ᴛᴢ        ➜ ${
+    settings.timeZone || "Asia/Kolkata"
   }
-│  𖤐 ꜱᴛᴀᴛᴜꜱ   ➜ ᴏɴʟɪɴᴇ
-│  𖤐 ʟɪʙʀᴀʀʏ ➜ ʙᴀɪʟᴇʏs
-│  𖤐 ᴘʟᴀᴛғᴏʀᴍ ➜ ɴᴏᴅᴇ.ᴊs
-│  𖤐 ꜱᴇʀᴠᴇʀ  ➜ ${getServerMemory()}
+│  𖤐 ꜱᴛᴀᴛᴜꜱ    ➜ ᴏɴʟɪɴᴇ
+│  𖤐 ʟɪʙʀᴀʀʏ  ➜ ʙᴀɪʟᴇʏs
+│  𖤐 ᴘʟᴀᴛғᴏʀᴍ  ➜ ɴᴏᴅᴇ.ᴊs
+│  𖤐 ꜱᴇʀᴠᴇʀ   ➜ ${getServerMemory()}
 │
 ╰━━〔 愛 ᴘᴜᴛᴛᴜs 〕━━╯
 `;
 }
 
-/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   MENU STYLES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* ───────────── MENU STYLES ───────────── */
 
 const menuStyles = [
   {
-    render({
-      categories,
-      prefix,
-      botInfo,
-    }) {
-      let text =
-        `${botInfo}\n\n`;
+    render({ categories, prefix, botInfo }) {
+      let text = `${botInfo}\n\n`;
 
-      text +=
-        `╭━━✰ *愛 ᴘᴜᴛᴛᴜs ᴍᴇɴᴜ* ✰━━╮\n`;
+      text += `╭━━✰ *愛 ᴘᴜᴛᴛᴜs ᴍᴇɴᴜ* ✰━━╮\n`;
 
-      for (
-        const [
-          category,
-          commands,
-        ] of categories
-      ) {
-        text +=
-          `┃━━━ *${category.toUpperCase()}* ━✦\n`;
+      for (const [category, commands] of categories) {
+        text += `┃━━━ *${category.toUpperCase()}* ━✦\n`;
 
-        for (
-          const command of commands
-        ) {
-          text +=
-            `┃ ➤ ${prefix}${smallFont(
-              command,
-            )}\n`;
+        for (const command of commands) {
+          text += `┃ ➤ ${prefix}${smallFont(command)}\n`;
         }
       }
 
-      text +=
-        `╰━━━━━━━━━━━━━⬣`;
+      text += `╰━━━━━━━━━━━━━⬣`;
 
       return text;
     },
   },
 
   {
-    render({
-      categories,
-      prefix,
-      botInfo,
-    }) {
-      let text =
-        `${botInfo}\n\n`;
+    render({ categories, prefix, botInfo }) {
+      let text = `${botInfo}\n\n`;
 
-      text +=
-        `◈╭─❍「 *愛 ᴘᴜᴛᴛᴜs ᴍᴇɴᴜ* 」❍\n`;
+      text += `◈╭─❍「 *愛 ᴘᴜᴛᴛᴜs ᴍᴇɴᴜ* 」❍\n`;
 
-      for (
-        const [
-          category,
-          commands,
-        ] of categories
-      ) {
-        text +=
-          `◈├─❍「 *${category.toUpperCase()}* 」❍\n`;
+      for (const [category, commands] of categories) {
+        text += `◈├─❍「 *${category.toUpperCase()}* 」❍\n`;
 
-        for (
-          const command of commands
-        ) {
-          text +=
-            `◈├• ${prefix}${smallFont(
-              command,
-            )}\n`;
+        for (const command of commands) {
+          text += `◈├• ${prefix}${smallFont(command)}\n`;
         }
       }
 
-      text +=
-        `◈╰──★─☆──♪♪─❍`;
+      text += `◈╰──★─☆──♪♪─❍`;
 
       return text;
     },
   },
 
   {
-    render({
-      categories,
-      prefix,
-      botInfo,
-    }) {
-      let text =
-        `${botInfo}\n\n`;
+    render({ categories, prefix, botInfo }) {
+      let text = `${botInfo}\n\n`;
 
-      text +=
-        `┏━━━━ *愛 ᴘᴜᴛᴛᴜs ᴍᴇɴᴜ* ━━━┓\n`;
+      text += `┏━━━━ *愛 ᴘᴜᴛᴛᴜs ᴍᴇɴᴜ* ━━━┓\n`;
 
-      for (
-        const [
-          category,
-          commands,
-        ] of categories
-      ) {
-        text +=
-          `┃━━━━ *${category.toUpperCase()}* ━━◆\n`;
+      for (const [category, commands] of categories) {
+        text += `┃━━━━ *${category.toUpperCase()}* ━━◆\n`;
 
-        for (
-          const command of commands
-        ) {
-          text +=
-            `┃ ▸ ${prefix}${smallFont(
-              command,
-            )}\n`;
+        for (const command of commands) {
+          text += `┃ ▸ ${prefix}${smallFont(command)}\n`;
         }
       }
 
-      text +=
-        `┗━━━━━━━━━━━━━━━┛`;
+      text += `┗━━━━━━━━━━━━━━━┛`;
 
       return text;
     },
   },
 
   {
-    render({
-      categories,
-      prefix,
-      botInfo,
-    }) {
-      let text =
-        `${botInfo}\n\n`;
+    render({ categories, prefix, botInfo }) {
+      let text = `${botInfo}\n\n`;
 
-      text +=
-        `✦═══ *愛 ᴘᴜᴛᴛᴜs ᴍᴇɴᴜ* ═══✦\n`;
+      text += `✦═══ *愛 ᴘᴜᴛᴛᴜs ᴍᴇɴᴜ* ═══✦\n`;
 
-      for (
-        const [
-          category,
-          commands,
-        ] of categories
-      ) {
-        text +=
-          `║══ *${category.toUpperCase()}* ══✧\n`;
+      for (const [category, commands] of categories) {
+        text += `║══ *${category.toUpperCase()}* ══✧\n`;
 
-        for (
-          const command of commands
-        ) {
-          text +=
-            `║ ✦ ${prefix}${smallFont(
-              command,
-            )}\n`;
+        for (const command of commands) {
+          text += `║ ✦ ${prefix}${smallFont(command)}\n`;
         }
       }
 
-      text +=
-        `✦══════════════✦`;
+      text += `✦══════════════✦`;
 
       return text;
     },
   },
 
   {
-    render({
-      categories,
-      prefix,
-      botInfo,
-    }) {
-      let text =
-        `${botInfo}\n\n`;
+    render({ categories, prefix, botInfo }) {
+      let text = `${botInfo}\n\n`;
 
-      text +=
-        `❀ *━[ 愛 ᴘᴜᴛᴛᴜs - ᴅᴀs ]━* ❀\n`;
+      text += `❀ *━[ 愛 ᴘᴜᴛᴛᴜs - ᴅᴀs ]━* ❀\n`;
 
-      for (
-        const [
-          category,
-          commands,
-        ] of categories
-      ) {
-        text +=
-          `┃━━━〔 *${category.toUpperCase()}* 〕━❀\n`;
+      for (const [category, commands] of categories) {
+        text += `┃━━━〔 *${category.toUpperCase()}* 〕━❀\n`;
 
-        for (
-          const command of commands
-        ) {
-          text +=
-            `┃☞ ${prefix}${smallFont(
-              command,
-            )}\n`;
+        for (const command of commands) {
+          text += `┃☞ ${prefix}${smallFont(command)}\n`;
         }
       }
 
-      text +=
-        `❀━━━━━━━━━━━━━━❀`;
+      text += `❀━━━━━━━━━━━━━━❀`;
+
+      return text;
+    },
+  },
+
+  {
+    render({ categories, prefix, botInfo }) {
+      let text = `${botInfo}\n\n`;
+
+      text += `◆━━━ *愛 ᴘᴜᴛᴛᴜs - ᴅᴀs* ━━━◆\n`;
+
+      for (const [category, commands] of categories) {
+        text += `┃━━ *${category.toUpperCase()}* ━━◆◆\n`;
+
+        for (const command of commands) {
+          text += `┃ ¤ ${prefix}${smallFont(command)}\n`;
+        }
+      }
+
+      text += `◆━━━━━━━━━━━━━━━━◆`;
+
+      return text;
+    },
+  },
+
+  {
+    render({ categories, prefix, botInfo }) {
+      let text = `${botInfo}\n\n`;
+
+      text += `╭───⬣ *愛 ᴘᴜᴛᴛᴜs - ᴅᴀs* ──⬣\n`;
+
+      for (const [category, commands] of categories) {
+        text += ` |───⬣ *${category.toUpperCase()}* ──⬣\n`;
+
+        for (const command of commands) {
+          text += ` | ● ${prefix}${smallFont(command)}\n`;
+        }
+      }
+
+      text += `╰──────────⬣`;
 
       return text;
     },
   },
 ];
 
-/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   RANDOM STYLE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* ───────────── RANDOM STYLE ───────────── */
 
 function pick(array) {
   return array[
-    Math.floor(
-      Math.random() *
-        array.length,
-    )
+    Math.floor(Math.random() * array.length)
   ];
 }
 
-/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   MENU COMMAND
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* ───────────── MENU ───────────── */
 
 module.exports = {
   command: "menu",
@@ -432,8 +325,7 @@ module.exports = {
 
   category: "general",
 
-  description:
-    "Show all commands",
+  description: "Show all commands",
 
   usage: ".menu [command]",
 
@@ -445,24 +337,20 @@ module.exports = {
   ) {
     const {
       chatId,
+      channelInfo = {},
       pushName,
     } = context;
 
     const prefix =
-      settings.prefixes?.[0] ||
-      ".";
+      settings.prefixes?.[0] || ".";
 
-    const menuImage =
-      getMenuImage();
+    const menuImage = getMenuImage();
 
-    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-       SINGLE COMMAND
-    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    /* ───────── COMMAND INFO ───────── */
 
     if (args.length) {
       const searchTerm =
-        String(args[0])
-          .toLowerCase();
+        String(args[0]).toLowerCase();
 
       let command =
         commandHandler.commands.get(
@@ -493,6 +381,7 @@ module.exports = {
             text:
               `❌ Command "${args[0]}" not found.\n\n` +
               `Use ${prefix}menu to see all commands.`,
+            ...channelInfo,
           },
           {
             quoted: message,
@@ -507,7 +396,7 @@ module.exports = {
         `┃ ⚡ *Command:* ${prefix}${smallFont(
           command.command,
         )}\n` +
-        `┃ 📝 *Description:* ${
+        `┃ 📝 *Desc:* ${
           command.description ||
           "No description"
         }\n` +
@@ -525,9 +414,7 @@ module.exports = {
                 .map(
                   (alias) =>
                     prefix +
-                    smallFont(
-                      alias,
-                    ),
+                    smallFont(alias),
                 )
                 .join(", ")
             : "None"
@@ -542,6 +429,7 @@ module.exports = {
             {
               image: menuImage,
               caption: text,
+              ...channelInfo,
             },
             {
               quoted: message,
@@ -559,6 +447,7 @@ module.exports = {
         chatId,
         {
           text,
+          ...channelInfo,
         },
         {
           quoted: message,
@@ -566,68 +455,27 @@ module.exports = {
       );
     }
 
-    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-       CREATE MENU
-    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    /* ───────── BOT INFO ───────── */
 
-    const botInfo =
-      createBotInfo({
-        pushName,
-        prefix,
-        pluginCount:
-          commandHandler
-            .commands.size,
-      });
+    const botInfo = createBotInfo({
+      pushName,
+      prefix,
+      pluginCount:
+        commandHandler.commands.size,
+    });
 
-    const style =
-      pick(menuStyles);
+    /* ───────── FULL MENU ───────── */
 
-    const text =
-      style.render({
-        prefix,
-        botInfo,
-        categories:
-          commandHandler
-            .categories,
-      });
+    const style = pick(menuStyles);
 
-    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-       PUTTUS-AI BUTTON MENU
-    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    const text = style.render({
+      prefix,
+      botInfo,
+      categories:
+        commandHandler.categories,
+    });
 
-    try {
-      const jid =
-        chatId ||
-        message?.key
-          ?.remoteJid;
-
-      if (!jid) {
-        throw new Error(
-          "Chat JID not found.",
-        );
-      }
-
-      await sendMenuButtons(
-        sock,
-        jid,
-        {
-          quoted: message,
-          footer:
-            "© PUTTUS-AI • Puttus Das",
-        },
-      );
-
-      return;
-    } catch (error) {
-      console.error(
-        "[MENU] Buttons failed:",
-        error.message,
-      );
-    }
-
-    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-       IMAGE FALLBACK
-    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    /* ───────── IMAGE MENU ───────── */
 
     if (menuImage) {
       try {
@@ -636,6 +484,7 @@ module.exports = {
           {
             image: menuImage,
             caption: text,
+            ...channelInfo,
           },
           {
             quoted: message,
@@ -645,20 +494,19 @@ module.exports = {
         return;
       } catch (error) {
         console.error(
-          "[MENU] Image fallback failed:",
+          "[MENU] Image menu send failed:",
           error.message,
         );
       }
     }
 
-    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-       TEXT FALLBACK
-    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    /* ───────── TEXT FALLBACK ───────── */
 
     await sock.sendMessage(
       chatId,
       {
         text,
+        ...channelInfo,
       },
       {
         quoted: message,
