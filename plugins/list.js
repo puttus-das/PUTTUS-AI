@@ -313,24 +313,25 @@ function pick(array) {
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   MENU BUTTONS
+   BAILEYS 7 NATIVE FLOW BUTTONS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
 function getMenuButtons(prefix) {
   return [
     {
-      buttonId: `${prefix}owner`,
-      buttonText: {
-        displayText: "👑 OWNER",
-      },
-      type: 1,
+      name: "quick_reply",
+      buttonParamsJson: JSON.stringify({
+        display_text: "👑 OWNER",
+        id: `${prefix}owner`,
+      }),
     },
+
     {
-      buttonId: `${prefix}ping`,
-      buttonText: {
-        displayText: "⚡ PING",
-      },
-      type: 1,
+      name: "quick_reply",
+      buttonParamsJson: JSON.stringify({
+        display_text: "⚡ PING",
+        id: `${prefix}ping`,
+      }),
     },
   ];
 }
@@ -363,7 +364,6 @@ module.exports = {
   ) {
     const {
       chatId,
-      channelInfo = {},
       pushName,
     } = context;
 
@@ -409,7 +409,6 @@ module.exports = {
             text:
               `❌ Command "${args[0]}" not found.\n\n` +
               `Use ${prefix}menu to see all commands.`,
-            ...channelInfo,
           },
           {
             quoted: message,
@@ -457,7 +456,6 @@ module.exports = {
             {
               image: menuImage,
               caption: text,
-              ...channelInfo,
             },
             {
               quoted: message,
@@ -475,7 +473,6 @@ module.exports = {
         chatId,
         {
           text,
-          ...channelInfo,
         },
         {
           quoted: message,
@@ -507,48 +504,27 @@ module.exports = {
       getMenuButtons(prefix);
 
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-       IMAGE MENU WITH BUTTONS
-    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-
-    if (menuImage) {
-      try {
-        await sock.sendMessage(
-          chatId,
-          {
-            image: menuImage,
-            caption: text,
-            footer: "PUTTUS-AI",
-            buttons,
-            headerType: 4,
-            ...channelInfo,
-          },
-          {
-            quoted: message,
-          },
-        );
-
-        return;
-      } catch (error) {
-        console.error(
-          "[MENU] Button menu failed:",
-          error.message,
-        );
-      }
-    }
-
-    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-       TEXT MENU WITH BUTTONS
+       INTERACTIVE MENU
     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
     try {
       await sock.sendMessage(
         chatId,
         {
-          text,
-          footer: "PUTTUS-AI",
-          buttons,
-          headerType: 1,
-          ...channelInfo,
+          interactiveMessage: {
+            body: {
+              text,
+            },
+
+            footer: {
+              text: "PUTTUS-AI",
+            },
+
+            nativeFlowMessage: {
+              buttons,
+              messageParamsJson: "",
+            },
+          },
         },
         {
           quoted: message,
@@ -558,20 +534,41 @@ module.exports = {
       return;
     } catch (error) {
       console.error(
-        "[MENU] Text button menu failed:",
+        "[MENU] Interactive menu failed:",
         error.message,
       );
     }
 
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-       FINAL FALLBACK
+       FALLBACK MENU
     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+    if (menuImage) {
+      try {
+        await sock.sendMessage(
+          chatId,
+          {
+            image: menuImage,
+            caption: text,
+          },
+          {
+            quoted: message,
+          },
+        );
+
+        return;
+      } catch (error) {
+        console.error(
+          "[MENU] Image fallback failed:",
+          error.message,
+        );
+      }
+    }
 
     await sock.sendMessage(
       chatId,
       {
         text,
-        ...channelInfo,
       },
       {
         quoted: message,
