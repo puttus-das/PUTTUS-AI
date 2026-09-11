@@ -21,17 +21,82 @@ const fs = require("fs");
    TIME
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
-function formatTime() {
+function getDateTime() {
   const now = new Date();
 
-  const options = {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: settings.timeZone || "UTC",
-  };
+  const timeZone =
+    settings.timeZone || "Asia/Kolkata";
 
-  return now.toLocaleTimeString("en-US", options);
+  const date = now.toLocaleDateString(
+    "en-GB",
+    {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      timeZone,
+    },
+  );
+
+  const time = now.toLocaleTimeString(
+    "en-US",
+    {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+      timeZone,
+    },
+  );
+
+  return {
+    date,
+    time,
+  };
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   UPTIME
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+function formatUptime() {
+  const totalSeconds =
+    Math.floor(process.uptime());
+
+  const days =
+    Math.floor(totalSeconds / 86400);
+
+  const hours =
+    Math.floor(
+      (totalSeconds % 86400) / 3600,
+    );
+
+  const minutes =
+    Math.floor(
+      (totalSeconds % 3600) / 60,
+    );
+
+  const seconds =
+    totalSeconds % 60;
+
+  return `${days}d ${hours}h ${minutes}m ${seconds}s`;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   SERVER MEMORY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+function getServerMemory() {
+  try {
+    const totalGB =
+      require("os").totalmem() /
+      1024 /
+      1024 /
+      1024;
+
+    return `${totalGB.toFixed(1)} GB`;
+  } catch {
+    return "Unknown";
+  }
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -71,7 +136,10 @@ function smallFont(text) {
   return String(text)
     .split("")
     .map((char) => {
-      return map[char.toLowerCase()] || char;
+      return (
+        map[char.toLowerCase()] ||
+        char
+      );
     })
     .join("");
 }
@@ -79,15 +147,6 @@ function smallFont(text) {
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    MENU IMAGE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-
-/*
- * GitHub:
- *
- * assets/puttus_bot_image_png.png
- *
- * IMPORTANT:
- * The old bot_image.jpg path was incorrect.
- */
 
 const imagePath = path.join(
   __dirname,
@@ -116,6 +175,62 @@ function getMenuImage() {
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   BOT INFORMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+function createBotInfo({
+  pushName,
+  prefix,
+  pluginCount,
+}) {
+  const {
+    date,
+    time,
+  } = getDateTime();
+
+  const uptime =
+    formatUptime();
+
+  const serverMemory =
+    getServerMemory();
+
+  return `
+╭━━〔 愛 ᴘᴜᴛᴛᴜs 〕━━╮
+│
+│  𖤐 ɴᴀᴍᴇ     ➜ ${smallFont(
+    settings.botName ||
+      "PUTTUS-XD",
+  )}
+│  𖤐 ᴍᴏᴅᴇ     ➜ ${
+    settings?.mode || "public"
+  }
+│  𖤐 ᴘʀᴇꜰɪx    ➜ ${prefix}
+│  𖤐 ᴜꜱᴇʀ      ➜ ${smallFont(
+    pushName || "ᴘᴜᴛᴛᴜs",
+  )}
+│  𖤐 ᴅᴇᴠ       ➜ ᴘᴜᴛᴛᴜs ᴅᴀs
+│  𖤐 ᴏᴡɴᴇʀ     ➜ ᴘᴜᴛᴛᴜs ᴅᴀs
+│  𖤐 ᴅᴀᴛᴇ     ➜ ${date}
+│  𖤐 ᴛɪᴍᴇ     ➜ ${time}
+│  𖤐 ᴜᴘᴛɪᴍᴇ   ➜ ${uptime}
+│  𖤐 ᴘʟᴜɢɪɴꜱ  ➜ ${pluginCount}
+│  𖤐 ᴠᴇʀꜱɪᴏɴ  ➜ ${
+    settings?.version || "1.0.0"
+  }
+│  𖤐 ᴛᴢ       ➜ ${
+    settings.timeZone ||
+    "Asia/Kolkata"
+  }
+│  𖤐 ꜱᴛᴀᴛᴜꜱ   ➜ ᴏɴʟɪɴᴇ
+│  𖤐 ʟɪʙʀᴀʀʏ ➜ ʙᴀɪʟᴇʏs
+│  𖤐 ᴘʟᴀᴛғᴏʀᴍ ➜ ɴᴏᴅᴇ.ᴊs
+│  𖤐 ꜱᴇʀᴠᴇʀ  ➜ ${serverMemory}
+│
+╰━━〔 愛 ᴘᴜᴛᴛᴜs 〕━━╯
+`;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    MENU STYLES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
@@ -126,17 +241,18 @@ const menuStyles = [
       info,
       categories,
       prefix,
+      botInfo,
     }) {
       let t =
-        `╭━━✰ *[]꯭꯭𝐀꯭ᴘ꯭ᴜ꯭ʀ꯭ʙ꯭ᴏ꯭-𝐀꯭𝐈꯭-𝐁꯭ᴏ꯭ᴛ꯭ * ━✰\n`;
+        `${botInfo}\n\n`;
 
-      t += `┃ ✨ *Bot: ${info.bot}*\n`;
-      t += `┃ 🔧 *Prefix: ${info.prefix}*\n`;
-      t += `┃ 📦 *Plugin: ${info.total}*\n`;
-      t += `┃ 💎 *Version: ${info.version}*\n`;
-      t += `┃ ⏰ *Time: ${info.time}*\n`;
+      t +=
+        `╭━━✰ *愛 ᴘᴜᴛᴛᴜs ᴍᴇɴᴜ* ✰━━╮\n`;
 
-      for (const [cat, cmds] of categories) {
+      for (const [
+        cat,
+        cmds,
+      ] of categories) {
         t +=
           `┃━━━ *${cat.toUpperCase()}* ━✦\n`;
 
@@ -146,7 +262,8 @@ const menuStyles = [
         }
       }
 
-      t += `╰━━━━━━━━━━━━━⬣`;
+      t +=
+        `╰━━━━━━━━━━━━━⬣`;
 
       return t;
     },
@@ -158,17 +275,18 @@ const menuStyles = [
       info,
       categories,
       prefix,
+      botInfo,
     }) {
       let t =
-        `◈╭─❍「 *[]꯭꯭𝐀꯭ᴘ꯭ᴜ꯭ʀ꯭ʙ꯭ᴏ꯭-𝐀꯭𝐈꯭-𝐁꯭ᴏ꯭ᴛ꯭ * 」❍\n`;
+        `${botInfo}\n\n`;
 
-      t += `◈├• 🌟 *Bot: ${info.bot}*\n`;
-      t += `◈├• ⚙️ *Prefix: ${info.prefix}*\n`;
-      t += `◈├• 🍫 *Plugins: ${info.total}*\n`;
-      t += `◈├• 💎 *Version: ${info.version}*\n`;
-      t += `◈├• ⏰ *Time: ${info.time}*\n`;
+      t +=
+        `◈╭─❍「 *愛 ᴘᴜᴛᴛᴜs ᴍᴇɴᴜ* 」❍\n`;
 
-      for (const [cat, cmds] of categories) {
+      for (const [
+        cat,
+        cmds,
+      ] of categories) {
         t +=
           `◈├─❍「 *${cat.toUpperCase()}* 」❍\n`;
 
@@ -178,7 +296,8 @@ const menuStyles = [
         }
       }
 
-      t += `◈╰──★─☆──♪♪─❍`;
+      t +=
+        `◈╰──★─☆──♪♪─❍`;
 
       return t;
     },
@@ -190,17 +309,18 @@ const menuStyles = [
       info,
       categories,
       prefix,
+      botInfo,
     }) {
       let t =
-        `┏━━━━ *[]꯭꯭𝐀꯭ᴘ꯭ᴜ꯭ʀ꯭ʙ꯭ᴏ꯭-𝐀꯭𝐈꯭-𝐁꯭ᴏ꯭ᴛ꯭ * ━━━┓\n`;
+        `${botInfo}\n\n`;
 
-      t += `┃• *Bot : ${info.bot}*\n`;
-      t += `┃• *Prefixes : ${info.prefix}*\n`;
-      t += `┃• *Plugins : ${info.total}*\n`;
-      t += `┃• *Version : ${info.version}*\n`;
-      t += `┃• *Time : ${info.time}*\n`;
+      t +=
+        `┏━━━━ *愛 ᴘᴜᴛᴛᴜs ᴍᴇɴᴜ* ━━━┓\n`;
 
-      for (const [cat, cmds] of categories) {
+      for (const [
+        cat,
+        cmds,
+      ] of categories) {
         t +=
           `┃━━━━ *${cat.toUpperCase()}* ━━◆\n`;
 
@@ -210,7 +330,8 @@ const menuStyles = [
         }
       }
 
-      t += `┗━━━━━━━━━━━━━━━┛`;
+      t +=
+        `┗━━━━━━━━━━━━━━━┛`;
 
       return t;
     },
@@ -222,17 +343,18 @@ const menuStyles = [
       info,
       categories,
       prefix,
+      botInfo,
     }) {
       let t =
-        `✦═══ *PUTTUS-AI MENU* ═══✦\n`;
+        `${botInfo}\n\n`;
 
-      t += `║➩ *Bot: ${info.bot}*\n`;
-      t += `║➩ *Prefixes: ${info.prefix}*\n`;
-      t += `║➩ *Plugins: ${info.total}*\n`;
-      t += `║➩ *Version: ${info.version}*\n`;
-      t += `║➩ *Time: ${info.time}*\n`;
+      t +=
+        `✦═══ *愛 ᴘᴜᴛᴛᴜs ᴍᴇɴᴜ* ═══✦\n`;
 
-      for (const [cat, cmds] of categories) {
+      for (const [
+        cat,
+        cmds,
+      ] of categories) {
         t +=
           `║══ *${cat.toUpperCase()}* ══✧\n`;
 
@@ -242,7 +364,8 @@ const menuStyles = [
         }
       }
 
-      t += `✦══════════════✦`;
+      t +=
+        `✦══════════════✦`;
 
       return t;
     },
@@ -254,17 +377,18 @@ const menuStyles = [
       info,
       categories,
       prefix,
+      botInfo,
     }) {
       let t =
-        `❀ *━[ 𝐏ᴜᴛᴛᴜꜱ - 𝐃ᴀꜱ]━* ❀\n`;
+        `${botInfo}\n\n`;
 
-      t += `┃☞ *Bot: ${info.bot}*\n`;
-      t += `┃☞ *Prefixes: ${info.prefix}*\n`;
-      t += `┃☞ *Plugins: ${info.total}*\n`;
-      t += `┃☞ *Version: ${info.version}*\n`;
-      t += `┃☞ *Time: ${info.time}*\n`;
+      t +=
+        `❀ *━[ 愛 ᴘᴜᴛᴛᴜs - ᴅᴀs ]━* ❀\n`;
 
-      for (const [cat, cmds] of categories) {
+      for (const [
+        cat,
+        cmds,
+      ] of categories) {
         t +=
           `┃━━━〔 *${cat.toUpperCase()}* 〕━❀\n`;
 
@@ -274,7 +398,8 @@ const menuStyles = [
         }
       }
 
-      t += `❀━━━━━━━━━━━━━━❀`;
+      t +=
+        `❀━━━━━━━━━━━━━━❀`;
 
       return t;
     },
@@ -286,17 +411,18 @@ const menuStyles = [
       info,
       categories,
       prefix,
+      botInfo,
     }) {
       let t =
-        `◆━━━ *━[ 𝐏ᴜᴛᴛᴜꜱ - 𝐃ᴀꜱ]━* ━━━◆\n`;
+        `${botInfo}\n\n`;
 
-      t += `┃ ¤ *Bot: ${info.bot}*\n`;
-      t += `┃ ¤ *Prefixes: ${info.prefix}*\n`;
-      t += `┃ ¤ *Plugins: ${info.total}*\n`;
-      t += `┃ ¤ *Version: ${info.version}*\n`;
-      t += `┃ ¤ *Time: ${info.time}*\n`;
+      t +=
+        `◆━━━ *愛 ᴘᴜᴛᴛᴜs - ᴅᴀs* ━━━◆\n`;
 
-      for (const [cat, cmds] of categories) {
+      for (const [
+        cat,
+        cmds,
+      ] of categories) {
         t +=
           `┃━━ *${cat.toUpperCase()}* ━━◆◆\n`;
 
@@ -306,7 +432,8 @@ const menuStyles = [
         }
       }
 
-      t += `◆━━━━━━━━━━━━━━━━◆`;
+      t +=
+        `◆━━━━━━━━━━━━━━━━◆`;
 
       return t;
     },
@@ -318,17 +445,18 @@ const menuStyles = [
       info,
       categories,
       prefix,
+      botInfo,
     }) {
       let t =
-        `╭───⬣ *━[ 𝐏ᴜᴛᴛᴜꜱ - 𝐃ᴀꜱ]━* ──⬣\n`;
+        `${botInfo}\n\n`;
 
-      t += ` | ● *Bot: ${info.bot}*\n`;
-      t += ` | ● *Prefixes: ${info.prefix}*\n`;
-      t += ` | ● *Plugins: ${info.total}*\n`;
-      t += ` | ● *Version: ${info.version}*\n`;
-      t += ` | ● *Time: ${info.time}*\n`;
+      t +=
+        `╭───⬣ *愛 ᴘᴜᴛᴛᴜs - ᴅᴀs* ──⬣\n`;
 
-      for (const [cat, cmds] of categories) {
+      for (const [
+        cat,
+        cmds,
+      ] of categories) {
         t +=
           ` |───⬣ *${cat.toUpperCase()}* ──⬣\n`;
 
@@ -338,7 +466,8 @@ const menuStyles = [
         }
       }
 
-      t += `╰──────────⬣`;
+      t +=
+        `╰──────────⬣`;
 
       return t;
     },
@@ -372,9 +501,11 @@ module.exports = {
 
   category: "general",
 
-  description: "Show all commands",
+  description:
+    "Show all commands",
 
-  usage: ".menu [command]",
+  usage:
+    ".menu [command]",
 
   async handler(
     sock,
@@ -385,15 +516,16 @@ module.exports = {
     const {
       chatId,
       channelInfo = {},
+      pushName,
     } = context;
 
     const prefix =
-      settings.prefixes?.[0] || ".";
+      settings.prefixes?.[0] ||
+      ".";
 
-    /*
-     * Load menu image.
-     * Buffer is used instead of { url: localPath }.
-     */
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       LOAD IMAGE
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
     const menuImage =
       getMenuImage();
@@ -476,8 +608,6 @@ module.exports = {
         `┃\n` +
         `╰━━━━━━━━━━━━━━⬣`;
 
-      /* Image + command info */
-
       if (menuImage) {
         try {
           return await sock.sendMessage(
@@ -499,8 +629,6 @@ module.exports = {
         }
       }
 
-      /* Text fallback */
-
       return sock.sendMessage(
         chatId,
         {
@@ -512,6 +640,18 @@ module.exports = {
         },
       );
     }
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       BOT INFO
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+    const botInfo =
+      createBotInfo({
+        pushName,
+        prefix,
+        pluginCount:
+          commandHandler.commands.size,
+      });
 
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
        FULL MENU
@@ -527,6 +667,8 @@ module.exports = {
 
         prefix,
 
+        botInfo,
+
         info: {
           bot:
             settings.botName ||
@@ -538,15 +680,14 @@ module.exports = {
             ) || prefix,
 
           total:
-            commandHandler
-              .commands.size,
+            commandHandler.commands.size,
 
           version:
             settings.version ||
             "5.0.0",
 
           time:
-            formatTime(),
+            getDateTime().time,
         },
 
         categories:
