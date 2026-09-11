@@ -2,508 +2,1047 @@ const store = require("../lib/lightweight_store");
 const isOwnerOrSudo = require("../lib/isOwner");
 const isAdmin = require("../lib/isAdmin");
 
-// ═══════════════════════════════════════
-// 💜 PUTTUS-BOT VCard
-// ═══════════════════════════════════════
+const BOT_NAME =
+  "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜";
 
-const vcard =
-'BEGIN:VCARD\n' +
-'VERSION:3.0\n' +
-'FN:🌸•𝐏ᴜᴛᴛᴜꜱ•⌲\n' +
-'ORG:PUTTUS BOT;\n' +
-'TEL;type=CELL;type=VOICE;waid=918967360566:+91 8967360566\n' +
-'END:VCARD';
+/* ═══════════════════════════════════════
+   SMALL FONT
+═══════════════════════════════════════ */
 
-const vcardReply = {
-key: {
-fromMe: false,
-participant: '918967360566@s.whatsapp.net',
-remoteJid: 'status@broadcast'
-},
-message: {
-contactMessage: {
-displayName: '⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜',
-vcard
-}
-}
-};
+function smallFont(text) {
+  const map = {
+    a: "ᴀ",
+    b: "ʙ",
+    c: "ᴄ",
+    d: "ᴅ",
+    e: "ᴇ",
+    f: "ғ",
+    g: "ɢ",
+    h: "ʜ",
+    i: "ɪ",
+    j: "ᴊ",
+    k: "ᴋ",
+    l: "ʟ",
+    m: "ᴍ",
+    n: "ɴ",
+    o: "ᴏ",
+    p: "ᴘ",
+    q: "ǫ",
+    r: "ʀ",
+    s: "s",
+    t: "ᴛ",
+    u: "ᴜ",
+    v: "ᴠ",
+    w: "ᴡ",
+    x: "x",
+    y: "ʏ",
+    z: "ᴢ",
+  };
 
-// ═══════════════════════════════════════
-// 🔗 ANTILINK SETTINGS
-// ═══════════════════════════════════════
-
-async function setAntilink(chatId, type, action) {
-try {
-await store.saveSetting(chatId, "antilink", {
-enabled: true,
-action: action,
-type: type,
-});
-return true;
-} catch (error) {
-console.error("Error setting antilink:", error);
-return false;
-}
-}
-
-async function getAntilink(chatId, type) {
-try {
-const settings = await store.getSetting(chatId, "antilink");
-return settings || null;
-} catch (error) {
-console.error("Error getting antilink:", error);
-return null;
-}
+  return String(text)
+    .split("")
+    .map(
+      (char) =>
+        map[char.toLowerCase()] || char,
+    )
+    .join("");
 }
 
-async function removeAntilink(chatId, type) {
-try {
-await store.saveSetting(chatId, "antilink", {
-enabled: false,
-action: null,
-type: null,
-});
-return true;
-} catch (error) {
-console.error("Error removing antilink:", error);
-return false;
-}
+/* ═══════════════════════════════════════
+   BOT MESSAGE HEADER
+═══════════════════════════════════════ */
+
+function botMessage(text) {
+  return `*${BOT_NAME}*\n\n${text}`;
 }
 
-// ═══════════════════════════════════════
-// 🔍 LINK DETECTION
-// ═══════════════════════════════════════
+/* ═══════════════════════════════════════
+   CHAT / MESSAGE HELPERS
+═══════════════════════════════════════ */
 
-async function handleLinkDetection(
-sock,
-chatId,
-message,
-userMessage,
-senderId,
-) {
-try {
-const config = await getAntilink(chatId, "on");
-if (!config?.enabled) return;
-
-// 👑 Owner / Sudo Exempt
-const isOwnerSudo = await isOwnerOrSudo(senderId, sock, chatId);
-if (isOwnerSudo) return;
-
-// 🛡️ Admin Exempt
-try {
-  const { isSenderAdmin } = await isAdmin(sock, chatId, senderId);
-  if (isSenderAdmin) return;
-} catch (e) {}
-
-const action = config.action || "delete";
-
-let shouldAct = false;
-let linkType = "";
-
-const linkPatterns = {
-  whatsappGroup: /chat\.whatsapp\.com\/[A-Za-z0-9]{20,}/i,
-  whatsappChannel: /wa\.me\/channel\/[A-Za-z0-9]{20,}/i,
-  telegram: /t\.me\/[A-Za-z0-9_]+/i,
-  allLinks:
-    /https?:\/\/\S+|www\.\S+|(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/\S*)?/i,
-};
-
-if (linkPatterns.whatsappGroup.test(userMessage)) {
-  shouldAct = true;
-  linkType = "WhatsApp Group";
-} else if (linkPatterns.whatsappChannel.test(userMessage)) {
-  shouldAct = true;
-  linkType = "WhatsApp Channel";
-} else if (linkPatterns.telegram.test(userMessage)) {
-  shouldAct = true;
-  linkType = "Telegram";
-} else if (linkPatterns.allLinks.test(userMessage)) {
-  shouldAct = true;
-  linkType = "Link";
-}
-
-if (!shouldAct) return;
-
-const messageId = message.key.id;
-const participant = message.key.participant || senderId;
-
-// ═══════════════════════════════════════
-// 🗑️ DELETE MESSAGE
-// ═══════════════════════════════════════
-
-if (action === "delete" || action === "kick") {
-  try {
-    await sock.sendMessage(chatId, {
-      delete: {
-        remoteJid: chatId,
-        fromMe: false,
-        id: messageId,
-        participant: participant,
-      },
-    });
-  } catch (error) {
-    console.error("Failed to delete message:", error);
-  }
-}
-
-// ═══════════════════════════════════════
-// ⚠️ WARNING + VCARD
-// ═══════════════════════════════════════
-
-if (action === "warn" || action === "delete") {
-  await sock.sendMessage(
-    chatId,
-    {
-      text:
-        `╭─〔 🔗 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ 〕─╮\n` +
-        `│\n` +
-        `│ ⚠️ 𝐀ɴᴛɪʟɪɴᴋ 𝐖ᴀʀɴɪɴɢ\n` +
-        `│\n` +
-        `│ 👤 @${senderId.split("@")[0]}\n` +
-        `│ 🚫 𝐋ɪɴᴋ 𝐓ʏᴘᴇ : ${linkType}\n` +
-        `│\n` +
-        `│ ❌ 𝐋ɪɴᴋs ᴀʀᴇ ɴᴏᴛ ᴀʟʟᴏᴡᴇᴅ!\n` +
-        `│\n` +
-        `╰─〔 💜 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ 〕─╯`,
-      mentions: [senderId],
-    },
-    { quoted: vcardReply },
+function getChatId(message) {
+  return (
+    message?.key?.remoteJid ||
+    message?.remoteJid ||
+    message?.chat ||
+    message?.from ||
+    ""
   );
 }
 
-// ═══════════════════════════════════════
-// 🚫 KICK USER
-// ═══════════════════════════════════════
+function getSenderId(message) {
+  return (
+    message?.key?.participant ||
+    message?.participant ||
+    message?.sender ||
+    message?.key?.remoteJid ||
+    ""
+  );
+}
 
-if (action === "kick") {
+function isGroupMessage(message) {
+  const jid = getChatId(message);
+
+  return String(jid).endsWith("@g.us");
+}
+
+function cleanJid(jid) {
+  return String(jid || "")
+    .split(":")[0]
+    .replace(
+      /@c\.us$/,
+      "@s.whatsapp.net",
+    );
+}
+
+function getMessageText(message) {
+  return (
+    message?.message?.conversation ||
+    message?.message?.extendedTextMessage?.text ||
+    message?.message?.imageMessage?.caption ||
+    message?.message?.videoMessage?.caption ||
+    message?.text ||
+    message?.body ||
+    ""
+  );
+}
+
+async function sendReply(message, text) {
+  if (
+    typeof message?.reply ===
+    "function"
+  ) {
+    return message.reply(text);
+  }
+
+  if (
+    typeof message?.sendMessage ===
+    "function"
+  ) {
+    return message.sendMessage(text);
+  }
+
+  throw new Error(
+    "No supported reply method found.",
+  );
+}
+
+/* ═══════════════════════════════════════
+   PUTTUS VCARD
+═══════════════════════════════════════ */
+
+async function sendPuttusVCard(
+  bot,
+  message,
+) {
   try {
+    const jid = getChatId(message);
+
+    if (!jid) return false;
+
+    const vcard =
+      "BEGIN:VCARD\n" +
+      "VERSION:3.0\n" +
+      "FN:🌸•𝐏ᴜᴛᴛᴜꜱ•⌲\n" +
+      "ORG:PUTTUS BOT;\n" +
+      "TEL;type=CELL;type=VOICE;waid=918967360566:+918967360566\n" +
+      "END:VCARD";
+
+    const contactMessage = {
+      contacts: {
+        displayName:
+          "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
+        contacts: [
+          {
+            vcard,
+          },
+        ],
+      },
+    };
+
+    if (
+      bot &&
+      typeof bot.sendMessage ===
+        "function"
+    ) {
+      await bot.sendMessage(
+        jid,
+        contactMessage,
+      );
+
+      return true;
+    }
+
+    if (
+      bot?.sock &&
+      typeof bot.sock.sendMessage ===
+        "function"
+    ) {
+      await bot.sock.sendMessage(
+        jid,
+        contactMessage,
+      );
+
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    console.error(
+      "AntiLink VCard error:",
+      error.message,
+    );
+
+    return false;
+  }
+}
+
+/* ═══════════════════════════════════════
+   STORE
+═══════════════════════════════════════ */
+
+async function getSetting(chatId) {
+  try {
+    const setting =
+      await store.getSetting(
+        chatId,
+        "antilink",
+      );
+
+    return (
+      setting || {
+        enabled: false,
+        action: null,
+        type: "all",
+      }
+    );
+  } catch (error) {
+    console.error(
+      "AntiLink getSetting error:",
+      error.message,
+    );
+
+    return {
+      enabled: false,
+      action: null,
+      type: "all",
+    };
+  }
+}
+
+async function saveSetting(
+  chatId,
+  data,
+) {
+  try {
+    await store.saveSetting(
+      chatId,
+      "antilink",
+      data,
+    );
+
+    return true;
+  } catch (error) {
+    console.error(
+      "AntiLink saveSetting error:",
+      error.message,
+    );
+
+    return false;
+  }
+}
+
+/* ═══════════════════════════════════════
+   ADMIN / OWNER CHECK
+═══════════════════════════════════════ */
+
+async function checkAdmin(
+  bot,
+  message,
+) {
+  try {
+    if (
+      typeof isAdmin ===
+      "function"
+    ) {
+      return Boolean(
+        await isAdmin(
+          bot,
+          message,
+        ),
+      );
+    }
+  } catch (_) {}
+
+  return false;
+}
+
+async function checkOwnerOrSudo(
+  bot,
+  message,
+) {
+  try {
+    if (
+      typeof isOwnerOrSudo ===
+      "function"
+    ) {
+      return Boolean(
+        await isOwnerOrSudo(
+          bot,
+          message,
+        ),
+      );
+    }
+  } catch (_) {}
+
+  return false;
+}
+
+async function isProtectedUser(
+  bot,
+  message,
+) {
+  const admin =
+    await checkAdmin(
+      bot,
+      message,
+    );
+
+  const owner =
+    await checkOwnerOrSudo(
+      bot,
+      message,
+    );
+
+  return admin || owner;
+}
+
+/* ═══════════════════════════════════════
+   LINK DETECTION
+═══════════════════════════════════════ */
+
+function containsLink(text) {
+  if (!text) return false;
+
+  const value = String(text);
+
+  const regex =
+    /(?:https?:\/\/|www\.|wa\.me\/|chat\.whatsapp\.com\/|whatsapp\.com\/channel\/|t\.me\/|telegram\.me\/|instagram\.com\/|facebook\.com\/|youtube\.com\/|youtu\.be\/)[^\s]+/i;
+
+  return regex.test(value);
+}
+
+function detectLinkType(text) {
+  const value =
+    String(text || "")
+      .toLowerCase();
+
+  if (
+    value.includes(
+      "chat.whatsapp.com",
+    ) ||
+    value.includes(
+      "whatsapp.com/channel",
+    ) ||
+    value.includes("wa.me/")
+  ) {
+    return "whatsapp";
+  }
+
+  if (
+    value.includes("t.me/") ||
+    value.includes(
+      "telegram.me/",
+    )
+  ) {
+    return "telegram";
+  }
+
+  return "other";
+}
+
+/* ═══════════════════════════════════════
+   DELETE MESSAGE
+═══════════════════════════════════════ */
+
+async function deleteMessage(
+  bot,
+  message,
+) {
+  try {
+    const jid = getChatId(message);
+
+    const key =
+      message?.key ||
+      message?.messageKey;
+
+    if (!jid || !key) {
+      return false;
+    }
+
+    if (
+      bot &&
+      typeof bot.sendMessage ===
+        "function"
+    ) {
+      await bot.sendMessage(jid, {
+        delete: key,
+      });
+
+      return true;
+    }
+
+    if (
+      bot?.sock &&
+      typeof bot.sock.sendMessage ===
+        "function"
+    ) {
+      await bot.sock.sendMessage(
+        jid,
+        {
+          delete: key,
+        },
+      );
+
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    console.error(
+      "AntiLink delete error:",
+      error.message,
+    );
+
+    return false;
+  }
+}
+
+/* ═══════════════════════════════════════
+   GROUP METADATA
+═══════════════════════════════════════ */
+
+async function getGroupMetadata(
+  bot,
+  chatId,
+) {
+  try {
+    if (
+      typeof bot?.groupMetadata ===
+      "function"
+    ) {
+      return await bot.groupMetadata(
+        chatId,
+      );
+    }
+
+    if (
+      typeof bot?.sock
+        ?.groupMetadata ===
+      "function"
+    ) {
+      return await bot.sock.groupMetadata(
+        chatId,
+      );
+    }
+
+    return null;
+  } catch (error) {
+    console.error(
+      "AntiLink metadata error:",
+      error.message,
+    );
+
+    return null;
+  }
+}
+
+/* ═══════════════════════════════════════
+   KICK USER
+═══════════════════════════════════════ */
+
+async function kickUser(
+  bot,
+  message,
+) {
+  try {
+    const chatId =
+      getChatId(message);
+
+    const sender =
+      cleanJid(
+        getSenderId(message),
+      );
+
+    if (!chatId || !sender) {
+      return false;
+    }
+
+    const metadata =
+      await getGroupMetadata(
+        bot,
+        chatId,
+      );
+
+    if (
+      !metadata?.participants
+    ) {
+      return false;
+    }
+
+    const participant =
+      metadata.participants.find(
+        (p) =>
+          cleanJid(p?.id) ===
+          sender,
+      );
+
+    if (!participant) {
+      return false;
+    }
+
+    const sock =
+      bot?.groupParticipantsUpdate
+        ? bot
+        : bot?.sock;
+
+    if (
+      !sock ||
+      typeof sock.groupParticipantsUpdate !==
+        "function"
+    ) {
+      return false;
+    }
+
     await sock.groupParticipantsUpdate(
       chatId,
-      [senderId],
+      [sender],
       "remove",
     );
 
-    await sock.sendMessage(
-      chatId,
-      {
-        text:
-          `╭─〔 🚫 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ 〕─╮\n` +
-          `│\n` +
-          `│ 👤 @${senderId.split("@")[0]}\n` +
-          `│ ⚠️ 𝐋ɪɴᴋ 𝐏ᴏsᴛɪɴɢ 𝐃ᴇᴛᴇᴄᴛᴇᴅ\n` +
-          `│ 🚫 𝐀ᴄᴛɪᴏɴ : 𝐑ᴇᴍᴏᴠᴇᴅ\n` +
-          `│ 🔗 ${linkType}\n` +
-          `│\n` +
-          `╰─〔 💜 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ 〕─╯`,
-        mentions: [senderId],
-      },
-      { quoted: vcardReply },
-    );
+    return true;
   } catch (error) {
-    console.error("Failed to kick user:", error);
-
-    await sock.sendMessage(
-      chatId,
-      {
-        text:
-          `╭─〔 ⚠️ 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ 〕─╮\n` +
-          `│\n` +
-          `│ ❌ 𝐅ᴀɪʟᴇᴅ ᴛᴏ ʀᴇᴍᴏᴠᴇ ᴜsᴇʀ.\n` +
-          `│\n` +
-          `│ 🛡️ 𝐌ᴀᴋᴇ sᴜʀᴇ 𝐈'ᴍ ᴀɴ ᴀᴅᴍɪɴ.\n` +
-          `│\n` +
-          `╰─〔 💜 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ 〕─╯`,
-      },
-      { quoted: vcardReply },
+    console.error(
+      "AntiLink kick error:",
+      error.message,
     );
+
+    return false;
   }
 }
 
-} catch (error) {
-console.error("Error in link detection:", error);
+/* ═══════════════════════════════════════
+   WARNING
+═══════════════════════════════════════ */
+
+async function warnUser(
+  bot,
+  message,
+) {
+  try {
+    const sender =
+      cleanJid(
+        getSenderId(message),
+      );
+
+    await sendReply(
+      message,
+      botMessage(
+        `⚠️ *ᴡᴀʀɴɪɴɢ*\n\n` +
+          `👤 *ᴜsᴇʀ :* @${sender.split("@")[0]}\n` +
+          `🔗 *ʀᴇᴀsᴏɴ : ʟɪɴᴋ ᴅᴇᴛᴇᴄᴛᴇᴅ*\n\n` +
+          `📌 *ᴘʟᴇᴀsᴇ ᴅᴏɴ'ᴛ sᴇɴᴅ ʟɪɴᴋs ɪɴ ᴛʜɪs ɢʀᴏᴜᴘ.*`,
+      ),
+    );
+
+    return true;
+  } catch (error) {
+    console.error(
+      "AntiLink warning error:",
+      error.message,
+    );
+
+    return false;
+  }
 }
+
+/* ═══════════════════════════════════════
+   ACTION NAME
+═══════════════════════════════════════ */
+
+function actionName(action) {
+  if (!action) {
+    return "ɴᴏᴛ sᴇᴛ";
+  }
+
+  return smallFont(action);
 }
 
-// ═══════════════════════════════════════
-// 🔗 ANTILINK COMMAND
-// ═══════════════════════════════════════
+/* ═══════════════════════════════════════
+   STATUS
+═══════════════════════════════════════ */
 
-module.exports = {
-command: "antilink",
-aliases: ["alink", "linkblock"],
-category: "admin",
-description: "Prevent users from sending links in the group",
-usage: ".antilink <on|off|set>",
-groupOnly: true,
-adminOnly: true,
+async function showStatus(
+  bot,
+  message,
+) {
+  const chatId =
+    getChatId(message);
 
-async handler(sock, message, args, context = {}) {
-const chatId =
-context.chatId || message.key.remoteJid;
+  const setting =
+    await getSetting(chatId);
 
-const action = args[0]?.toLowerCase();
+  const status = setting.enabled
+    ? "🟢 ᴇɴᴀʙʟᴇᴅ"
+    : "🔴 ᴅɪsᴀʙʟᴇᴅ";
 
-// ═══════════════════════════════════════
-// 📖 HELP
-// ═══════════════════════════════════════
+  const action =
+    setting.action
+      ? actionName(
+          setting.action,
+        )
+      : "ɴᴏᴛ sᴇᴛ";
 
-if (!action) {
-  const config = await getAntilink(chatId, "on");
-
-  await sock.sendMessage(
-    chatId,
-    {
-      text:
-        `╭─〔 🔗 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ 〕─╮\n` +
-        `│\n` +
-        `│       𝐀ɴᴛɪʟɪɴᴋ 𝐒ᴇᴛᴜᴘ\n` +
-        `│\n` +
-        `│ 𝐒ᴛᴀᴛᴜs : ${config?.enabled ? "✅ 𝐄ɴᴀʙʟᴇᴅ" : "❌ 𝐃ɪsᴀʙʟᴇᴅ"}\n` +
-        `│ 𝐀ᴄᴛɪᴏɴ : ${config?.action || "𝐍ᴏᴛ sᴇᴛ"}\n` +
-        `│\n` +
-        `│ ✦ .antilink on\n` +
-        `│ ✦ .antilink off\n` +
-        `│ ✦ .antilink set delete\n` +
-        `│ ✦ .antilink set kick\n` +
-        `│ ✦ .antilink set warn\n` +
-        `│ ✦ .antilink status\n` +
-        `│\n` +
-        `│ 🔗 𝐏ʀᴏᴛᴇᴄᴛᴇᴅ 𝐋ɪɴᴋs\n` +
-        `│ • WhatsApp Groups\n` +
-        `│ • WhatsApp Channels\n` +
-        `│ • Telegram\n` +
-        `│ • All other links\n` +
-        `│\n` +
-        `│ 🛡️ 𝐄xᴇᴍᴘᴛ : Admins\n` +
-        `│ 👑 Owner / Sudo\n` +
-        `│\n` +
-        `╰─〔 💜 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ 〕─╯`,
-    },
-    { quoted: vcardReply },
+  await sendReply(
+    message,
+    botMessage(
+      `† .ᴀɴᴛɪʟɪɴᴋ sᴛᴀᴛᴜs\n\n` +
+        `*${status}*\n` +
+        `*⚙️ ᴀᴄᴛɪᴏɴ : ${action}*\n\n` +
+        `🔗 *ᴘʀᴏᴛᴇᴄᴛᴇᴅ :*\n` +
+        `• ᴡʜᴀᴛsᴀᴘᴘ\n` +
+        `• ᴛᴇʟᴇɢʀᴀᴍ\n` +
+        `• ᴏᴛʜᴇʀ ʟɪɴᴋs\n\n` +
+        `🛡️ *ᴇxᴇᴍᴘᴛ : ᴀᴅᴍɪɴs*\n` +
+        `👑 *ᴏᴡɴᴇʀ / sᴜᴅᴏ*`,
+    ),
   );
-
-  return;
 }
 
-// ═══════════════════════════════════════
-// ✅ ON
-// ═══════════════════════════════════════
+/* ═══════════════════════════════════════
+   COMMAND HANDLER
+═══════════════════════════════════════ */
 
-switch (action) {
-  case "on": {
-    const existingConfig =
-      await getAntilink(chatId, "on");
+async function handleCommand(
+  bot,
+  message,
+  args = [],
+) {
+  const chatId =
+    getChatId(message);
 
-    if (existingConfig?.enabled) {
-      await sock.sendMessage(
-        chatId,
-        {
-          text:
-            `⚠️ *𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*\n\n` +
-            `𝐀ɴᴛɪʟɪɴᴋ ɪs ᴀʟʀᴇᴀᴅʏ 𝐄ɴᴀʙʟᴇᴅ.`,
-        },
-        { quoted: vcardReply },
-      );
-      return;
-    }
-
-    const result =
-      await setAntilink(chatId, "on", "delete");
-
-    await sock.sendMessage(
-      chatId,
-      {
-        text: result
-          ? `╭─〔 💜 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ 〕─╮\n` +
-            `│\n` +
-            `│ ✅ 𝐀ɴᴛɪʟɪɴᴋ 𝐄ɴᴀʙʟᴇᴅ\n` +
-            `│\n` +
-            `│ 🗑️ 𝐃ᴇғᴀᴜʟᴛ : 𝐃ᴇʟᴇᴛᴇ\n` +
-            `│ 🛡️ 𝐄xᴇᴍᴘᴛ : Admins\n` +
-            `│ 👑 Owner / Sudo\n` +
-            `│\n` +
-            `╰─〔 🔗 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ 〕─╯`
-          : `❌ 𝐅ᴀɪʟᴇᴅ ᴛᴏ ᴇɴᴀʙʟᴇ 𝐀ɴᴛɪʟɪɴᴋ.`,
-      },
-      { quoted: vcardReply },
+  if (!chatId) {
+    throw new Error(
+      "Chat ID not found.",
     );
-
-    break;
   }
 
-  // ═══════════════════════════════════════
-  // ❌ OFF
-  // ═══════════════════════════════════════
-
-  case "off": {
-    await removeAntilink(chatId, "on");
-
-    await sock.sendMessage(
-      chatId,
-      {
-        text:
-          `╭─〔 💜 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ 〕─╮\n` +
-          `│\n` +
-          `│ ❌ 𝐀ɴᴛɪʟɪɴᴋ 𝐃ɪsᴀʙʟᴇᴅ\n` +
-          `│\n` +
-          `│ 🔗 Users can now send links.\n` +
-          `│\n` +
-          `╰─〔 🔗 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ 〕─╯`,
-      },
-      { quoted: vcardReply },
+  if (!isGroupMessage(message)) {
+    await sendReply(
+      message,
+      botMessage(
+        `❌ *ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ ᴄᴀɴ ᴏɴʟʏ ʙᴇ ᴜsᴇᴅ ɪɴ ɢʀᴏᴜᴘs.*`,
+      ),
     );
 
-    break;
+    return true;
   }
 
-  // ═══════════════════════════════════════
-  // ⚙️ SET ACTION
-  // ═══════════════════════════════════════
+  const protectedUser =
+    await isProtectedUser(
+      bot,
+      message,
+    );
 
-  case "set": {
-    if (args.length < 2) {
-      await sock.sendMessage(
+  if (!protectedUser) {
+    await sendReply(
+      message,
+      botMessage(
+        `❌ *ᴏɴʟʏ ᴀᴅᴍɪɴs, ᴏᴡɴᴇʀ ᴏʀ sᴜᴅᴏ ᴄᴀɴ ᴄʜᴀɴɢᴇ ᴀɴᴛɪʟɪɴᴋ sᴇᴛᴛɪɴɢs.*`,
+      ),
+    );
+
+    return true;
+  }
+
+  const subCommand =
+    String(args[0] || "")
+      .toLowerCase()
+      .trim();
+
+  /* HELP */
+
+  if (
+    !subCommand ||
+    subCommand === "help"
+  ) {
+    await sendReply(
+      message,
+      botMessage(
+        `† .ᴀɴᴛɪʟɪɴᴋ\n\n` +
+          `*† .ᴀɴᴛɪʟɪɴᴋ ᴏɴ*\n` +
+          `*† .ᴀɴᴛɪʟɪɴᴋ ᴏғғ*\n` +
+          `*† .ᴀɴᴛɪʟɪɴᴋ sᴇᴛ ᴅᴇʟᴇᴛᴇ*\n` +
+          `*† .ᴀɴᴛɪʟɪɴᴋ sᴇᴛ ᴋɪᴄᴋ*\n` +
+          `*† .ᴀɴᴛɪʟɪɴᴋ sᴇᴛ ᴡᴀʀɴ*\n` +
+          `*† .ᴀɴᴛɪʟɪɴᴋ sᴛᴀᴛᴜs*`,
+      ),
+    );
+
+    return true;
+  }
+
+  /* STATUS */
+
+  if (subCommand === "status") {
+    await showStatus(
+      bot,
+      message,
+    );
+
+    return true;
+  }
+
+  /* ON */
+
+  if (subCommand === "on") {
+    const current =
+      await getSetting(chatId);
+
+    const action =
+      current.action ||
+      "delete";
+
+    const saved =
+      await saveSetting(
         chatId,
         {
-          text:
-            `❌ 𝐀ᴄᴛɪᴏɴ ᴍɪssɪɴɢ\n\n` +
-            `✦ .antilink set delete\n` +
-            `✦ .antilink set kick\n` +
-            `✦ .antilink set warn`,
+          ...current,
+          enabled: true,
+          action,
         },
-        { quoted: vcardReply },
       );
-      return;
+
+    if (!saved) {
+      throw new Error(
+        "Failed to save AntiLink setting.",
+      );
     }
 
-    const setAction =
-      args[1].toLowerCase();
+    await sendReply(
+      message,
+      botMessage(
+        `† .ᴀɴᴛɪʟɪɴᴋ ᴏɴ\n\n` +
+          `*✅ ᴀɴᴛɪʟɪɴᴋ ᴇɴᴀʙʟᴇᴅ*\n` +
+          `*🗑️ ᴅᴇғᴀᴜʟᴛ : ${actionName(
+            action,
+          )}*\n` +
+          `*🛡️ ᴇxᴇᴍᴘᴛ : ᴀᴅᴍɪɴs*\n` +
+          `*👑 ᴏᴡɴᴇʀ / sᴜᴅᴏ*`,
+      ),
+    );
+
+    await sendPuttusVCard(
+      bot,
+      message,
+    );
+
+    return true;
+  }
+
+  /* OFF */
+
+  if (subCommand === "off") {
+    const current =
+      await getSetting(chatId);
+
+    const saved =
+      await saveSetting(
+        chatId,
+        {
+          ...current,
+          enabled: false,
+        },
+      );
+
+    if (!saved) {
+      throw new Error(
+        "Failed to save AntiLink setting.",
+      );
+    }
+
+    await sendReply(
+      message,
+      botMessage(
+        `† .ᴀɴᴛɪʟɪɴᴋ ᴏғғ\n\n` +
+          `*❌ ᴀɴᴛɪʟɪɴᴋ ᴅɪsᴀʙʟᴇᴅ*\n\n` +
+          `*🔗 ᴀɴᴛɪʟɪɴᴋ ɪs ɴᴏᴡ ᴅɪsᴀʙʟᴇᴅ.*`,
+      ),
+    );
+
+    await sendPuttusVCard(
+      bot,
+      message,
+    );
+
+    return true;
+  }
+
+  /* SET ACTION */
+
+  if (subCommand === "set") {
+    const action =
+      String(args[1] || "")
+        .toLowerCase()
+        .trim();
 
     if (
-      !["delete", "kick", "warn"].includes(
-        setAction,
-      )
+      ![
+        "delete",
+        "kick",
+        "warn",
+      ].includes(action)
     ) {
-      await sock.sendMessage(
+      await sendReply(
+        message,
+        botMessage(
+          `❌ *ɪɴᴠᴀʟɪᴅ ᴀᴄᴛɪᴏɴ*\n\n` +
+            `† .ᴀɴᴛɪʟɪɴᴋ sᴇᴛ ᴅᴇʟᴇᴛᴇ\n` +
+            `† .ᴀɴᴛɪʟɪɴᴋ sᴇᴛ ᴋɪᴄᴋ\n` +
+            `† .ᴀɴᴛɪʟɪɴᴋ sᴇᴛ ᴡᴀʀɴ`,
+        ),
+      );
+
+      return true;
+    }
+
+    const current =
+      await getSetting(chatId);
+
+    const saved =
+      await saveSetting(
         chatId,
         {
-          text:
-            `❌ 𝐈ɴᴠᴀʟɪᴅ 𝐀ᴄᴛɪᴏɴ\n\n` +
-            `𝐂ʜᴏᴏsᴇ : delete | kick | warn`,
+          ...current,
+          enabled: true,
+          action,
         },
-        { quoted: vcardReply },
       );
-      return;
+
+    if (!saved) {
+      throw new Error(
+        "Failed to save AntiLink setting.",
+      );
     }
 
-    const setResult =
-      await setAntilink(
-        chatId,
-        "on",
-        setAction,
-      );
-
-    const actionDescriptions = {
-      delete:
-        "𝐃ᴇʟᴇᴛᴇ ʟɪɴᴋ ᴍᴇssᴀɢᴇs + 𝐖ᴀʀɴ",
-      kick:
-        "𝐃ᴇʟᴇᴛᴇ ᴍᴇssᴀɢᴇs + 𝐑ᴇᴍᴏᴠᴇ ᴜsᴇʀ",
-      warn:
-        "𝐎ɴʟʏ sᴇɴᴅ 𝐖ᴀʀɴɪɴɢ",
+    const icons = {
+      delete: "🗑️",
+      kick: "👢",
+      warn: "⚠️",
     };
 
-    await sock.sendMessage(
-      chatId,
-      {
-        text: setResult
-          ? `╭─〔 ⚙️ 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ 〕─╮\n` +
-            `│\n` +
-            `│ ✅ 𝐀ᴄᴛɪᴏɴ 𝐔ᴩᴅᴀᴛᴇᴅ\n` +
-            `│\n` +
-            `│ 🔧 𝐀ᴄᴛɪᴏɴ : ${setAction}\n` +
-            `│ 📌 ${actionDescriptions[setAction]}\n` +
-            `│\n` +
-            `╰─〔 💜 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ 〕─╯`
-          : `❌ 𝐅ᴀɪʟᴇᴅ ᴛᴏ sᴇᴛ 𝐀ᴄᴛɪᴏɴ.`,
-      },
-      { quoted: vcardReply },
+    await sendReply(
+      message,
+      botMessage(
+        `† .ᴀɴᴛɪʟɪɴᴋ sᴇᴛ ${smallFont(
+          action,
+        )}\n\n` +
+          `*${icons[action]} ᴀᴄᴛɪᴏɴ : ${actionName(
+            action,
+          )}*\n` +
+          `*🔗 ᴀɴᴛɪʟɪɴᴋ : ᴇɴᴀʙʟᴇᴅ*\n` +
+          `*🛡️ ᴇxᴇᴍᴘᴛ : ᴀᴅᴍɪɴs*\n` +
+          `*👑 ᴏᴡɴᴇʀ / sᴜᴅᴏ*`,
+      ),
     );
 
-    break;
+    await sendPuttusVCard(
+      bot,
+      message,
+    );
+
+    return true;
   }
 
-  // ═══════════════════════════════════════
-  // 📊 STATUS
-  // ═══════════════════════════════════════
+  /* UNKNOWN COMMAND */
 
-  case "status":
-  case "get": {
-    const status =
-      await getAntilink(chatId, "on");
+  await sendReply(
+    message,
+    botMessage(
+      `❌ *ᴜɴᴋɴᴏᴡɴ ᴀɴᴛɪʟɪɴᴋ ᴄᴏᴍᴍᴀɴᴅ*\n\n` +
+        `† .ᴀɴᴛɪʟɪɴᴋ ᴏɴ\n` +
+        `† .ᴀɴᴛɪʟɪɴᴋ ᴏғғ\n` +
+        `† .ᴀɴᴛɪʟɪɴᴋ sᴇᴛ ᴅᴇʟᴇᴛᴇ\n` +
+        `† .ᴀɴᴛɪʟɪɴᴋ sᴇᴛ ᴋɪᴄᴋ\n` +
+        `† .ᴀɴᴛɪʟɪɴᴋ sᴇᴛ ᴡᴀʀɴ\n` +
+        `† .ᴀɴᴛɪʟɪɴᴋ sᴛᴀᴛᴜs`,
+    ),
+  );
 
-    let actionInfo = "• 𝐍ᴏ ᴀᴄᴛɪᴏɴ sᴇᴛ";
+  return true;
+}
 
-    if (status?.action === "delete") {
-      actionInfo =
-        "• 𝐌ᴇssᴀɢᴇ ᴅᴇʟᴇᴛᴇᴅ\n" +
-        "• 𝐔sᴇʀ ᴡᴀʀɴᴇᴅ";
-    } else if (status?.action === "kick") {
-      actionInfo =
-        "• 𝐌ᴇssᴀɢᴇ ᴅᴇʟᴇᴛᴇᴅ\n" +
-        "• 𝐔sᴇʀ ʀᴇᴍᴏᴠᴇᴅ";
-    } else if (status?.action === "warn") {
-      actionInfo =
-        "• 𝐔sᴇʀ ᴡᴀʀɴᴇᴅ\n" +
-        "• 𝐌ᴇssᴀɢᴇ sᴛᴀʏs";
+/* ═══════════════════════════════════════
+   INCOMING LINK HANDLER
+═══════════════════════════════════════ */
+
+async function handleIncomingMessage(
+  bot,
+  message,
+) {
+  try {
+    const chatId =
+      getChatId(message);
+
+    if (
+      !chatId ||
+      !isGroupMessage(message)
+    ) {
+      return false;
     }
 
-    await sock.sendMessage(
-      chatId,
-      {
-        text:
-          `╭─〔 🔗 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ 〕─╮\n` +
-          `│\n` +
-          `│       𝐀ɴᴛɪʟɪɴᴋ 𝐒ᴛᴀᴛᴜs\n` +
-          `│\n` +
-          `│ 𝐒ᴛᴀᴛᴜs : ${status?.enabled ? "✅ 𝐄ɴᴀʙʟᴇᴅ" : "❌ 𝐃ɪsᴀʙʟᴇᴅ"}\n` +
-          `│ 𝐀ᴄᴛɪᴏɴ : ${status?.action || "𝐍ᴏᴛ sᴇᴛ"}\n` +
-          `│\n` +
-          `│ 𝐖ʜᴇɴ ʟɪɴᴋ ɪs ᴅᴇᴛᴇᴄᴛᴇᴅ :\n` +
-          `│ ${actionInfo.replace(/\n/g, "\n│ ")}\n` +
-          `│\n` +
-          `│ 🛡️ 𝐄xᴇᴍᴘᴛ : Admins\n` +
-          `│ 👑 Owner / Sudo\n` +
-          `│\n` +
-          `╰─〔 💜 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ 〕─╯`,
-      },
-      { quoted: vcardReply },
+    const setting =
+      await getSetting(chatId);
+
+    if (!setting.enabled) {
+      return false;
+    }
+
+    const text =
+      getMessageText(message);
+
+    if (!containsLink(text)) {
+      return false;
+    }
+
+    /* ADMIN / OWNER / SUDO EXEMPT */
+
+    if (
+      await isProtectedUser(
+        bot,
+        message,
+      )
+    ) {
+      return false;
+    }
+
+    const linkType =
+      detectLinkType(text);
+
+    if (
+      setting.type &&
+      setting.type !== "all" &&
+      setting.type !== linkType
+    ) {
+      return false;
+    }
+
+    const action =
+      setting.action ||
+      "delete";
+
+    /* DELETE */
+
+    if (action === "delete") {
+      await deleteMessage(
+        bot,
+        message,
+      );
+
+      return true;
+    }
+
+    /* KICK */
+
+    if (action === "kick") {
+      await deleteMessage(
+        bot,
+        message,
+      );
+
+      const kicked =
+        await kickUser(
+          bot,
+          message,
+        );
+
+      if (!kicked) {
+        await sendReply(
+          message,
+          botMessage(
+            `⚠️ *ʟɪɴᴋ ᴅᴇᴛᴇᴄᴛᴇᴅ*\n\n` +
+              `❌ *ᴜɴᴀʙʟᴇ ᴛᴏ ʀᴇᴍᴏᴠᴇ ᴛʜᴇ ᴜsᴇʀ.*\n` +
+              `🛡️ *ᴍᴀᴋᴇ sᴜʀᴇ ᴛʜᴇ ʙᴏᴛ ɪs ᴀᴅᴍɪɴ.*`,
+          ),
+        );
+      }
+
+      return true;
+    }
+
+    /* WARN */
+
+    if (action === "warn") {
+      await deleteMessage(
+        bot,
+        message,
+      );
+
+      await warnUser(
+        bot,
+        message,
+      );
+
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    console.error(
+      "AntiLink handler error:",
+      error.message,
     );
 
-    break;
-  }
-
-  // ═══════════════════════════════════════
-  // ❌ INVALID
-  // ═══════════════════════════════════════
-
-  default: {
-    await sock.sendMessage(
-      chatId,
-      {
-        text:
-          `❌ 𝐈ɴᴠᴀʟɪᴅ 𝐂ᴏᴍᴍᴀɴᴅ\n\n` +
-          `✦ 𝐔sᴇ : .antilink\n` +
-          `✦ 𝐄xᴀᴍᴘʟᴇ : .antilink on`,
-      },
-      { quoted: vcardReply },
-    );
+    return false;
   }
 }
 
-},
+/* ═══════════════════════════════════════
+   EXPORT
+═══════════════════════════════════════ */
 
-handleLinkDetection,
-setAntilink,
-getAntilink,
-removeAntilink,
+module.exports = {
+  command: "antilink",
+
+  aliases: [
+    "antilinks",
+  ],
+
+  category: "group",
+
+  description:
+    "Enable, disable and configure AntiLink protection.",
+
+  usage:
+    ".antilink on | off | set delete | set kick | set warn | status",
+
+  async handler(
+    bot,
+    message,
+    args = [],
+  ) {
+    return handleCommand(
+      bot,
+      message,
+      args,
+    );
+  },
+
+  handleIncomingMessage,
+
+  getSetting,
+
+  containsLink,
+
+  sendPuttusVCard,
 };
