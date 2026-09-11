@@ -1,5 +1,11 @@
+"use strict";
+
 const settings = require("../settings");
 const commandHandler = require("../lib/commandHandler");
+const {
+  sendMenuButtons,
+} = require("../lib/ButtonsMessage");
+
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
@@ -10,7 +16,8 @@ const os = require("os");
 
 function getDateTime() {
   const now = new Date();
-  const timeZone = settings.timeZone || "Asia/Kolkata";
+  const timeZone =
+    settings.timeZone || "Asia/Kolkata";
 
   return {
     date: now.toLocaleDateString("en-GB", {
@@ -35,19 +42,24 @@ function getDateTime() {
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
 function formatUptime() {
-  const totalSeconds = Math.floor(process.uptime());
+  const totalSeconds =
+    Math.floor(process.uptime());
 
-  const days = Math.floor(totalSeconds / 86400);
+  const days =
+    Math.floor(totalSeconds / 86400);
 
-  const hours = Math.floor(
-    (totalSeconds % 86400) / 3600,
-  );
+  const hours =
+    Math.floor(
+      (totalSeconds % 86400) / 3600,
+    );
 
-  const minutes = Math.floor(
-    (totalSeconds % 3600) / 60,
-  );
+  const minutes =
+    Math.floor(
+      (totalSeconds % 3600) / 60,
+    );
 
-  const seconds = totalSeconds % 60;
+  const seconds =
+    totalSeconds % 60;
 
   return `${days}d ${hours}h ${minutes}m ${seconds}s`;
 }
@@ -59,7 +71,10 @@ function formatUptime() {
 function getServerMemory() {
   try {
     const totalGB =
-      os.totalmem() / 1024 / 1024 / 1024;
+      os.totalmem() /
+      1024 /
+      1024 /
+      1024;
 
     return `${totalGB.toFixed(1)} GB`;
   } catch {
@@ -105,7 +120,8 @@ function smallFont(text) {
     .split("")
     .map(
       (char) =>
-        map[char.toLowerCase()] || char,
+        map[char.toLowerCase()] ||
+        char,
     )
     .join("");
 }
@@ -125,7 +141,9 @@ function getMenuImage() {
       return null;
     }
 
-    return fs.readFileSync(imagePath);
+    return fs.readFileSync(
+      imagePath,
+    );
   } catch (error) {
     console.error(
       "[MENU] Image error:",
@@ -145,20 +163,26 @@ function createBotInfo({
   prefix,
   pluginCount,
 }) {
-  const { date, time } = getDateTime();
+  const {
+    date,
+    time,
+  } = getDateTime();
 
   return `
 ╭━━〔 愛 ᴘᴜᴛᴛᴜs 〕━━╮
 │
 │  𖤐 ɴᴀᴍᴇ     ➜ ${smallFont(
-    settings.botName || "PUTTUS-XD",
+    settings.botName ||
+      "PUTTUS-XD",
   )}
 │  𖤐 ᴍᴏᴅᴇ     ➜ ${
-    settings.mode || "public"
+    settings.mode ||
+    "public"
   }
 │  𖤐 ᴘʀᴇꜰɪx    ➜ ${prefix}
 │  𖤐 ᴜꜱᴇʀ      ➜ ${smallFont(
-    pushName || "ᴘᴜᴛᴛᴜs",
+    pushName ||
+      "ᴘᴜᴛᴛᴜs",
   )}
 │  𖤐 ᴅᴇᴠ       ➜ ᴘᴜᴛᴛᴜs ᴅᴀs
 │  𖤐 ᴏᴡɴᴇʀ     ➜ ᴘᴜᴛᴛᴜs ᴅᴀs
@@ -167,10 +191,12 @@ function createBotInfo({
 │  𖤐 ᴜᴘᴛɪᴍᴇ   ➜ ${formatUptime()}
 │  𖤐 ᴘʟᴜɢɪɴꜱ  ➜ ${pluginCount}
 │  𖤐 ᴠᴇʀꜱɪᴏɴ  ➜ ${
-    settings.version || "1.0.0"
+    settings.version ||
+    "1.0.0"
   }
 │  𖤐 ᴛᴢ       ➜ ${
-    settings.timeZone || "Asia/Kolkata"
+    settings.timeZone ||
+    "Asia/Kolkata"
   }
 │  𖤐 ꜱᴛᴀᴛᴜꜱ   ➜ ᴏɴʟɪɴᴇ
 │  𖤐 ʟɪʙʀᴀʀʏ ➜ ʙᴀɪʟᴇʏs
@@ -187,115 +213,190 @@ function createBotInfo({
 
 const menuStyles = [
   {
-    render({ categories, prefix, botInfo }) {
-      let text = `${botInfo}\n\n`;
+    render({
+      categories,
+      prefix,
+      botInfo,
+    }) {
+      let text =
+        `${botInfo}\n\n`;
 
       text +=
         `╭━━✰ *愛 ᴘᴜᴛᴛᴜs ᴍᴇɴᴜ* ✰━━╮\n`;
 
-      for (const [category, commands] of categories) {
+      for (
+        const [
+          category,
+          commands,
+        ] of categories
+      ) {
         text +=
           `┃━━━ *${category.toUpperCase()}* ━✦\n`;
 
-        for (const command of commands) {
+        for (
+          const command of commands
+        ) {
           text +=
-            `┃ ➤ ${prefix}${smallFont(command)}\n`;
+            `┃ ➤ ${prefix}${smallFont(
+              command,
+            )}\n`;
         }
       }
 
-      text += `╰━━━━━━━━━━━━━⬣`;
+      text +=
+        `╰━━━━━━━━━━━━━⬣`;
 
       return text;
     },
   },
 
   {
-    render({ categories, prefix, botInfo }) {
-      let text = `${botInfo}\n\n`;
+    render({
+      categories,
+      prefix,
+      botInfo,
+    }) {
+      let text =
+        `${botInfo}\n\n`;
 
       text +=
         `◈╭─❍「 *愛 ᴘᴜᴛᴛᴜs ᴍᴇɴᴜ* 」❍\n`;
 
-      for (const [category, commands] of categories) {
+      for (
+        const [
+          category,
+          commands,
+        ] of categories
+      ) {
         text +=
           `◈├─❍「 *${category.toUpperCase()}* 」❍\n`;
 
-        for (const command of commands) {
+        for (
+          const command of commands
+        ) {
           text +=
-            `◈├• ${prefix}${smallFont(command)}\n`;
+            `◈├• ${prefix}${smallFont(
+              command,
+            )}\n`;
         }
       }
 
-      text += `◈╰──★─☆──♪♪─❍`;
+      text +=
+        `◈╰──★─☆──♪♪─❍`;
 
       return text;
     },
   },
 
   {
-    render({ categories, prefix, botInfo }) {
-      let text = `${botInfo}\n\n`;
+    render({
+      categories,
+      prefix,
+      botInfo,
+    }) {
+      let text =
+        `${botInfo}\n\n`;
 
       text +=
         `┏━━━━ *愛 ᴘᴜᴛᴛᴜs ᴍᴇɴᴜ* ━━━┓\n`;
 
-      for (const [category, commands] of categories) {
+      for (
+        const [
+          category,
+          commands,
+        ] of categories
+      ) {
         text +=
           `┃━━━━ *${category.toUpperCase()}* ━━◆\n`;
 
-        for (const command of commands) {
+        for (
+          const command of commands
+        ) {
           text +=
-            `┃ ▸ ${prefix}${smallFont(command)}\n`;
+            `┃ ▸ ${prefix}${smallFont(
+              command,
+            )}\n`;
         }
       }
 
-      text += `┗━━━━━━━━━━━━━━━┛`;
+      text +=
+        `┗━━━━━━━━━━━━━━━┛`;
 
       return text;
     },
   },
 
   {
-    render({ categories, prefix, botInfo }) {
-      let text = `${botInfo}\n\n`;
+    render({
+      categories,
+      prefix,
+      botInfo,
+    }) {
+      let text =
+        `${botInfo}\n\n`;
 
       text +=
         `✦═══ *愛 ᴘᴜᴛᴛᴜs ᴍᴇɴᴜ* ═══✦\n`;
 
-      for (const [category, commands] of categories) {
+      for (
+        const [
+          category,
+          commands,
+        ] of categories
+      ) {
         text +=
           `║══ *${category.toUpperCase()}* ══✧\n`;
 
-        for (const command of commands) {
+        for (
+          const command of commands
+        ) {
           text +=
-            `║ ✦ ${prefix}${smallFont(command)}\n`;
+            `║ ✦ ${prefix}${smallFont(
+              command,
+            )}\n`;
         }
       }
 
-      text += `✦══════════════✦`;
+      text +=
+        `✦══════════════✦`;
 
       return text;
     },
   },
 
   {
-    render({ categories, prefix, botInfo }) {
-      let text = `${botInfo}\n\n`;
+    render({
+      categories,
+      prefix,
+      botInfo,
+    }) {
+      let text =
+        `${botInfo}\n\n`;
 
       text +=
         `❀ *━[ 愛 ᴘᴜᴛᴛᴜs - ᴅᴀs ]━* ❀\n`;
 
-      for (const [category, commands] of categories) {
+      for (
+        const [
+          category,
+          commands,
+        ] of categories
+      ) {
         text +=
           `┃━━━〔 *${category.toUpperCase()}* 〕━❀\n`;
 
-        for (const command of commands) {
+        for (
+          const command of commands
+        ) {
           text +=
-            `┃☞ ${prefix}${smallFont(command)}\n`;
+            `┃☞ ${prefix}${smallFont(
+              command,
+            )}\n`;
         }
       }
 
-      text += `❀━━━━━━━━━━━━━━❀`;
+      text +=
+        `❀━━━━━━━━━━━━━━❀`;
 
       return text;
     },
@@ -308,31 +409,10 @@ const menuStyles = [
 
 function pick(array) {
   return array[
-    Math.floor(Math.random() * array.length)
-  ];
-}
-
-/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   BAILEYS 7 NATIVE FLOW BUTTONS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-
-function getMenuButtons(prefix) {
-  return [
-    {
-      name: "quick_reply",
-      buttonParamsJson: JSON.stringify({
-        display_text: "👑 OWNER",
-        id: `${prefix}owner`,
-      }),
-    },
-
-    {
-      name: "quick_reply",
-      buttonParamsJson: JSON.stringify({
-        display_text: "⚡ PING",
-        id: `${prefix}ping`,
-      }),
-    },
+    Math.floor(
+      Math.random() *
+        array.length,
+    )
   ];
 }
 
@@ -352,7 +432,8 @@ module.exports = {
 
   category: "general",
 
-  description: "Show all commands",
+  description:
+    "Show all commands",
 
   usage: ".menu [command]",
 
@@ -368,9 +449,11 @@ module.exports = {
     } = context;
 
     const prefix =
-      settings.prefixes?.[0] || ".";
+      settings.prefixes?.[0] ||
+      ".";
 
-    const menuImage = getMenuImage();
+    const menuImage =
+      getMenuImage();
 
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
        SINGLE COMMAND
@@ -378,7 +461,8 @@ module.exports = {
 
     if (args.length) {
       const searchTerm =
-        String(args[0]).toLowerCase();
+        String(args[0])
+          .toLowerCase();
 
       let command =
         commandHandler.commands.get(
@@ -441,7 +525,9 @@ module.exports = {
                 .map(
                   (alias) =>
                     prefix +
-                    smallFont(alias),
+                    smallFont(
+                      alias,
+                    ),
                 )
                 .join(", ")
             : "None"
@@ -484,63 +570,63 @@ module.exports = {
        CREATE MENU
     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
-    const botInfo = createBotInfo({
-      pushName,
-      prefix,
-      pluginCount:
-        commandHandler.commands.size,
-    });
+    const botInfo =
+      createBotInfo({
+        pushName,
+        prefix,
+        pluginCount:
+          commandHandler
+            .commands.size,
+      });
 
-    const style = pick(menuStyles);
+    const style =
+      pick(menuStyles);
 
-    const text = style.render({
-      prefix,
-      botInfo,
-      categories:
-        commandHandler.categories,
-    });
-
-    const buttons =
-      getMenuButtons(prefix);
+    const text =
+      style.render({
+        prefix,
+        botInfo,
+        categories:
+          commandHandler
+            .categories,
+      });
 
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-       INTERACTIVE MENU
+       PUTTUS-AI BUTTON MENU
     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
     try {
-      await sock.sendMessage(
-        chatId,
-        {
-          interactiveMessage: {
-            body: {
-              text,
-            },
+      const jid =
+        chatId ||
+        message?.key
+          ?.remoteJid;
 
-            footer: {
-              text: "PUTTUS-AI",
-            },
+      if (!jid) {
+        throw new Error(
+          "Chat JID not found.",
+        );
+      }
 
-            nativeFlowMessage: {
-              buttons,
-              messageParamsJson: "",
-            },
-          },
-        },
+      await sendMenuButtons(
+        sock,
+        jid,
         {
           quoted: message,
+          footer:
+            "© PUTTUS-AI • Puttus Das",
         },
       );
 
       return;
     } catch (error) {
       console.error(
-        "[MENU] Interactive menu failed:",
+        "[MENU] Buttons failed:",
         error.message,
       );
     }
 
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-       FALLBACK MENU
+       IMAGE FALLBACK
     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
     if (menuImage) {
@@ -564,6 +650,10 @@ module.exports = {
         );
       }
     }
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       TEXT FALLBACK
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
     await sock.sendMessage(
       chatId,
