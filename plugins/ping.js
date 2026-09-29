@@ -11,7 +11,7 @@ module.exports = {
       const start = Date.now();
       const chatId = message.key.remoteJid;
 
-      // Initial Ping
+      // ━━━━━ INITIAL PING ━━━━━
       await sock.sendMessage(
         chatId,
         {
@@ -21,17 +21,6 @@ module.exports = {
       );
 
       const speed = Date.now() - start;
-
-      // ━━━━━ PUTTUS BOT VCARD ━━━━━
-      const vcard =
-        "BEGIN:VCARD\n" +
-        "VERSION:3.0\n" +
-        "N:𝐏𝐮𝐭ᴛᴜꜱ;𝐁ᴏᴛ;;;\n" +
-        "FN:🌸•𝐏𝐮𝐭ᴛᴜꜱ•⌲\n" +
-        "ORG:PUTTUS BOT;\n" +
-        "TITLE:WhatsApp Bot Developer\n" +
-        "TEL;type=CELL;type=VOICE;waid=918967360566:+91 8967360566\n" +
-        "END:VCARD";
 
       // ━━━━━ PING RESULT ━━━━━
       await sock.sendMessage(
@@ -47,15 +36,25 @@ module.exports = {
         { quoted: message }
       );
 
+      // ━━━━━ PUTTUS-AI VCARD ━━━━━
+      const vcard =
+        "BEGIN:VCARD\n" +
+        "VERSION:3.0\n" +
+        "N:PUTTUS;BOT;;;\n" +
+        "FN:🌸•𝐏ᴜᴛᴛᴜꜱ•⌲\n" +
+        "ORG:PUTTUS BOT\n" +
+        "TEL;TYPE=CELL;TYPE=VOICE;waid=918967360566:+918967360566\n" +
+        "END:VCARD";
+
       // ━━━━━ SEND VCARD ━━━━━
       await sock.sendMessage(
         chatId,
         {
           contacts: {
-            displayName: "🌸•𝐏𝐮𝐭ᴛᴜꜱ•⌲",
+            displayName: "🌸•𝐏ᴜᴛᴛᴜꜱ•⌲",
             contacts: [
               {
-                displayName: "🌸•𝐏𝐮𝐭ᴛᴜꜱ•⌲",
+                displayName: "🌸•𝐏ᴜᴛᴛᴜꜱ•⌲",
                 vcard: vcard,
               },
             ],
@@ -65,7 +64,7 @@ module.exports = {
       );
 
     } catch (error) {
-      console.error("PUTTUS PING ERROR:", error);
+      console.error("PUTTUS-AI PING ERROR:", error);
 
       await sock.sendMessage(
         message.key.remoteJid,
