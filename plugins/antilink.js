@@ -53,7 +53,7 @@ function getVCard() {
     "BEGIN:VCARD\n" +
     "VERSION:3.0\n" +
     "N:PUTTUS;BOT;;;\n" +
-    "FN:🌸•𝐏ᴜᴛᴛᴜꜱ•⌲\n" +
+    "FN:🌸•𝐏ᴜᴛᴜꜱ•⌲\n" +
     "ORG:PUTTUS BOT\n" +
     "TEL;TYPE=CELL;TYPE=VOICE;waid=919641092392:+919641092392\n" +
     "END:VCARD";
@@ -65,9 +65,12 @@ function getVCard() {
       id: "PUTTUS-" + Date.now(),
       participant: botJid,
     },
+
     message: {
       contactMessage: {
-        displayName: "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
+        displayName:
+          "⎯꯭̽ꪹ𝐏ᴜᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
+
         vcard: vcard,
       },
     },
@@ -80,7 +83,12 @@ function getVCard() {
    SEND TEXT
 ========================================================= */
 
-async function sendText(bot, chatId, text, quoted = null) {
+async function sendText(
+  bot,
+  chatId,
+  text,
+  quoted = null,
+) {
   try {
     const sock = getSock(bot);
 
@@ -97,7 +105,7 @@ async function sendText(bot, chatId, text, quoted = null) {
     return true;
   } catch (error) {
     console.error(
-      "[Pᴜᴛᴛᴜs-Bᴏᴛ] Send text error:",
+      "[Pᴜᴛᴜs-Bᴏᴛ] Send text error:",
       error.message,
     );
 
@@ -106,14 +114,14 @@ async function sendText(bot, chatId, text, quoted = null) {
 }
 
 /* =========================================================
-   SEND TEXT + VCARD
+   SEND TEXT WITH VCARD
 ========================================================= */
 
 async function sendTextWithVCard(
   bot,
   chatId,
   text,
-  quoted = null,
+  mentions = [],
 ) {
   try {
     const sock = getSock(bot);
@@ -128,17 +136,17 @@ async function sendTextWithVCard(
       chatId,
       {
         text,
-        mentions: [],
+        mentions,
       },
       {
-        quoted: quoted || statusQuote,
+        quoted: statusQuote,
       },
     );
 
     return true;
   } catch (error) {
     console.error(
-      "[Pᴜᴛᴛᴜs-Bᴏᴛ] VCard send error:",
+      "[Pᴜᴛᴜs-Bᴏᴛ] VCard send error:",
       error.message,
     );
 
@@ -166,7 +174,7 @@ async function getSetting(chatId) {
     );
   } catch (error) {
     console.error(
-      "[Pᴜᴛᴛᴜs-Bᴏᴛ] Get setting error:",
+      "[Pᴜᴛᴜs-Bᴏᴛ] Get setting error:",
       error.message,
     );
 
@@ -178,7 +186,10 @@ async function getSetting(chatId) {
   }
 }
 
-async function saveSetting(chatId, data) {
+async function saveSetting(
+  chatId,
+  data,
+) {
   try {
     await store.saveSetting(
       chatId,
@@ -189,7 +200,7 @@ async function saveSetting(chatId, data) {
     return true;
   } catch (error) {
     console.error(
-      "[Pᴜᴛᴛᴜs-Bᴏᴛ] Save setting error:",
+      "[Pᴜᴛᴜs-Bᴏᴛ] Save setting error:",
       error.message,
     );
 
@@ -201,30 +212,38 @@ async function saveSetting(chatId, data) {
    ADMIN / OWNER
 ========================================================= */
 
-async function isProtectedUser(bot, message) {
+async function isProtectedUser(
+  bot,
+  message,
+) {
   try {
-    const chatId = getChatId(message);
-    const senderId = getSenderId(message);
+    const chatId =
+      getChatId(message);
+
+    const senderId =
+      getSenderId(message);
 
     if (!chatId || !senderId) {
       return false;
     }
 
-    const owner = await isOwnerOrSudo(
-      senderId,
-      bot,
-      chatId,
-    );
+    const owner =
+      await isOwnerOrSudo(
+        senderId,
+        bot,
+        chatId,
+      );
 
     if (owner) {
       return true;
     }
 
-    const admin = await isAdmin(
-      bot,
-      chatId,
-      senderId,
-    );
+    const admin =
+      await isAdmin(
+        bot,
+        chatId,
+        senderId,
+      );
 
     return Boolean(admin);
   } catch (error) {
@@ -236,15 +255,22 @@ async function isProtectedUser(bot, message) {
    BOT ADMIN
 ========================================================= */
 
-async function isBotAdmin(bot, chatId) {
+async function isBotAdmin(
+  bot,
+  chatId,
+) {
   try {
-    const sock = getSock(bot);
+    const sock =
+      getSock(bot);
 
     if (!sock) {
       return false;
     }
 
-    const metadata = await sock.groupMetadata(chatId);
+    const metadata =
+      await sock.groupMetadata(
+        chatId,
+      );
 
     const botNumber =
       sock.user?.id?.split(":")[0];
@@ -329,29 +355,39 @@ function detectLinkType(text) {
    DELETE MESSAGE
 ========================================================= */
 
-async function deleteMessage(bot, message) {
+async function deleteMessage(
+  bot,
+  message,
+) {
   try {
-    const sock = getSock(bot);
-    const chatId = getChatId(message);
+    const sock =
+      getSock(bot);
+
+    const chatId =
+      getChatId(message);
 
     if (!sock || !chatId) {
       return false;
     }
 
-    const key = message?.key;
+    const key =
+      message?.key;
 
     if (!key) {
       return false;
     }
 
-    await sock.sendMessage(chatId, {
-      delete: key,
-    });
+    await sock.sendMessage(
+      chatId,
+      {
+        delete: key,
+      },
+    );
 
     return true;
   } catch (error) {
     console.error(
-      "[Pᴜᴛᴛᴜs-Bᴏᴛ] Delete error:",
+      "[Pᴜᴛᴜs-Bᴏᴛ] Delete error:",
       error.message,
     );
 
@@ -363,13 +399,25 @@ async function deleteMessage(bot, message) {
    KICK USER
 ========================================================= */
 
-async function kickUser(bot, message) {
+async function kickUser(
+  bot,
+  message,
+) {
   try {
-    const sock = getSock(bot);
-    const chatId = getChatId(message);
-    const senderId = getSenderId(message);
+    const sock =
+      getSock(bot);
 
-    if (!sock || !chatId || !senderId) {
+    const chatId =
+      getChatId(message);
+
+    const senderId =
+      getSenderId(message);
+
+    if (
+      !sock ||
+      !chatId ||
+      !senderId
+    ) {
       return false;
     }
 
@@ -392,7 +440,7 @@ async function kickUser(bot, message) {
     return true;
   } catch (error) {
     console.error(
-      "[Pᴜᴛᴛᴜs-Bᴏᴛ] Kick error:",
+      "[Pᴜᴛᴜs-Bᴏᴛ] Kick error:",
       error.message,
     );
 
@@ -404,19 +452,26 @@ async function kickUser(bot, message) {
    WARN USER
 ========================================================= */
 
-async function warnUser(bot, message) {
-  const chatId = getChatId(message);
-  const senderId = getSenderId(message);
+async function warnUser(
+  bot,
+  message,
+) {
+  const chatId =
+    getChatId(message);
+
+  const senderId =
+    getSenderId(message);
 
   if (!chatId) {
     return false;
   }
 
   const number =
-    senderId?.split("@")[0] || "user";
+    senderId?.split("@")[0] ||
+    "user";
 
   const text =
-    `╭━━〔 Pᴜᴛᴛᴜs-Bᴏᴛ 〕━━╮\n` +
+    `╭━━〔 𝐏ᴜᴛᴜs-𝐁ᴏᴛ 〕━━╮\n` +
     `│\n` +
     `│ 🚫 𝙇𝙄𝙉𝙆 𝘿𝙀𝙏𝙀𝘾𝙏𝙀𝘿\n` +
     `│\n` +
@@ -425,37 +480,14 @@ async function warnUser(bot, message) {
     `│\n` +
     `╰━━━━━━━━━━━━━━━━╯`;
 
-  try {
-    const sock = getSock(bot);
-
-    if (!sock) {
-      return false;
-    }
-
-    const statusQuote = getVCard();
-
-    await sock.sendMessage(
-      chatId,
-      {
-        text,
-        mentions: senderId
-          ? [senderId]
-          : [],
-      },
-      {
-        quoted: statusQuote,
-      },
-    );
-
-    return true;
-  } catch (error) {
-    console.error(
-      "[Pᴜᴛᴛᴜs-Bᴏᴛ] Warn error:",
-      error.message,
-    );
-
-    return false;
-  }
+  return sendTextWithVCard(
+    bot,
+    chatId,
+    text,
+    senderId
+      ? [senderId]
+      : [],
+  );
 }
 
 /* =========================================================
@@ -498,7 +530,7 @@ async function handleAntiLinkCommand(
     await sendText(
       bot,
       chatId,
-      `╭━━〔 Pᴜᴛᴜᴛᴜs-Bᴏᴛ 〕━━╮\n` +
+      `╭━━〔 𝐏ᴜᴛᴜs-𝐁ᴏᴛ 〕━━╮\n` +
         `│\n` +
         `│ ❌ 𝘼𝘿𝙈𝙄𝙉 𝙊𝙉𝙇𝙔\n` +
         `│\n` +
@@ -533,13 +565,14 @@ async function handleAntiLinkCommand(
 
     const action =
       String(
-        setting.action || "delete",
+        setting.action ||
+        "delete",
       ).toUpperCase();
 
     return sendText(
       bot,
       chatId,
-      `╭━━〔 Pᴜᴛᴜᴛᴜs-Bᴏᴛ 〕━━╮\n` +
+      `╭━━〔 𝐏ᴜᴛᴜs-𝐁ᴏᴛ 〕━━╮\n` +
         `│\n` +
         `│ ⿻ 𝙎𝙏𝘼𝙏𝙐𝙎 ➜ ${status}\n` +
         `│ ⿻ 𝘼𝘾𝙏𝙄𝙊𝙉 ➜ ${action}\n` +
@@ -552,15 +585,18 @@ async function handleAntiLinkCommand(
   /* ───────── ON ───────── */
 
   if (command === "on") {
-    await saveSetting(chatId, {
-      ...setting,
-      enabled: true,
-    });
+    await saveSetting(
+      chatId,
+      {
+        ...setting,
+        enabled: true,
+      },
+    );
 
     return sendText(
       bot,
       chatId,
-      `Pᴜᴛᴜᴛᴜs-Bᴏᴛ 𝙀𝙉𝘼𝘽𝙇𝙀𝘿 𝘼𝙉𝙏𝙄𝙇𝙄𝙉𝙆 ✅`,
+      `𝐏ᴜᴛᴜs-𝐁ᴏᴛ 𝙀𝙉𝘼𝘽𝙇𝙀𝘿 𝘼𝙉𝙏𝙄𝙇𝙄𝙉𝙆 ✅`,
       message,
     );
   }
@@ -568,15 +604,18 @@ async function handleAntiLinkCommand(
   /* ───────── OFF ───────── */
 
   if (command === "off") {
-    await saveSetting(chatId, {
-      ...setting,
-      enabled: false,
-    });
+    await saveSetting(
+      chatId,
+      {
+        ...setting,
+        enabled: false,
+      },
+    );
 
     return sendText(
       bot,
       chatId,
-      `Pᴜᴛᴜᴛᴜs-Bᴏᴛ 𝘿𝙄𝙎𝘼𝘽𝙇𝙀𝘿 𝘼𝙉𝙏𝙄𝙇𝙄𝙉𝙆 ❌`,
+      `𝐏ᴜᴛᴜs-𝐁ᴏᴛ 𝘿𝙄𝙎𝘼𝘽𝙇𝙀𝘿 𝘼𝙉𝙏𝙄𝙇𝙄𝙉𝙆 ❌`,
       message,
     );
   }
@@ -584,16 +623,19 @@ async function handleAntiLinkCommand(
   /* ───────── DELETE ───────── */
 
   if (command === "delete") {
-    await saveSetting(chatId, {
-      ...setting,
-      enabled: true,
-      action: "delete",
-    });
+    await saveSetting(
+      chatId,
+      {
+        ...setting,
+        enabled: true,
+        action: "delete",
+      },
+    );
 
     return sendText(
       bot,
       chatId,
-      `Pᴜᴛᴜᴛᴜs-Bᴏᴛ 𝘼𝙉𝙏𝙄𝙇𝙄𝙉𝙆 𝘼𝘾𝙏𝙄𝙊𝙉 ➜ 𝘿𝙀𝙇𝙀𝙏𝙀 🗑️`,
+      `𝐏ᴜᴛᴜs-𝐁ᴏᴛ 𝘼𝙉𝙏𝙄𝙇𝙄𝙉𝙆 𝘼𝘾𝙏𝙄𝙊𝙉 ➜ 𝘿𝙀𝙇𝙀𝙏𝙀 🗑️`,
       message,
     );
   }
@@ -601,16 +643,19 @@ async function handleAntiLinkCommand(
   /* ───────── KICK ───────── */
 
   if (command === "kick") {
-    await saveSetting(chatId, {
-      ...setting,
-      enabled: true,
-      action: "kick",
-    });
+    await saveSetting(
+      chatId,
+      {
+        ...setting,
+        enabled: true,
+        action: "kick",
+      },
+    );
 
     return sendText(
       bot,
       chatId,
-      `Pᴜᴛᴜᴛᴜs-Bᴏᴛ 𝘼𝙉𝙏𝙄𝙇𝙄𝙉𝙆 𝘼𝘾𝙏𝙄𝙊𝙉 ➜ 𝙆𝙄𝘾𝙆 👢`,
+      `𝐏ᴜᴛᴜs-𝐁ᴏᴛ 𝘼𝙉𝙏𝙄𝙇𝙄𝙉𝙆 𝘼𝘾𝙏𝙄𝙊𝙉 ➜ 𝙆𝙄𝘾𝙆 👢`,
       message,
     );
   }
@@ -618,16 +663,19 @@ async function handleAntiLinkCommand(
   /* ───────── WARN ───────── */
 
   if (command === "warn") {
-    await saveSetting(chatId, {
-      ...setting,
-      enabled: true,
-      action: "warn",
-    });
+    await saveSetting(
+      chatId,
+      {
+        ...setting,
+        enabled: true,
+        action: "warn",
+      },
+    );
 
     return sendText(
       bot,
       chatId,
-      `Pᴜᴛᴜᴛᴜs-Bᴏᴛ 𝘼𝙉𝙏𝙄𝙇𝙄𝙉𝙆 𝘼𝘾𝙏𝙄𝙊𝙉 ➜ 𝙒𝘼𝙍𝙉 ⚠️`,
+      `𝐏ᴜᴛᴜs-𝐁ᴏᴛ 𝘼𝙉𝙏𝙄𝙇𝙄𝙉𝙆 𝘼𝘾𝙏𝙄𝙊𝙉 ➜ 𝙒𝘼𝙍𝙉 ⚠️`,
       message,
     );
   }
@@ -637,16 +685,16 @@ async function handleAntiLinkCommand(
   return sendText(
     bot,
     chatId,
-    `╭━━〔 Pᴜᴛᴜᴛᴜs-Bᴏᴛ 〕━━╮
+    `━〔 *𝐏ᴜᴛᴜᴛs-𝐁ᴏᴛ* 〕━
 │
-│ ⿻ .𝙖𝙣𝙩𝙞𝙡𝙞𝙣𝙠 𝙤𝙣
-│ ⿻ .𝙖𝙣𝙩𝙞𝙡𝙞𝙣𝙠 𝙤𝙛𝙛
-│ ⿻ .𝙖𝙣𝙩𝙞𝙡𝙞𝙣𝙠 𝙙𝙚𝙡𝙚𝙩𝙚
-│ ⿻ .𝙖𝙣𝙩𝙞𝙡𝙞𝙣𝙠 𝙠𝙞𝙘𝙠
-│ ⿻ .𝙖𝙣𝙩𝙞𝙡𝙞𝙣𝙠 𝙬𝙖𝙧𝙣
-│ ⿻ .𝙖𝙣𝙩𝙞𝙡𝙞𝙣𝙠 𝙨𝙩𝙖𝙩𝙪𝙨
+│ ❯ *.ᴀɴᴛɪʟɪɴᴋ ᴏɴ*
+│ ❯ *.ᴀɴᴛɪʟɪɴᴋ ᴏғғ*
+│ ❯ *.ᴀɴᴛɪʟɪɴᴋ ᴅᴇʟᴇᴛᴇ*
+│ ❯ *.ᴀɴᴛɪʟɪɴᴋ ᴋɪᴄᴋ*
+│ ❯ *.ᴀɴᴛɪʟɪɴᴋ ᴡᴀʀɴ*
+│ ❯ *.ᴀɴᴛɪʟɪɴᴋ sᴛᴀᴛᴜs*
 │
-╰━━━━━━━━━━━━━━━━╯`,
+╰━`,
     message,
   );
 }
@@ -739,10 +787,10 @@ async function handleIncomingMessage(
         );
 
       if (!kicked) {
-        await sendText(
+        await sendTextWithVCard(
           bot,
           chatId,
-          `╭━━〔 Pᴜᴛᴜᴛᴜs-Bᴏᴛ 〕━━╮\n` +
+          `╭━━〔 𝐏ᴜᴛᴜs-𝐁ᴏᴛ 〕━━╮\n` +
             `│\n` +
             `│ ⚠️ 𝙇𝙄𝙉𝙆 𝘿𝙀𝙏𝙀𝘾𝙏𝙀𝘿\n` +
             `│\n` +
@@ -751,6 +799,8 @@ async function handleIncomingMessage(
             `│\n` +
             `╰━━━━━━━━━━━━━━━━╯`,
         );
+
+        return true;
       }
 
       return true;
@@ -773,7 +823,7 @@ async function handleIncomingMessage(
     return false;
   } catch (error) {
     console.error(
-      "[Pᴜᴛᴜᴛᴜs-Bᴏᴛ] Handler error:",
+      "[Pᴜᴛᴜs-Bᴏᴛ] Handler error:",
       error.message,
     );
 
