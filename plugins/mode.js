@@ -1,18 +1,49 @@
 const store = require("../lib/lightweight_store");
 
 /**
- * Advanced bot mode system with multiple access control options
+ * Advanced bot mode system
+ *
  * Modes:
- * - public: Everyone can use (groups + private)
- * - private: Owner/sudo only
- * - groups: Only works in groups (everyone in groups)
- * - inbox: Only works in private chats (everyone in DM)
- * - self: Owner/sudo only (alias for private)
+ * - public  : Everyone can use
+ * - private : Owner/sudo only
+ * - groups  : Groups only
+ * - inbox   : Private chats only
+ * - self    : Owner/sudo only
  */
+
 async function modeCommand(sock, message, args, context) {
   const { chatId, channelInfo } = context;
 
-  const senderId = message.key.participant || message.key.remoteJid;
+  // ━━━━━ PUTTUS VCARD ━━━━━
+  const botJid = "919641092392@s.whatsapp.net";
+
+  const vcard =
+    "BEGIN:VCARD\n" +
+    "VERSION:3.0\n" +
+    "N:PUTTUS;BOT;;;\n" +
+    "FN:🌸•𝐏ᴜᴛᴛᴜꜱ•⌲\n" +
+    "ORG:PUTTUS BOT\n" +
+    "TEL;TYPE=CELL;TYPE=VOICE;waid=919641092392:+919641092392\n" +
+    "END:VCARD";
+
+  // ━━━━━ STATUS-STYLE CONTACT PREVIEW ━━━━━
+  const statusQuote = {
+    key: {
+      remoteJid: "status@broadcast",
+      fromMe: false,
+      id: "PUTTUS-" + Date.now(),
+      participant: botJid,
+    },
+    message: {
+      contactMessage: {
+        displayName:
+          "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
+        vcard: vcard,
+      },
+    },
+  };
+
+  // ━━━━━ OWNER / SUDO CHECK ━━━━━
   const isOwnerOrSudoCheck =
     message.key.fromMe ||
     context.senderIsOwnerOrSudo ||
@@ -22,17 +53,30 @@ async function modeCommand(sock, message, args, context) {
     return await sock.sendMessage(
       chatId,
       {
-        text: "❌ Only the owner or sudo users can change bot mode!",
+        text:
+          "❌ ᴏɴʟʏ ᴛʜᴇ ᴏᴡɴᴇʀ ᴏʀ sᴜᴅᴏ ᴜsᴇʀs ᴄᴀɴ ᴄʜᴀɴɢᴇ Pᴜᴛᴛᴜs-Bᴏᴛ ᴍᴏᴅᴇ!",
         ...channelInfo,
       },
-      { quoted: message },
+      {
+        quoted: statusQuote,
+      },
     );
   }
 
-  const subCommand = args[0]?.toLowerCase();
-  const currentMode = (await store.getBotMode()) || "public";
+  const subCommand =
+    args[0]?.toLowerCase();
 
-  if (!subCommand || subCommand === "status" || subCommand === "check") {
+  const currentMode =
+    (await store.getBotMode()) || "public";
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // MODE STATUS
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  if (
+    !subCommand ||
+    subCommand === "status" ||
+    subCommand === "check"
+  ) {
     const modeEmojis = {
       public: "🌍",
       private: "🔒",
@@ -42,32 +86,73 @@ async function modeCommand(sock, message, args, context) {
     };
 
     const modeDescriptions = {
-      public: "Everyone can use bot (groups + private chats)",
-      private: "Only owner and sudo users can use bot",
-      groups: "Only works in group chats (everyone in groups)",
-      inbox: "Only works in private chats (everyone in DMs)",
-      self: "Owner and sudo only (same as private)",
+      public:
+        "ᴇᴠᴇʀʏᴏɴᴇ ᴄᴀɴ ᴜsᴇ Pᴜᴛᴛᴜs-Bᴏᴛ (ɢʀᴏᴜᴘs + ᴘʀɪᴠᴀᴛᴇ ᴄʜᴀᴛs)",
+
+      private:
+        "ᴏɴʟʏ ᴏᴡɴᴇʀ ᴀɴᴅ sᴜᴅᴏ ᴜsᴇʀs ᴄᴀɴ ᴜsᴇ Pᴜᴛᴛᴜs-Bᴏᴛ",
+
+      groups:
+        "ᴏɴʟʏ ᴡᴏʀᴋs ɪɴ ɢʀᴏᴜᴘ ᴄʜᴀᴛs (ᴇᴠᴇʀʏᴏɴᴇ ɪɴ ɢʀᴏᴜᴘs)",
+
+      inbox:
+        "ᴏɴʟʏ ᴡᴏʀᴋs ɪɴ ᴘʀɪᴠᴀᴛᴇ ᴄʜᴀᴛs (ᴇᴠᴇʀʏᴏɴᴇ ɪɴ Dᴍs)",
+
+      self:
+        "ᴏᴡɴᴇʀ ᴀɴᴅ sᴜᴅᴏ ᴏɴʟʏ (sᴀᴍᴇ ᴀs ᴘʀɪᴠᴀᴛᴇ)",
     };
 
-    let statusText = `📊 *BOT MODE STATUS*\n\n`;
-    statusText += `Current Mode: ${modeEmojis[currentMode]} *${currentMode.toUpperCase()}*\n`;
-    statusText += `Description: ${modeDescriptions[currentMode]}\n\n`;
-    statusText += `━━━━━━━━━━━━━━━━━━━━\n\n`;
-    statusText += `*Available Modes:*\n\n`;
+    let statusText =
+      `📊 ʙᴏᴛ ᴍᴏᴅᴇ sᴛᴀᴛᴜs\n\n`;
 
-    Object.entries(modeDescriptions).forEach(([mode, desc]) => {
-      const current = mode === currentMode ? "✓ " : "";
-      statusText += `${current}${modeEmojis[mode]} \`${mode}\`\n${desc}\n\n`;
-    });
+    statusText +=
+      `ᴄᴜʀʀᴇɴᴛ ᴍᴏᴅᴇ: ${modeEmojis[currentMode]} ${currentMode.toUpperCase()}\n`;
 
-    statusText += `*Usage:*\n`;
-    statusText += `• \`.mode <mode>\` - Change mode\n`;
-    statusText += `• \`.mode status\` - Show current mode\n\n`;
-    statusText += `*Examples:*\n`;
-    statusText += `• \`.mode public\` - Enable for everyone\n`;
-    statusText += `• \`.mode groups\` - Groups only\n`;
-    statusText += `• \`.mode inbox\` - Private chats only\n`;
-    statusText += `• \`.mode private\` - Owner/sudo only`;
+    statusText +=
+      `ᴅᴇsᴄʀɪᴘᴛɪᴏɴ: ${modeDescriptions[currentMode]}\n\n`;
+
+    statusText +=
+      `━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+    statusText +=
+      `ᴀᴠᴀɪʟᴀʙʟᴇ ᴍᴏᴅᴇs:\n\n`;
+
+    Object.entries(modeDescriptions).forEach(
+      ([mode, desc]) => {
+        const current =
+          mode === currentMode
+            ? "✓ "
+            : "";
+
+        statusText +=
+          `${current}${modeEmojis[mode]} "${mode.toUpperCase()}"\n`;
+
+        statusText +=
+          `${desc}\n\n`;
+      },
+    );
+
+    statusText += `ᴜsᴀɢᴇ:\n`;
+
+    statusText +=
+      `• ".ᴍᴏᴅᴇ <ᴍᴏᴅᴇ>" - ᴄʜᴀɴɢᴇ ᴍᴏᴅᴇ\n`;
+
+    statusText +=
+      `• ".ᴍᴏᴅᴇ sᴛᴀᴛᴜs" - sʜᴏᴡ ᴄᴜʀʀᴇɴᴛ ᴍᴏᴅᴇ\n\n`;
+
+    statusText += `ᴇxᴀᴍᴘʟᴇs:\n`;
+
+    statusText +=
+      `• ".ᴍᴏᴅᴇ ᴘᴜʙʟɪᴄ" - ᴇɴᴀʙʟᴇ ғᴏʀ ᴇᴠᴇʀʏᴏɴᴇ\n`;
+
+    statusText +=
+      `• ".ᴍᴏᴅᴇ ɢʀᴏᴜᴘs" - ɢʀᴏᴜᴘs ᴏɴʟʏ\n`;
+
+    statusText +=
+      `• ".ᴍᴏᴅᴇ ɪɴʙᴏx" - ᴘʀɪᴠᴀᴛᴇ ᴄʜᴀᴛs ᴏɴʟʏ\n`;
+
+    statusText +=
+      `• ".ᴍᴏᴅᴇ ᴘʀɪᴠᴀᴛᴇ" - ᴏᴡɴᴇʀ + sᴜᴅᴏ ᴏɴʟʏ`;
 
     return await sock.sendMessage(
       chatId,
@@ -75,23 +160,42 @@ async function modeCommand(sock, message, args, context) {
         text: statusText,
         ...channelInfo,
       },
-      { quoted: message },
+      {
+        quoted: statusQuote,
+      },
     );
   }
 
-  const validModes = ["public", "private", "groups", "inbox", "self"];
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // VALID MODES
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const validModes = [
+    "public",
+    "private",
+    "groups",
+    "inbox",
+    "self",
+  ];
 
   if (!validModes.includes(subCommand)) {
     return await sock.sendMessage(
       chatId,
       {
-        text: `❌ Invalid mode: *${subCommand}*\n\nValid modes: ${validModes.join(", ")}\n\nUse \`.mode\` to see all available modes.`,
+        text:
+          `❌ ɪɴᴠᴀʟɪᴅ ᴍᴏᴅᴇ: "${subCommand}"\n\n` +
+          `ᴠᴀʟɪᴅ ᴍᴏᴅᴇs: ${validModes.join(", ")}\n\n` +
+          `ᴜsᴇ ".ᴍᴏᴅᴇ" ᴛᴏ sᴇᴇ ᴀʟʟ ᴀᴠᴀɪʟᴀʙʟᴇ ᴍᴏᴅᴇs.`,
         ...channelInfo,
       },
-      { quoted: message },
+      {
+        quoted: statusQuote,
+      },
     );
   }
 
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // SAVE MODE
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   await store.setBotMode(subCommand);
 
   const modeEmojis = {
@@ -103,21 +207,37 @@ async function modeCommand(sock, message, args, context) {
   };
 
   const modeMessages = {
-    public: "Bot is now accessible to *everyone* in groups and private chats.",
-    private: "Bot is now restricted to *owner and sudo users only*.",
+    public:
+      "ʙᴏᴛ ɪs ɴᴏᴡ ᴀᴄᴄᴇssɪʙʟᴇ ᴛᴏ *ᴇᴠᴇʀʏᴏɴᴇ* ɪɴ ɢʀᴏᴜᴘs ᴀɴᴅ ᴘʀɪᴠᴀᴛᴇ ᴄʜᴀᴛs.",
+
+    private:
+      "ʙᴏᴛ ɪs ɴᴏᴡ ʀᴇsᴛʀɪᴄᴛᴇᴅ ᴛᴏ *ᴏᴡɴᴇʀ ᴀɴᴅ sᴜᴅᴏ ᴜsᴇʀs ᴏɴʟʏ*.",
+
     groups:
-      "Bot now works *only in group chats* (all group members can use it).",
-    inbox: "Bot now works *only in private chats* (all users can DM the bot).",
-    self: "Bot is now restricted to *owner and sudo users only*.",
+      "ʙᴏᴛ ɴᴏᴡ ᴡᴏʀᴋs *ᴏɴʟʏ ɪɴ ɢʀᴏᴜᴘ ᴄʜᴀᴛs* (ᴀʟʟ ɢʀᴏᴜᴘ ᴍᴇᴍʙᴇʀs ᴄᴀɴ ᴜsᴇ ɪᴛ).",
+
+    inbox:
+      "ʙᴏᴛ ɴᴏᴡ ᴡᴏʀᴋs *ᴏɴʟʏ ɪɴ ᴘʀɪᴠᴀᴛᴇ ᴄʜᴀᴛs* (ᴀʟʟ ᴜsᴇʀs ᴄᴀɴ DM ᴛʜᴇ ʙᴏᴛ).",
+
+    self:
+      "ʙᴏᴛ ɪs ɴᴏᴡ ʀᴇsᴛʀɪᴄᴛᴇᴅ ᴛᴏ *ᴏᴡɴᴇʀ ᴀɴᴅ sᴜᴅᴏ ᴜsᴇʀs ᴏɴʟʏ*.",
   };
 
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // MODE CHANGED RESPONSE
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   await sock.sendMessage(
     chatId,
     {
-      text: `${modeEmojis[subCommand]} *Mode Changed to ${subCommand.toUpperCase()}*\n\n${modeMessages[subCommand]}\n\n_Use \`.mode status\` to check current mode._`,
+      text:
+        `${modeEmojis[subCommand]} ᴍᴏᴅᴇ ᴄʜᴀɴɢᴇᴅ ᴛᴏ ${subCommand.toUpperCase()}\n\n` +
+        `${modeMessages[subCommand]}\n\n` +
+        `_ᴜsᴇ ".ᴍᴏᴅᴇ sᴛᴀᴛᴜs" ᴛᴏ ᴄʜᴇᴄᴋ ᴄᴜʀʀᴇɴᴛ ᴍᴏᴅᴇ._`,
       ...channelInfo,
     },
-    { quoted: message },
+    {
+      quoted: statusQuote,
+    },
   );
 }
 
@@ -125,9 +245,14 @@ module.exports = {
   command: "mode",
   aliases: ["botmode", "setmode"],
   category: "owner",
+
   description:
     "Advanced bot access control - Set who can use the bot and where",
-  usage: ".mode [public|private|groups|inbox|self|status]",
+
+  usage:
+    ".mode [public|private|groups|inbox|self|status]",
+
   ownerOnly: true,
+
   handler: modeCommand,
 };
