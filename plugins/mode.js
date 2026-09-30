@@ -21,7 +21,7 @@ async function modeCommand(sock, message, args, context) {
     "BEGIN:VCARD\n" +
     "VERSION:3.0\n" +
     "N:PUTTUS;BOT;;;\n" +
-    "FN:🌸•𝐏ᴜᴛᴛᴜꜱ•⌲\n" +
+    "FN:🌸•𝐏ᴜᴛᴜᴛᴜꜱ•⌲\n" +
     "ORG:PUTTUS BOT\n" +
     "TEL;TYPE=CELL;TYPE=VOICE;waid=919641092392:+919641092392\n" +
     "END:VCARD";
@@ -34,10 +34,11 @@ async function modeCommand(sock, message, args, context) {
       id: "PUTTUS-" + Date.now(),
       participant: botJid,
     },
+
     message: {
       contactMessage: {
         displayName:
-          "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
+          "⎯꯭̽ꪹ𝐏ᴜᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
         vcard: vcard,
       },
     },
@@ -54,7 +55,7 @@ async function modeCommand(sock, message, args, context) {
       chatId,
       {
         text:
-          "❌ ᴏɴʟʏ ᴛʜᴇ ᴏᴡɴᴇʀ ᴏʀ sᴜᴅᴏ ᴜsᴇʀs ᴄᴀɴ ᴄʜᴀɴɢᴇ Pᴜᴛᴛᴜs-Bᴏᴛ ᴍᴏᴅᴇ!",
+          "❌ ᴏɴʟʏ ᴛʜᴇ ᴏᴡɴᴇʀ ᴏʀ sᴜᴅᴏ ᴜsᴇʀs ᴄᴀɴ ᴄʜᴀɴɢᴇ Pᴜᴛᴜs-Bᴏᴛ ᴍᴏᴅᴇ!",
         ...channelInfo,
       },
       {
@@ -72,6 +73,7 @@ async function modeCommand(sock, message, args, context) {
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // MODE STATUS
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
   if (
     !subCommand ||
     subCommand === "status" ||
@@ -85,74 +87,19 @@ async function modeCommand(sock, message, args, context) {
       self: "👤",
     };
 
-    const modeDescriptions = {
-      public:
-        "ᴇᴠᴇʀʏᴏɴᴇ ᴄᴀɴ ᴜsᴇ Pᴜᴛᴛᴜs-Bᴏᴛ (ɢʀᴏᴜᴘs + ᴘʀɪᴠᴀᴛᴇ ᴄʜᴀᴛs)",
+    const currentEmoji =
+      modeEmojis[currentMode] || "🌍";
 
-      private:
-        "ᴏɴʟʏ ᴏᴡɴᴇʀ ᴀɴᴅ sᴜᴅᴏ ᴜsᴇʀs ᴄᴀɴ ᴜsᴇ Pᴜᴛᴛᴜs-Bᴏᴛ",
-
-      groups:
-        "ᴏɴʟʏ ᴡᴏʀᴋs ɪɴ ɢʀᴏᴜᴘ ᴄʜᴀᴛs (ᴇᴠᴇʀʏᴏɴᴇ ɪɴ ɢʀᴏᴜᴘs)",
-
-      inbox:
-        "ᴏɴʟʏ ᴡᴏʀᴋs ɪɴ ᴘʀɪᴠᴀᴛᴇ ᴄʜᴀᴛs (ᴇᴠᴇʀʏᴏɴᴇ ɪɴ Dᴍs)",
-
-      self:
-        "ᴏᴡɴᴇʀ ᴀɴᴅ sᴜᴅᴏ ᴏɴʟʏ (sᴀᴍᴇ ᴀs ᴘʀɪᴠᴀᴛᴇ)",
-    };
-
-    let statusText =
-      `📊 ʙᴏᴛ ᴍᴏᴅᴇ sᴛᴀᴛᴜs\n\n`;
-
-    statusText +=
-      `ᴄᴜʀʀᴇɴᴛ ᴍᴏᴅᴇ: ${modeEmojis[currentMode]} ${currentMode.toUpperCase()}\n`;
-
-    statusText +=
-      `ᴅᴇsᴄʀɪᴘᴛɪᴏɴ: ${modeDescriptions[currentMode]}\n\n`;
-
-    statusText +=
-      `━━━━━━━━━━━━━━━━━━━━\n\n`;
-
-    statusText +=
-      `ᴀᴠᴀɪʟᴀʙʟᴇ ᴍᴏᴅᴇs:\n\n`;
-
-    Object.entries(modeDescriptions).forEach(
-      ([mode, desc]) => {
-        const current =
-          mode === currentMode
-            ? "✓ "
-            : "";
-
-        statusText +=
-          `${current}${modeEmojis[mode]} "${mode.toUpperCase()}"\n`;
-
-        statusText +=
-          `${desc}\n\n`;
-      },
-    );
-
-    statusText += `ᴜsᴀɢᴇ:\n`;
-
-    statusText +=
-      `• ".ᴍᴏᴅᴇ <ᴍᴏᴅᴇ>" - ᴄʜᴀɴɢᴇ ᴍᴏᴅᴇ\n`;
-
-    statusText +=
-      `• ".ᴍᴏᴅᴇ sᴛᴀᴛᴜs" - sʜᴏᴡ ᴄᴜʀʀᴇɴᴛ ᴍᴏᴅᴇ\n\n`;
-
-    statusText += `ᴇxᴀᴍᴘʟᴇs:\n`;
-
-    statusText +=
-      `• ".ᴍᴏᴅᴇ ᴘᴜʙʟɪᴄ" - ᴇɴᴀʙʟᴇ ғᴏʀ ᴇᴠᴇʀʏᴏɴᴇ\n`;
-
-    statusText +=
-      `• ".ᴍᴏᴅᴇ ɢʀᴏᴜᴘs" - ɢʀᴏᴜᴘs ᴏɴʟʏ\n`;
-
-    statusText +=
-      `• ".ᴍᴏᴅᴇ ɪɴʙᴏx" - ᴘʀɪᴠᴀᴛᴇ ᴄʜᴀᴛs ᴏɴʟʏ\n`;
-
-    statusText +=
-      `• ".ᴍᴏᴅᴇ ᴘʀɪᴠᴀᴛᴇ" - ᴏᴡɴᴇʀ + sᴜᴅᴏ ᴏɴʟʏ`;
+    const statusText =
+      `📊 *ᴍᴏᴅᴇ sᴛᴀᴛᴜs*\n\n` +
+      `*ᴄᴜʀʀᴇɴᴛ:* ${currentEmoji} *${currentMode}*\n\n` +
+      `⟢ *ᴍᴏᴅᴇs*\n` +
+      `› 🌍 *ᴘᴜʙʟɪᴄ* — ᴇᴠᴇʀʏᴏɴᴇ\n` +
+      `› 🔒 *ᴘʀɪᴠᴀᴛᴇ* — ᴏᴡɴᴇʀ + sᴜᴅᴏ\n` +
+      `› 👥 *ɢʀᴏᴜᴘs* — ɢʀᴏᴜᴘs\n` +
+      `› 💬 *ɪɴʙᴏx* — ᴅᴍs\n` +
+      `› 👤 *sᴇʟғ* — ᴏᴡɴᴇʀ + sᴜᴅᴏ\n\n` +
+      `⌁ *ᴜsᴀɢᴇ:* *.ᴍᴏᴅᴇ <ᴍᴏᴅᴇ>*`;
 
     return await sock.sendMessage(
       chatId,
@@ -169,6 +116,7 @@ async function modeCommand(sock, message, args, context) {
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // VALID MODES
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
   const validModes = [
     "public",
     "private",
@@ -182,9 +130,14 @@ async function modeCommand(sock, message, args, context) {
       chatId,
       {
         text:
-          `❌ ɪɴᴠᴀʟɪᴅ ᴍᴏᴅᴇ: "${subCommand}"\n\n` +
-          `ᴠᴀʟɪᴅ ᴍᴏᴅᴇs: ${validModes.join(", ")}\n\n` +
-          `ᴜsᴇ ".ᴍᴏᴅᴇ" ᴛᴏ sᴇᴇ ᴀʟʟ ᴀᴠᴀɪʟᴀʙʟᴇ ᴍᴏᴅᴇs.`,
+          `❌ *ɪɴᴠᴀʟɪᴅ ᴍᴏᴅᴇ*\n\n` +
+          `⟢ *ᴠᴀʟɪᴅ ᴍᴏᴅᴇs*\n` +
+          `› 🌍 *ᴘᴜʙʟɪᴄ*\n` +
+          `› 🔒 *ᴘʀɪᴠᴀᴛᴇ*\n` +
+          `› 👥 *ɢʀᴏᴜᴘs*\n` +
+          `› 💬 *ɪɴʙᴏx*\n` +
+          `› 👤 *sᴇʟғ*\n\n` +
+          `⌁ *ᴜsᴀɢᴇ:* *.ᴍᴏᴅᴇ <ᴍᴏᴅᴇ>*`,
         ...channelInfo,
       },
       {
@@ -196,6 +149,7 @@ async function modeCommand(sock, message, args, context) {
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // SAVE MODE
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
   await store.setBotMode(subCommand);
 
   const modeEmojis = {
@@ -206,33 +160,45 @@ async function modeCommand(sock, message, args, context) {
     self: "👤",
   };
 
-  const modeMessages = {
+  const modeNames = {
+    public: "ᴘᴜʙʟɪᴄ",
+    private: "ᴘʀɪᴠᴀᴛᴇ",
+    groups: "ɢʀᴏᴜᴘs",
+    inbox: "ɪɴʙᴏx",
+    self: "sᴇʟғ",
+  };
+
+  const modeDescriptions = {
     public:
-      "ʙᴏᴛ ɪs ɴᴏᴡ ᴀᴄᴄᴇssɪʙʟᴇ ᴛᴏ *ᴇᴠᴇʀʏᴏɴᴇ* ɪɴ ɢʀᴏᴜᴘs ᴀɴᴅ ᴘʀɪᴠᴀᴛᴇ ᴄʜᴀᴛs.",
+      "ᴇᴠᴇʀʏᴏɴᴇ ᴄᴀɴ ᴜsᴇ",
 
     private:
-      "ʙᴏᴛ ɪs ɴᴏᴡ ʀᴇsᴛʀɪᴄᴛᴇᴅ ᴛᴏ *ᴏᴡɴᴇʀ ᴀɴᴅ sᴜᴅᴏ ᴜsᴇʀs ᴏɴʟʏ*.",
+      "ᴏᴡɴᴇʀ + sᴜᴅᴏ ᴏɴʟʏ",
 
     groups:
-      "ʙᴏᴛ ɴᴏᴡ ᴡᴏʀᴋs *ᴏɴʟʏ ɪɴ ɢʀᴏᴜᴘ ᴄʜᴀᴛs* (ᴀʟʟ ɢʀᴏᴜᴘ ᴍᴇᴍʙᴇʀs ᴄᴀɴ ᴜsᴇ ɪᴛ).",
+      "ɢʀᴏᴜᴘs ᴏɴʟʏ",
 
     inbox:
-      "ʙᴏᴛ ɴᴏᴡ ᴡᴏʀᴋs *ᴏɴʟʏ ɪɴ ᴘʀɪᴠᴀᴛᴇ ᴄʜᴀᴛs* (ᴀʟʟ ᴜsᴇʀs ᴄᴀɴ DM ᴛʜᴇ ʙᴏᴛ).",
+      "ᴅᴍs ᴏɴʟʏ",
 
     self:
-      "ʙᴏᴛ ɪs ɴᴏᴡ ʀᴇsᴛʀɪᴄᴛᴇᴅ ᴛᴏ *ᴏᴡɴᴇʀ ᴀɴᴅ sᴜᴅᴏ ᴜsᴇʀs ᴏɴʟʏ*.",
+      "ᴏᴡɴᴇʀ + sᴜᴅᴏ ᴏɴʟʏ",
   };
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // MODE CHANGED RESPONSE
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  await sock.sendMessage(
+
+  const changedText =
+    `${modeEmojis[subCommand]} *ᴍᴏᴅᴇ ᴄʜᴀɴɢᴇᴅ*\n\n` +
+    `*ᴄᴜʀʀᴇɴᴛ:* ${modeEmojis[subCommand]} *${modeNames[subCommand]}*\n` +
+    `⟢ *${modeDescriptions[subCommand]}*\n\n` +
+    `⌁ *ᴜsᴇ:* *.ᴍᴏᴅᴇ sᴛᴀᴛᴜs*`;
+
+  return await sock.sendMessage(
     chatId,
     {
-      text:
-        `${modeEmojis[subCommand]} ᴍᴏᴅᴇ ᴄʜᴀɴɢᴇᴅ ᴛᴏ ${subCommand.toUpperCase()}\n\n` +
-        `${modeMessages[subCommand]}\n\n` +
-        `_ᴜsᴇ ".ᴍᴏᴅᴇ sᴛᴀᴛᴜs" ᴛᴏ ᴄʜᴇᴄᴋ ᴄᴜʀʀᴇɴᴛ ᴍᴏᴅᴇ._`,
+      text: changedText,
       ...channelInfo,
     },
     {
@@ -243,7 +209,12 @@ async function modeCommand(sock, message, args, context) {
 
 module.exports = {
   command: "mode",
-  aliases: ["botmode", "setmode"],
+
+  aliases: [
+    "botmode",
+    "setmode",
+  ],
+
   category: "owner",
 
   description:
