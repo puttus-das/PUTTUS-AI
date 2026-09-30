@@ -11,7 +11,9 @@ module.exports = {
       const chatId = message.key.remoteJid;
       const start = Date.now();
 
-      // ━━━━━ PUTTUS VCard TEXT ━━━━━
+      // ━━━━━ PUTTUS VCARD ━━━━━
+      const botJid = "918967360566@s.whatsapp.net";
+
       const vcard =
         "BEGIN:VCARD\n" +
         "VERSION:3.0\n" +
@@ -21,18 +23,25 @@ module.exports = {
         "TEL;TYPE=CELL;TYPE=VOICE;waid=918967360566:+918967360566\n" +
         "END:VCARD";
 
-      // VCard text — NO CONTACT CARD
-      await sock.sendMessage(
-        chatId,
-        {
-          text: vcard,
+      // ━━━━━ STATUS-STYLE CONTACT PREVIEW ━━━━━
+      const statusQuote = {
+        key: {
+          remoteJid: "status@broadcast",
+          fromMe: false,
+          id: "PUTTUS-" + Date.now(),
+          participant: botJid,
         },
-        { quoted: message }
-      );
+        message: {
+          contactMessage: {
+            displayName: "🌸•𝐏ᴜᴛᴛᴜꜱ•⌲",
+            vcard: vcard,
+          },
+        },
+      };
 
       const speed = Date.now() - start;
 
-      // ━━━━━ PING RESULT ━━━━━
+      // ━━━━━ PING RESULT WITH STATUS-STYLE VCARD ━━━━━
       await sock.sendMessage(
         chatId,
         {
@@ -43,7 +52,9 @@ module.exports = {
             "│ 🤖 Bot : PUTTUS-AI\n" +
             "╰─❖ 𝐏𝐔𝐓𝐓𝐔𝐒 ❖─╯",
         },
-        { quoted: message }
+        {
+          quoted: statusQuote,
+        }
       );
 
     } catch (error) {
