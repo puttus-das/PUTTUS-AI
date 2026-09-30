@@ -12,7 +12,7 @@ module.exports = {
       const start = Date.now();
 
       // ━━━━━ PUTTUS VCARD ━━━━━
-      const botJid = "918967360566@s.whatsapp.net";
+      const botJid = "919641092392@s.whatsapp.net";
 
       const vcard =
         "BEGIN:VCARD\n" +
@@ -20,7 +20,7 @@ module.exports = {
         "N:PUTTUS;BOT;;;\n" +
         "FN:🌸•𝐏ᴜᴛᴛᴜꜱ•⌲\n" +
         "ORG:PUTTUS BOT\n" +
-        "TEL;TYPE=CELL;TYPE=VOICE;waid=918967360566:+918967360566\n" +
+        "TEL;TYPE=CELL;TYPE=VOICE;waid=919641092392:+919641092392\n" +
         "END:VCARD";
 
       // ━━━━━ STATUS-STYLE CONTACT PREVIEW ━━━━━
@@ -33,7 +33,7 @@ module.exports = {
         },
         message: {
           contactMessage: {
-            displayName: "🌸•𝐏ᴜᴛᴛᴜꜱ•⌲",
+            displayName: "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
             vcard: vcard,
           },
         },
