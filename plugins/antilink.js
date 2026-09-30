@@ -3,44 +3,6 @@ const isOwnerOrSudo = require("../lib/isOwner");
 const isAdmin = require("../lib/isAdmin");
 
 /* =========================================================
-   Pᴜᴛᴛᴜs-Bᴏᴛ VCARD
-========================================================= */
-
-const botJid = "919641092392@s.whatsapp.net";
-
-const PUTTUS_VCARD =
-  "BEGIN:VCARD\n" +
-  "VERSION:3.0\n" +
-  "N:PUTTUS;BOT;;;\n" +
-  "FN:🌸•𝐏ᴜᴛᴛᴜꜱ•⌲\n" +
-  "ORG:PUTTUS BOT\n" +
-  "TEL;TYPE=CELL;TYPE=VOICE;waid=919641092392:+919641092392\n" +
-  "END:VCARD";
-
-const VCARD_DISPLAY_NAME = "Pᴜᴛᴛᴜs-Bᴏᴛ";
-
-/* =========================================================
-   STATUS-STYLE VCARD QUOTE
-========================================================= */
-
-function getStatusQuote() {
-  return {
-    key: {
-      remoteJid: "status@broadcast",
-      fromMe: false,
-      id: "PUTTUS-" + Date.now(),
-      participant: botJid,
-    },
-    message: {
-      contactMessage: {
-        displayName: VCARD_DISPLAY_NAME,
-        vcard: PUTTUS_VCARD,
-      },
-    },
-  };
-}
-
-/* =========================================================
    HELPERS
 ========================================================= */
 
@@ -49,10 +11,7 @@ function getSock(bot) {
     return bot;
   }
 
-  if (
-    bot?.sock &&
-    typeof bot.sock.sendMessage === "function"
-  ) {
+  if (bot?.sock && typeof bot.sock.sendMessage === "function") {
     return bot.sock;
   }
 
@@ -80,22 +39,48 @@ function getSenderId(message) {
 
 function isGroupMessage(message) {
   const jid = getChatId(message);
+  return Boolean(jid && jid.endsWith("@g.us"));
+}
 
-  return Boolean(
-    jid && jid.endsWith("@g.us"),
-  );
+/* =========================================================
+   PUTTUS VCARD
+========================================================= */
+
+function getVCard() {
+  const botJid = "919641092392@s.whatsapp.net";
+
+  const vcard =
+    "BEGIN:VCARD\n" +
+    "VERSION:3.0\n" +
+    "N:PUTTUS;BOT;;;\n" +
+    "FN:🌸•𝐏ᴜᴛᴛᴜꜱ•⌲\n" +
+    "ORG:PUTTUS BOT\n" +
+    "TEL;TYPE=CELL;TYPE=VOICE;waid=919641092392:+919641092392\n" +
+    "END:VCARD";
+
+  const statusQuote = {
+    key: {
+      remoteJid: "status@broadcast",
+      fromMe: false,
+      id: "PUTTUS-" + Date.now(),
+      participant: botJid,
+    },
+    message: {
+      contactMessage: {
+        displayName: "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
+        vcard: vcard,
+      },
+    },
+  };
+
+  return statusQuote;
 }
 
 /* =========================================================
    SEND TEXT
 ========================================================= */
 
-async function sendText(
-  bot,
-  chatId,
-  text,
-  quoted = null,
-) {
+async function sendText(bot, chatId, text, quoted = null) {
   try {
     const sock = getSock(bot);
 
@@ -106,9 +91,7 @@ async function sendText(
     await sock.sendMessage(
       chatId,
       { text },
-      quoted
-        ? { quoted }
-        : {},
+      quoted ? { quoted } : {},
     );
 
     return true;
@@ -123,12 +106,13 @@ async function sendText(
 }
 
 /* =========================================================
-   SEND Pᴜᴛᴛᴜs-Bᴏᴛ VCARD
+   SEND TEXT + VCARD
 ========================================================= */
 
-async function sendPuttusVCard(
+async function sendTextWithVCard(
   bot,
   chatId,
+  text,
   quoted = null,
 ) {
   try {
@@ -138,27 +122,23 @@ async function sendPuttusVCard(
       return false;
     }
 
+    const statusQuote = getVCard();
+
     await sock.sendMessage(
       chatId,
       {
-        contacts: {
-          displayName: VCARD_DISPLAY_NAME,
-          contacts: [
-            {
-              vcard: PUTTUS_VCARD,
-            },
-          ],
-        },
+        text,
+        mentions: [],
       },
-      quoted
-        ? { quoted }
-        : {},
+      {
+        quoted: quoted || statusQuote,
+      },
     );
 
     return true;
   } catch (error) {
     console.error(
-      "[Pᴜᴛᴛᴜs-Bᴏᴛ] VCard error:",
+      "[Pᴜᴛᴛᴜs-Bᴏᴛ] VCard send error:",
       error.message,
     );
 
@@ -167,46 +147,15 @@ async function sendPuttusVCard(
 }
 
 /* =========================================================
-   SEND TEXT + VCARD
-========================================================= */
-
-async function sendAntiLinkReply(
-  bot,
-  message,
-  text,
-) {
-  const chatId = getChatId(message);
-
-  if (!chatId) {
-    return false;
-  }
-
-  await sendText(
-    bot,
-    chatId,
-    text,
-    message,
-  );
-
-  await sendPuttusVCard(
-    bot,
-    chatId,
-  );
-
-  return true;
-}
-
-/* =========================================================
    SETTINGS
 ========================================================= */
 
 async function getSetting(chatId) {
   try {
-    const setting =
-      await store.getSetting(
-        chatId,
-        "antilink",
-      );
+    const setting = await store.getSetting(
+      chatId,
+      "antilink",
+    );
 
     return (
       setting || {
@@ -229,10 +178,7 @@ async function getSetting(chatId) {
   }
 }
 
-async function saveSetting(
-  chatId,
-  data,
-) {
+async function saveSetting(chatId, data) {
   try {
     await store.saveSetting(
       chatId,
@@ -255,10 +201,7 @@ async function saveSetting(
    ADMIN / OWNER
 ========================================================= */
 
-async function isProtectedUser(
-  bot,
-  message,
-) {
+async function isProtectedUser(bot, message) {
   try {
     const chatId = getChatId(message);
     const senderId = getSenderId(message);
@@ -267,23 +210,21 @@ async function isProtectedUser(
       return false;
     }
 
-    const owner =
-      await isOwnerOrSudo(
-        senderId,
-        bot,
-        chatId,
-      );
+    const owner = await isOwnerOrSudo(
+      senderId,
+      bot,
+      chatId,
+    );
 
     if (owner) {
       return true;
     }
 
-    const admin =
-      await isAdmin(
-        bot,
-        chatId,
-        senderId,
-      );
+    const admin = await isAdmin(
+      bot,
+      chatId,
+      senderId,
+    );
 
     return Boolean(admin);
   } catch (error) {
@@ -295,10 +236,7 @@ async function isProtectedUser(
    BOT ADMIN
 ========================================================= */
 
-async function isBotAdmin(
-  bot,
-  chatId,
-) {
+async function isBotAdmin(bot, chatId) {
   try {
     const sock = getSock(bot);
 
@@ -306,10 +244,7 @@ async function isBotAdmin(
       return false;
     }
 
-    const metadata =
-      await sock.groupMetadata(
-        chatId,
-      );
+    const metadata = await sock.groupMetadata(chatId);
 
     const botNumber =
       sock.user?.id?.split(":")[0];
@@ -325,8 +260,7 @@ async function isBotAdmin(
       metadata.participants.find(
         (p) =>
           p.id === botJid ||
-          p.id?.split(":")[0] ===
-            botNumber,
+          p.id?.split(":")[0] === botNumber,
       );
 
     return Boolean(
@@ -395,10 +329,7 @@ function detectLinkType(text) {
    DELETE MESSAGE
 ========================================================= */
 
-async function deleteMessage(
-  bot,
-  message,
-) {
+async function deleteMessage(bot, message) {
   try {
     const sock = getSock(bot);
     const chatId = getChatId(message);
@@ -413,12 +344,9 @@ async function deleteMessage(
       return false;
     }
 
-    await sock.sendMessage(
-      chatId,
-      {
-        delete: key,
-      },
-    );
+    await sock.sendMessage(chatId, {
+      delete: key,
+    });
 
     return true;
   } catch (error) {
@@ -435,10 +363,7 @@ async function deleteMessage(
    KICK USER
 ========================================================= */
 
-async function kickUser(
-  bot,
-  message,
-) {
+async function kickUser(bot, message) {
   try {
     const sock = getSock(bot);
     const chatId = getChatId(message);
@@ -479,10 +404,7 @@ async function kickUser(
    WARN USER
 ========================================================= */
 
-async function warnUser(
-  bot,
-  message,
-) {
+async function warnUser(bot, message) {
   const chatId = getChatId(message);
   const senderId = getSenderId(message);
 
@@ -510,6 +432,8 @@ async function warnUser(
       return false;
     }
 
+    const statusQuote = getVCard();
+
     await sock.sendMessage(
       chatId,
       {
@@ -519,7 +443,7 @@ async function warnUser(
           : [],
       },
       {
-        quoted: message,
+        quoted: statusQuote,
       },
     );
 
@@ -543,7 +467,8 @@ async function handleAntiLinkCommand(
   message,
   args = [],
 ) {
-  const chatId = getChatId(message);
+  const chatId =
+    getChatId(message);
 
   if (
     !chatId ||
@@ -552,7 +477,8 @@ async function handleAntiLinkCommand(
     return false;
   }
 
-  const senderId = getSenderId(message);
+  const senderId =
+    getSenderId(message);
 
   const owner =
     await isOwnerOrSudo(
@@ -572,7 +498,7 @@ async function handleAntiLinkCommand(
     await sendText(
       bot,
       chatId,
-      `╭━━〔 Pᴜᴛᴛᴜs-Bᴏᴛ 〕━━╮\n` +
+      `╭━━〔 Pᴜᴛᴜᴛᴜs-Bᴏᴛ 〕━━╮\n` +
         `│\n` +
         `│ ❌ 𝘼𝘿𝙈𝙄𝙉 𝙊𝙉𝙇𝙔\n` +
         `│\n` +
@@ -610,117 +536,108 @@ async function handleAntiLinkCommand(
         setting.action || "delete",
       ).toUpperCase();
 
-    return sendAntiLinkReply(
+    return sendText(
       bot,
-      message,
-      `╭━━〔 Pᴜᴛᴛᴜs-Bᴏᴛ 〕━━╮\n` +
+      chatId,
+      `╭━━〔 Pᴜᴛᴜᴛᴜs-Bᴏᴛ 〕━━╮\n` +
         `│\n` +
         `│ ⿻ 𝙎𝙏𝘼𝙏𝙐𝙎 ➜ ${status}\n` +
         `│ ⿻ 𝘼𝘾𝙏𝙄𝙊𝙉 ➜ ${action}\n` +
         `│\n` +
         `╰━━━━━━━━━━━━━━━━╯`,
+      message,
     );
   }
 
   /* ───────── ON ───────── */
 
   if (command === "on") {
-    await saveSetting(
-      chatId,
-      {
-        ...setting,
-        enabled: true,
-      },
-    );
+    await saveSetting(chatId, {
+      ...setting,
+      enabled: true,
+    });
 
-    return sendAntiLinkReply(
+    return sendText(
       bot,
+      chatId,
+      `Pᴜᴛᴜᴛᴜs-Bᴏᴛ 𝙀𝙉𝘼𝘽𝙇𝙀𝘿 𝘼𝙉𝙏𝙄𝙇𝙄𝙉𝙆 ✅`,
       message,
-      `Pᴜᴛᴛᴜs-Bᴏᴛ 𝙀𝙉𝘼𝘽𝙇𝙀𝘿 𝘼𝙉𝙏𝙄𝙇𝙄𝙉𝙆 ✅`,
     );
   }
 
   /* ───────── OFF ───────── */
 
   if (command === "off") {
-    await saveSetting(
-      chatId,
-      {
-        ...setting,
-        enabled: false,
-      },
-    );
+    await saveSetting(chatId, {
+      ...setting,
+      enabled: false,
+    });
 
-    return sendAntiLinkReply(
+    return sendText(
       bot,
+      chatId,
+      `Pᴜᴛᴜᴛᴜs-Bᴏᴛ 𝘿𝙄𝙎𝘼𝘽𝙇𝙀𝘿 𝘼𝙉𝙏𝙄𝙇𝙄𝙉𝙆 ❌`,
       message,
-      `Pᴜᴛᴛᴜs-Bᴏᴛ 𝘿𝙄𝙎𝘼𝘽𝙇𝙀𝘿 𝘼𝙉𝙏𝙄𝙇𝙄𝙉𝙆 ❌`,
     );
   }
 
   /* ───────── DELETE ───────── */
 
   if (command === "delete") {
-    await saveSetting(
-      chatId,
-      {
-        ...setting,
-        enabled: true,
-        action: "delete",
-      },
-    );
+    await saveSetting(chatId, {
+      ...setting,
+      enabled: true,
+      action: "delete",
+    });
 
-    return sendAntiLinkReply(
+    return sendText(
       bot,
+      chatId,
+      `Pᴜᴛᴜᴛᴜs-Bᴏᴛ 𝘼𝙉𝙏𝙄𝙇𝙄𝙉𝙆 𝘼𝘾𝙏𝙄𝙊𝙉 ➜ 𝘿𝙀𝙇𝙀𝙏𝙀 🗑️`,
       message,
-      `Pᴜᴛᴛᴜs-Bᴏᴛ 𝘼𝙉𝙏𝙄𝙇𝙄𝙉𝙆 𝘼𝘾𝙏𝙄𝙊𝙉 ➜ 𝘿𝙀𝙇𝙀𝙏𝙀 🗑️`,
     );
   }
 
   /* ───────── KICK ───────── */
 
   if (command === "kick") {
-    await saveSetting(
-      chatId,
-      {
-        ...setting,
-        enabled: true,
-        action: "kick",
-      },
-    );
+    await saveSetting(chatId, {
+      ...setting,
+      enabled: true,
+      action: "kick",
+    });
 
-    return sendAntiLinkReply(
+    return sendText(
       bot,
+      chatId,
+      `Pᴜᴛᴜᴛᴜs-Bᴏᴛ 𝘼𝙉𝙏𝙄𝙇𝙄𝙉𝙆 𝘼𝘾𝙏𝙄𝙊𝙉 ➜ 𝙆𝙄𝘾𝙆 👢`,
       message,
-      `Pᴜᴛᴛᴜs-Bᴏᴛ 𝘼𝙉𝙏𝙄𝙇𝙄𝙉𝙆 𝘼𝘾𝙏𝙄𝙊𝙉 ➜ 𝙆𝙄𝘾𝙆 👢`,
     );
   }
 
   /* ───────── WARN ───────── */
 
   if (command === "warn") {
-    await saveSetting(
-      chatId,
-      {
-        ...setting,
-        enabled: true,
-        action: "warn",
-      },
-    );
+    await saveSetting(chatId, {
+      ...setting,
+      enabled: true,
+      action: "warn",
+    });
 
-    return sendAntiLinkReply(
+    return sendText(
       bot,
+      chatId,
+      `Pᴜᴛᴜᴛᴜs-Bᴏᴛ 𝘼𝙉𝙏𝙄𝙇𝙄𝙉𝙆 𝘼𝘾𝙏𝙄𝙊𝙉 ➜ 𝙒𝘼𝙍𝙉 ⚠️`,
       message,
-      `Pᴜᴛᴛᴜs-Bᴏᴛ 𝘼𝙉𝙏𝙄𝙇𝙄𝙉𝙆 𝘼𝘾𝙏𝙄𝙊𝙉 ➜ 𝙒𝘼𝙍𝙉 ⚠️`,
     );
   }
 
   /* ───────── HELP ───────── */
 
-  return sendAntiLinkReply(
+  return sendText(
     bot,
-    message,
-    `╭━━〔 Pᴜᴛᴛᴜs-Bᴏᴛ 〕━━╮
+    chatId,
+    `╭━━〔 Pᴜᴛᴜᴛᴜs-Bᴏᴛ 〕━━╮
 │
 │ ⿻ .𝙖𝙣𝙩𝙞𝙡𝙞𝙣𝙠 𝙤𝙣
 │ ⿻ .𝙖𝙣𝙩𝙞𝙡𝙞𝙣𝙠 𝙤𝙛𝙛
@@ -730,6 +647,7 @@ async function handleAntiLinkCommand(
 │ ⿻ .𝙖𝙣𝙩𝙞𝙡𝙞𝙣𝙠 𝙨𝙩𝙖𝙩𝙪𝙨
 │
 ╰━━━━━━━━━━━━━━━━╯`,
+    message,
   );
 }
 
@@ -794,27 +712,16 @@ async function handleIncomingMessage(
     }
 
     const action =
-      setting.action || "delete";
+      setting.action ||
+      "delete";
 
     /* ───────── DELETE ───────── */
 
     if (action === "delete") {
-      const deleted =
-        await deleteMessage(
-          bot,
-          message,
-        );
-
-      if (!deleted) {
-        return false;
-      }
-
-      await sendPuttusVCard(
+      return await deleteMessage(
         bot,
-        chatId,
+        message,
       );
-
-      return true;
     }
 
     /* ───────── KICK ───────── */
@@ -835,7 +742,7 @@ async function handleIncomingMessage(
         await sendText(
           bot,
           chatId,
-          `╭━━〔 Pᴜᴛᴛᴜs-Bᴏᴛ 〕━━╮\n` +
+          `╭━━〔 Pᴜᴛᴜᴛᴜs-Bᴏᴛ 〕━━╮\n` +
             `│\n` +
             `│ ⚠️ 𝙇𝙄𝙉𝙆 𝘿𝙀𝙏𝙀𝘾𝙏𝙀𝘿\n` +
             `│\n` +
@@ -845,11 +752,6 @@ async function handleIncomingMessage(
             `╰━━━━━━━━━━━━━━━━╯`,
         );
       }
-
-      await sendPuttusVCard(
-        bot,
-        chatId,
-      );
 
       return true;
     }
@@ -862,23 +764,16 @@ async function handleIncomingMessage(
         message,
       );
 
-      await warnUser(
+      return await warnUser(
         bot,
         message,
       );
-
-      await sendPuttusVCard(
-        bot,
-        chatId,
-      );
-
-      return true;
     }
 
     return false;
   } catch (error) {
     console.error(
-      "[Pᴜᴛᴛᴜs-Bᴏᴛ] Handler error:",
+      "[Pᴜᴛᴜᴛᴜs-Bᴏᴛ] Handler error:",
       error.message,
     );
 
@@ -912,6 +807,4 @@ module.exports = {
 
   handleLinkDetection:
     handleIncomingMessage,
-
-  sendPuttusVCard,
 };
