@@ -39,18 +39,13 @@ module.exports = {
         },
       };
 
-      const speed = Date.now() - start;
+      // ━━━━━ PING ━━━━━
+      const ping = Date.now() - start;
 
-      // ━━━━━ PING RESULT WITH STATUS-STYLE VCARD ━━━━━
       await sock.sendMessage(
         chatId,
         {
-          text:
-            "╭─❖ 𝐏𝐔𝐓𝐓𝐔𝐒 𝐏𝐈𝐍𝐆 ❖─╮\n" +
-            `│ ⚡ Speed : ${speed} ms\n` +
-            "│ 🟢 Status : Online\n" +
-            "│ 🤖 Bot : PUTTUS-AI\n" +
-            "╰─❖ 𝐏𝐔𝐓𝐓𝐔𝐒 ❖─╯",
+          text: `*━[ 𝐏ᴜᴛᴛᴜꜱ - ${ping} 𝐃ᴀs⎯꯭̽💜 ]━*`,
         },
         {
           quoted: statusQuote,
@@ -67,7 +62,9 @@ module.exports = {
             "❌ *PING ERROR*\n\n" +
             `└─ ${error.message}`,
         },
-        { quoted: message }
+        {
+          quoted: message,
+        }
       );
     }
   },
