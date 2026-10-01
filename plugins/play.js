@@ -36,21 +36,25 @@ module.exports = {
         try {
           await wait(1000);
 
-          const response = await axios.get(url, {
-            timeout: 45000,
+          const response = await axios.get(
+            url,
+            {
+              timeout: 45000,
 
-            headers: {
-              "User-Agent":
-                "Mozilla/5.0",
-              Accept:
-                "application/json",
-            },
-          });
+              headers: {
+                "User-Agent":
+                  "Mozilla/5.0",
+                Accept:
+                  "application/json",
+              },
+            }
+          );
 
           return response;
         } catch (error) {
           const retryable =
-            error.response?.status === 429 ||
+            error.response?.status ===
+              429 ||
             error.code ===
               "ECONNABORTED" ||
             error.code ===
@@ -103,7 +107,7 @@ module.exports = {
       }
 
       // =======================================================
-      // SEARCH MESSAGE
+      // SEARCH
       // =======================================================
 
       await sock.sendMessage(
@@ -116,10 +120,6 @@ module.exports = {
           quoted: message,
         }
       );
-
-      // =======================================================
-      // SPOTIFY SEARCH
-      // =======================================================
 
       const searchUrl =
         "https://api.qasimdev.dpdns.org/api/spotify/search" +
@@ -160,7 +160,7 @@ module.exports = {
 
       if (!spotifyUrl) {
         throw new Error(
-          "Spotify URL was not returned by the API."
+          "Spotify URL not found."
         );
       }
 
@@ -214,54 +214,15 @@ module.exports = {
         songData.artist ||
         "Unknown Artist";
 
-      // =======================================================
-      // DOWNLOAD MP3 AS BUFFER
-      // =======================================================
-
-      console.log(
-        "Downloading MP3..."
-      );
-
-      const audioResponse =
-        await axios.get(
-          audioUrl,
-          {
-            responseType:
-              "arraybuffer",
-
-            timeout: 120000,
-
-            maxContentLength:
-              100 * 1024 * 1024,
-
-            maxBodyLength:
-              100 * 1024 * 1024,
-
-            headers: {
-              "User-Agent":
-                "Mozilla/5.0",
-
-              Accept:
-                "audio/mpeg,audio/*,*/*",
-            },
-          }
-        );
-
-      const audioBuffer =
-        Buffer.from(
-          audioResponse.data
-        );
-
-      if (
-        !audioBuffer.length
-      ) {
+      if (!audioUrl) {
         throw new Error(
-          "Downloaded audio file is empty."
+          "Audio download URL is missing."
         );
       }
 
       console.log(
-        `MP3 received: ${audioBuffer.length} bytes`
+        "Audio URL:",
+        audioUrl
       );
 
       // =======================================================
@@ -303,7 +264,7 @@ module.exports = {
       };
 
       // =======================================================
-      // SEND PUTTUS VCARD
+      // SEND VCARD
       // =======================================================
 
       const vcardMessage =
@@ -330,14 +291,15 @@ module.exports = {
         );
 
       // =======================================================
-      // SEND MP3
+      // SEND MP3 DIRECTLY FROM API URL
       // =======================================================
 
       await sock.sendMessage(
         chatId,
         {
-          audio:
-            audioBuffer,
+          audio: {
+            url: audioUrl,
+          },
 
           mimetype:
             "audio/mpeg",
@@ -345,8 +307,8 @@ module.exports = {
           fileName:
             `${title} - ${artist}.mp3`,
 
-          // Normal WhatsApp audio
-          // player, NOT voice note.
+          // Normal long WhatsApp
+          // music player
           ptt: false,
 
           contextInfo: {
@@ -365,7 +327,7 @@ module.exports = {
 
     } catch (error) {
       // =======================================================
-      // ERROR HANDLER
+      // ERROR
       // =======================================================
 
       console.error(
@@ -393,7 +355,7 @@ module.exports = {
           "*Reason:* Rate limit exceeded\n" +
           "Please wait a little and try again.";
       } else if (
-        error.response
+        error.response?.status
       ) {
         errorMsg +=
           `*Status:* ${error.response.status}\n` +
@@ -418,3 +380,7 @@ module.exports = {
     }
   },
 };
+
+এবার flow হবে: ".play song" → search → PUTTUS VCard → normal "audio/mpeg" MP3 long player, এবং MP3-এর message-এ তোমার Puttus Das channel-forward info থাকবে।
+
+একটা জিনিস খেয়াল রেখো: যদি এই version-এও "404" আসে, তাহলে সেটা আর MP3 Buffer code-এর সমস্যা নয়—API যে "download" URL দিচ্ছে সেটাই 404/expired, তখন API endpoint বদলাতে হবে।
