@@ -18,40 +18,41 @@ module.exports = {
   async handler(sock, message, args, context = {}) {
     const chatId = context.chatId || message.key.remoteJid;
 
+    // ━━━━━ PUTTUS VCARD ━━━━━
+    const botJid = "919641092392@s.whatsapp.net";
+
+    const vcard =
+      "BEGIN:VCARD\n" +
+      "VERSION:3.0\n" +
+      "N:PUTTUS;BOT;;;\n" +
+      "FN:🌸•𝐏ᴜᴛᴛᴜꜱ•⌲\n" +
+      "ORG:PUTTUS BOT\n" +
+      "TEL;TYPE=CELL;TYPE=VOICE;waid=919641092392:+919641092392\n" +
+      "END:VCARD";
+
+    // ━━━━━ STATUS-STYLE CONTACT PREVIEW ━━━━━
+    const statusQuote = {
+      key: {
+        remoteJid: "status@broadcast",
+        fromMe: false,
+        id: "PUTTUS-" + Date.now(),
+        participant: botJid,
+      },
+      message: {
+        contactMessage: {
+          displayName: "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
+          vcard: vcard,
+        },
+      },
+    };
+
     const url =
-      args.join(" ") ||
+      args.join(" ").trim() ||
       message.message?.conversation ||
-      message.message?.extendedTextMessage?.text;
+      message.message?.extendedTextMessage?.text ||
+      "";
 
     try {
-      // ━━━━━ PUTTUS VCARD ━━━━━
-      const botJid = "919641092392@s.whatsapp.net";
-
-      const vcard =
-        "BEGIN:VCARD\n" +
-        "VERSION:3.0\n" +
-        "N:PUTTUS;BOT;;;\n" +
-        "FN:🌸•𝐏ᴜᴛᴛᴜꜱ•⌲\n" +
-        "ORG:PUTTUS BOT\n" +
-        "TEL;TYPE=CELL;TYPE=VOICE;waid=919641092392:+919641092392\n" +
-        "END:VCARD";
-
-      // ━━━━━ STATUS-STYLE CONTACT PREVIEW ━━━━━
-      const statusQuote = {
-        key: {
-          remoteJid: "status@broadcast",
-          fromMe: false,
-          id: "PUTTUS-" + Date.now(),
-          participant: botJid,
-        },
-        message: {
-          contactMessage: {
-            displayName: "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
-            vcard: vcard,
-          },
-        },
-      };
-
       // ━━━━━ CHECK URL ━━━━━
       if (!url) {
         return await sock.sendMessage(
@@ -97,7 +98,14 @@ module.exports = {
           url
         )}&apikey=APIKEY`;
 
+      console.log("Facebook API:", apiUrl);
+
       const res = await axios.get(apiUrl, AXIOS_DEFAULTS);
+
+      console.log(
+        "Facebook API Response:",
+        JSON.stringify(res.data, null, 2)
+      );
 
       const videos = res?.data?.data?.data;
 
@@ -111,8 +119,8 @@ module.exports = {
 
       // ━━━━━ SORT QUALITY ━━━━━
       const sorted = videos.sort((a, b) => {
-        const qa = parseInt(a.resolution) || 0;
-        const qb = parseInt(b.resolution) || 0;
+        const qa = parseInt(a?.resolution) || 0;
+        const qb = parseInt(b?.resolution) || 0;
 
         return qb - qa;
       });
@@ -148,7 +156,7 @@ module.exports = {
         }
       );
 
-      // ━━━━━ SUCCESS ━━━━━
+      // ━━━━━ SUCCESS REACTION ━━━━━
       await sock.sendMessage(chatId, {
         react: {
           text: "✅",
@@ -159,6 +167,19 @@ module.exports = {
     } catch (err) {
       console.error("Facebook downloader error:", err);
 
+      // ━━━━━ ERROR REACTION ━━━━━
+      try {
+        await sock.sendMessage(chatId, {
+          react: {
+            text: "❌",
+            key: message.key,
+          },
+        });
+      } catch (reactionError) {
+        console.error("Reaction error:", reactionError);
+      }
+
+      // ━━━━━ ERROR MESSAGE ━━━━━
       await sock.sendMessage(
         chatId,
         {
