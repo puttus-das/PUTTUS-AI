@@ -18,13 +18,13 @@ module.exports = {
       'VERSION:3.0\n' +
       'FN:🌸•𝐏𝐮𝐭ᴛᴜꜱ•⌲\n' +
       'ORG:PUTTUS BOT;\n' +
-      'TEL;type=CELL;type=VOICE;waid=918967360566:+91 8967360566\n' +
+      'TEL;type=CELL;type=VOICE;waid=919641092392:+91 9641092392\n' +
       'END:VCARD';
 
     const vcardReply = {
       key: {
         fromMe: false,
-        participant: '918967360566@s.whatsapp.net',
+        participant: '919641092392@s.whatsapp.net',
         remoteJid: 'status@broadcast'
       },
       message: {
