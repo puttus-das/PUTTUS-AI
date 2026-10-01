@@ -1,181 +1,236 @@
 const store = require("../lib/lightweight_store");
 
-/**
- * Increment message count for a user in a chat
- * Now uses the unified store system (backward compatible)
- */
+/* =========================================================
+   MESSAGE COUNT HELPERS
+========================================================= */
+
 async function incrementMessageCount(chatId, userId) {
   try {
     await store.incrementMessageCount(chatId, userId);
   } catch (error) {
-    console.error("Error incrementing message count:", error);
+    console.error(
+      "Error incrementing message count:",
+      error
+    );
   }
 }
 
-/**
- * Load all message counts (backward compatible)
- * Returns same format as old JSON file
- */
 async function loadMessageCounts() {
   try {
     const data = await store.getAllMessageCounts();
     return data.messageCount || {};
   } catch (error) {
-    console.error("Error loading message counts:", error);
+    console.error(
+      "Error loading message counts:",
+      error
+    );
+
     return {};
   }
 }
 
-/**
- * Save message counts (backward compatible, but now a no-op)
- * Data is auto-saved by the store system
- */
 function saveMessageCounts(messageCounts) {
-  console.log("[RANK] saveMessageCounts called (no-op - auto-saved by store)");
+  console.log(
+    "[RANK] saveMessageCounts called (no-op - auto-saved by store)"
+  );
 }
+
+/* =========================================================
+   PUTTUS VCARD
+========================================================= */
+
+function getPuttusVCard() {
+  const botJid =
+    "919641092392@s.whatsapp.net";
+
+  const vcard =
+    "BEGIN:VCARD\n" +
+    "VERSION:3.0\n" +
+    "N:PUTTUS;BOT;;;\n" +
+    "FN:🌸•𝐏ᴜᴛᴛᴜꜱ•⌲\n" +
+    "ORG:PUTTUS BOT\n" +
+    "TEL;TYPE=CELL;TYPE=VOICE;waid=919641092392:+919641092392\n" +
+    "END:VCARD";
+
+  return {
+    key: {
+      remoteJid: "status@broadcast",
+      fromMe: false,
+      id: "PUTTUS-RANK-" + Date.now(),
+      participant: botJid,
+    },
+
+    message: {
+      contactMessage: {
+        displayName:
+          "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
+        vcard,
+      },
+    },
+  };
+}
+
+/* =========================================================
+   RANK COMMAND
+========================================================= */
 
 module.exports = {
   command: "rank",
-  aliases: ["top", "topusers", "leaderboard", "ranks"],
+
+  aliases: [
+    "top",
+    "topusers",
+    "leaderboard",
+    "ranks",
+  ],
+
   category: "group",
-  description: "Show top 5 most active members based on message count",
+
+  description:
+    "Show top 5 most active members based on message count",
+
   usage: ".rank",
+
   groupOnly: true,
 
-  async handler(sock, message, args, context = {}) {
-    const chatId = context.chatId || message.key.remoteJid;
+  async handler(
+    sock,
+    message,
+    args,
+    context = {}
+  ) {
+    const chatId =
+      context.chatId ||
+      message.key.remoteJid;
 
     try {
-      const messageCounts = await loadMessageCounts();
-      const groupCounts = messageCounts[chatId] || {};
+      /* =====================================================
+         LOAD COUNTS
+      ===================================================== */
 
-      const sortedMembers = Object.entries(groupCounts)
-        .sort(([, a], [, b]) => b - a)
-        .slice(0, 5);
+      const messageCounts =
+        await loadMessageCounts();
+
+      const groupCounts =
+        messageCounts[chatId] || {};
+
+      /* =====================================================
+         SORT TOP 5
+      ===================================================== */
+
+      const sortedMembers =
+        Object.entries(groupCounts)
+          .sort(
+            ([, a], [, b]) =>
+              Number(b) - Number(a)
+          )
+          .slice(0, 5);
+
+      /* =====================================================
+         EMPTY LEADERBOARD
+      ===================================================== */
 
       if (sortedMembers.length === 0) {
+        const statusQuote =
+          getPuttusVCard();
+
         await sock.sendMessage(
           chatId,
           {
-            text: "📊 *No message activity recorded yet*\n\nStart chatting to appear on the leaderboard!",
+            text:
+              "📊 *ɴᴏ ᴍᴇssᴀɢᴇ ᴀᴄᴛɪᴠɪᴛʏ ʀᴇᴄᴏʀᴅᴇᴅ ʏᴇᴛ*\n\n" +
+              "💬 *sᴛᴀʀᴛ ᴄʜᴀᴛᴛɪɴɢ ᴛᴏ ᴀᴘᴘᴇᴀʀ ᴏɴ ᴛʜᴇ ʟᴇᴀᴅᴇʀʙᴏᴀʀᴅ!*\n\n" +
+              "© *𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*",
           },
-          { quoted: message },
+          {
+            quoted: statusQuote,
+          }
         );
+
         return;
       }
 
-      const medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"];
-      let messageText = "🏆 *TOP MEMBERS LEADERBOARD*\n\n";
+      /* =====================================================
+         LEADERBOARD
+      ===================================================== */
 
-      sortedMembers.forEach(([userId, count], index) => {
-        const username = userId.split("@")[0];
-        messageText += `${medals[index]} @${username}\n💬 ${count} messages\n\n`;
-      });
+      const medals = [
+        "🥇",
+        "🥈",
+        "🥉",
+        "4️⃣",
+        "5️⃣",
+      ];
 
-      messageText += "_Keep chatting to climb the ranks!_";
+      let messageText =
+        "🏆 *ᴛᴏᴘ ᴍᴇᴍʙᴇʀs ʟᴇᴀᴅᴇʀʙᴏᴀʀᴅ*\n\n";
+
+      sortedMembers.forEach(
+        ([userId, count], index) => {
+          const username =
+            userId.split("@")[0];
+
+          messageText +=
+            `${medals[index]} @${username}\n` +
+            `💬 *${count} ᴍᴇssᴀɢᴇs*\n\n`;
+        }
+      );
+
+      messageText +=
+        "_ᴋᴇᴇᴘ ᴄʜᴀᴛᴛɪɴɢ ᴛᴏ ᴄʟɪᴍʙ ᴛʜᴇ ʀᴀɴᴋs!_\n\n" +
+        "© *𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*";
+
+      /* =====================================================
+         PUTTUS VCARD QUOTE
+      ===================================================== */
+
+      const statusQuote =
+        getPuttusVCard();
+
+      /* =====================================================
+         SEND LEADERBOARD
+      ===================================================== */
 
       await sock.sendMessage(
         chatId,
         {
           text: messageText,
-          mentions: sortedMembers.map(([userId]) => userId),
+
+          mentions:
+            sortedMembers.map(
+              ([userId]) => userId
+            ),
         },
-        { quoted: message },
-      );
-    } catch (error) {
-      console.error("Rank Command Error:", error);
-      await sock.sendMessage(
-        chatId,
         {
-          text: "❌ Failed to load leaderboard. Please try again later.",
-        },
-        { quoted: message },
+          quoted: statusQuote,
+        }
       );
+
+    } catch (error) {
+      console.error(
+        "Rank Command Error:",
+        error
+      );
+
+      try {
+        await sock.sendMessage(
+          chatId,
+          {
+            text:
+              "❌ *ʀᴀɴᴋ ᴄᴏᴍᴍᴀɴᴅ ᴇʀʀᴏʀ*\n\n" +
+              `└─ ${error.message}`,
+          },
+          {
+            quoted: message,
+          }
+        );
+      } catch {}
     }
   },
 
   incrementMessageCount,
+
   loadMessageCounts,
+
   saveMessageCounts,
 };
-
-/*
-const fs = require('fs');
-const path = require('path');
-
-const dataFilePath = path.join(__dirname, '..', 'data', 'messageCount.json');
-
-function loadMessageCounts() {
-    if (fs.existsSync(dataFilePath)) {
-        const data = fs.readFileSync(dataFilePath);
-        return JSON.parse(data);
-    }
-    return {};
-}
-
-function saveMessageCounts(messageCounts) {
-    fs.writeFileSync(dataFilePath, JSON.stringify(messageCounts, null, 2));
-}
-
-function incrementMessageCount(groupId, userId) {
-    const messageCounts = loadMessageCounts();
-
-    if (!messageCounts[groupId]) {
-        messageCounts[groupId] = {};
-    }
-
-    if (!messageCounts[groupId][userId]) {
-        messageCounts[groupId][userId] = 0;
-    }
-
-    messageCounts[groupId][userId] += 1;
-
-    saveMessageCounts(messageCounts);
-}
-
-module.exports = {
-    command: 'rank',
-    aliases: ['top', 'topusers', 'leaderboard', 'ranks'],
-    category: 'group',
-    description: 'Show top 5 most active members based on message count',
-    usage: '.rank',
-    groupOnly: true,
-
-    async handler(sock, message, args, context = {}) {
-        const chatId = context.chatId || message.key.remoteJid;
-        
-        const messageCounts = loadMessageCounts();
-        const groupCounts = messageCounts[chatId] || {};
-
-        const sortedMembers = Object.entries(groupCounts)
-            .sort(([, a], [, b]) => b - a)
-            .slice(0, 5);
-
-        if (sortedMembers.length === 0) {
-            await sock.sendMessage(chatId, {
-                text: '📊 *No message activity recorded yet*\n\nStart chatting to appear on the leaderboard!'
-            }, { quoted: message });
-            return;
-        }
-
-        const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
-        let messageText = '🏆 *TOP MEMBERS LEADERBOARD*\n\n';
-        
-        sortedMembers.forEach(([userId, count], index) => {
-            const username = userId.split('@')[0];
-            messageText += `${medals[index]} @${username}\n💬 ${count} messages\n\n`;
-        });
-
-        messageText += '_Keep chatting to climb the ranks!_';
-
-        await sock.sendMessage(chatId, {
-            text: messageText,
-            mentions: sortedMembers.map(([userId]) => userId)
-        }, { quoted: message });
-    },
-
-    incrementMessageCount,
-    loadMessageCounts,
-    saveMessageCounts
-};
-*/
