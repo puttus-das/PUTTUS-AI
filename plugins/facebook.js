@@ -11,10 +11,6 @@ module.exports = {
     const chatId = context.chatId || message.key.remoteJid;
 
     try {
-      /* =========================================================
-         PUTTUS VCARD
-      ========================================================= */
-
       const botJid = "919641092392@s.whatsapp.net";
 
       const vcard =
@@ -35,20 +31,14 @@ module.exports = {
         },
         message: {
           contactMessage: {
-            displayName:
-              "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
-            vcard: vcard,
+            displayName: "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
+            vcard,
           },
         },
       };
 
-      /* =========================================================
-         GET MESSAGE TEXT
-      ========================================================= */
-
-      function getText(msg) {
+      function getMessageText(msg) {
         const m = msg?.message;
-
         if (!m) return "";
 
         return (
@@ -57,24 +47,21 @@ module.exports = {
           m.imageMessage?.caption ||
           m.videoMessage?.caption ||
           m.documentMessage?.caption ||
+          m.buttonsResponseMessage?.selectedButtonId ||
+          m.listResponseMessage?.singleSelectReply?.selectedRowId ||
           ""
         );
       }
 
-      /* =========================================================
-         GET FACEBOOK URL
-      ========================================================= */
+      const rawText = getMessageText(message);
 
-      const messageText = getText(message);
-
-      const argumentText = Array.isArray(args)
+      const argText = Array.isArray(args)
         ? args.join(" ")
         : String(args || "");
 
-      const fullText =
-        `${argumentText} ${messageText}`.trim();
+      const combinedText = `${argText} ${rawText}`.trim();
 
-      const urlMatch = fullText.match(
+      const urlMatch = combinedText.match(
         /https?:\/\/(?:www\.|m\.|web\.)?(?:facebook\.com|fb\.watch)\/[^\s]+/i
       );
 
@@ -82,47 +69,25 @@ module.exports = {
         ? urlMatch[0].replace(/[)>.,]+$/, "")
         : "";
 
-      /* =========================================================
-         NO URL
-      ========================================================= */
-
       if (!url) {
         return await sock.sendMessage(
           chatId,
           {
-            text:
-              "📘 *⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜*\n\n" +
-              "❯ *Usage:* .fb <Facebook video link>\n\n" +
-              "❯ *Example:*\n" +
-              "*.fb https://www.facebook.com/share/r/xxxx/*",
+            text: "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
           },
-          {
-            quoted: statusQuote,
-          }
+          { quoted: statusQuote }
         );
       }
-
-      /* =========================================================
-         CHECK FACEBOOK URL
-      ========================================================= */
 
       if (!/(facebook\.com|fb\.watch)/i.test(url)) {
         return await sock.sendMessage(
           chatId,
           {
-            text:
-              "❌ *Invalid Facebook Link*\n\n" +
-              "Please send a valid Facebook video or Reel URL.",
+            text: "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
           },
-          {
-            quoted: statusQuote,
-          }
+          { quoted: statusQuote }
         );
       }
-
-      /* =========================================================
-         DOWNLOADING REACTION
-      ========================================================= */
 
       await sock.sendMessage(chatId, {
         react: {
@@ -131,11 +96,7 @@ module.exports = {
         },
       });
 
-      /* =========================================================
-         RABBIT API
-      ========================================================= */
-
-      const api = await axios.get(
+      const response = await axios.get(
         "https://rabbitapi.zone.id/api/fb",
         {
           params: {
@@ -151,124 +112,47 @@ module.exports = {
         }
       );
 
-      const data = api?.data;
-
-      console.log(
-        "[PUTTUS FACEBOOK API]",
-        JSON.stringify(data, null, 2)
-      );
-
-      /* =========================================================
-         API CHECK
-      ========================================================= */
+      const data = response?.data;
 
       if (!data || data.status !== true) {
-        throw new Error(
-          "Facebook API returned an invalid response"
-        );
+        throw new Error("Rabbit API failed");
       }
 
-      /* =========================================================
-         GET HD / SD
-      ========================================================= */
-
-      const hd =
+      const hdUrl =
         typeof data.hd === "string" &&
         /^https?:\/\//i.test(data.hd)
           ? data.hd
           : null;
 
-      const sd =
+      const sdUrl =
         typeof data.sd === "string" &&
         /^https?:\/\//i.test(data.sd)
           ? data.sd
           : null;
 
-      const videoUrl = hd || sd;
-
-      const quality = hd ? "HD" : "SD";
+      const videoUrl = hdUrl || sdUrl;
 
       if (!videoUrl) {
-        throw new Error(
-          "No downloadable video found"
-        );
+        throw new Error("No video URL");
       }
 
-      /* =========================================================
-         DOWNLOAD VIDEO AS BUFFER
-      ========================================================= */
-
-      const videoResponse = await axios.get(
-        videoUrl,
-        {
-          responseType: "arraybuffer",
-          timeout: 120000,
-          maxContentLength: 100 * 1024 * 1024,
-          maxBodyLength: 100 * 1024 * 1024,
-
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (Linux; Android 10; Mobile) " +
-              "AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36",
-            Referer: "https://www.facebook.com/",
-          },
-        }
-      );
-
-      const videoBuffer = Buffer.from(
-        videoResponse.data
-      );
-
-      if (!videoBuffer.length) {
-        throw new Error(
-          "Downloaded video buffer is empty"
-        );
-      }
-
-      /* =========================================================
-         TITLE
-      ========================================================= */
-
-      let title =
-        typeof data.title === "string"
-          ? data.title.trim()
-          : "Facebook Video";
-
-      if (title.length > 500) {
-        title = title.substring(0, 500);
-      }
-
-      /* =========================================================
-         CAPTION
-      ========================================================= */
-
-      const caption =
-        "📘 *⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜*\n\n" +
-        `🎬 *${title}*\n\n` +
-        `🎞 Quality: *${quality}*\n` +
-        `👤 Creator: *${data.creator || "Rabbit API"}*\n\n` +
-        "> *_Downloaded by PUTTUS-AI_*";
-
-      /* =========================================================
-         SEND VIDEO BUFFER
-      ========================================================= */
+      const quality = hdUrl ? "HD" : "SD";
 
       await sock.sendMessage(
         chatId,
         {
-          video: videoBuffer,
+          video: {
+            url: videoUrl,
+          },
           mimetype: "video/mp4",
-          fileName: "PUTTUS-Facebook.mp4",
-          caption: caption,
+          caption:
+            "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜\n\n" +
+            `🎞 *${quality}*`,
         },
         {
           quoted: statusQuote,
         }
       );
-
-      /* =========================================================
-         SUCCESS
-      ========================================================= */
 
       await sock.sendMessage(chatId, {
         react: {
@@ -296,18 +180,13 @@ module.exports = {
         await sock.sendMessage(
           chatId,
           {
-            text:
-              "❌ *Facebook Download Failed*\n\n" +
-              "The Facebook video could not be downloaded right now.\n\n" +
-              "💡 Try another Facebook/Reel link.",
+            text: "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
           },
-          {
-            quoted: message,
-          }
+          { quoted: message }
         );
       } catch (sendError) {
         console.error(
-          "[PUTTUS-AI FACEBOOK SEND ERROR]",
+          "[FACEBOOK SEND ERROR]",
           sendError?.message || sendError
         );
       }
