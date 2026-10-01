@@ -21,70 +21,42 @@ const channelInfo = {
 };
 
 /* =========================================================
-   HELPERS
+   DOWNLOAD AUDIO AS BUFFER
 ========================================================= */
 
-function getChatId(message, options = {}) {
-  return (
-    options.chatId ||
-    message?.key?.remoteJid
+async function downloadAudioBuffer(url) {
+  const response = await axios.get(url, {
+    responseType: "arraybuffer",
+
+    timeout: 120000,
+
+    maxContentLength: 100 * 1024 * 1024,
+
+    maxBodyLength: 100 * 1024 * 1024,
+
+    headers: {
+      Accept:
+        "audio/mpeg,audio/*,*/*",
+
+      "User-Agent":
+        "Mozilla/5.0 (Android 14; Mobile) AppleWebKit/537.36 Chrome/140 Safari/537.36",
+    },
+
+    validateStatus: (status) =>
+      status >= 200 && status < 400,
+  });
+
+  const buffer = Buffer.from(
+    response.data
   );
-}
 
-function findAudioUrl(data) {
-  if (!data) return null;
-
-  if (typeof data === "string") {
-    if (
-      data.startsWith("http://") ||
-      data.startsWith("https://")
-    ) {
-      return data;
-    }
-
-    return null;
+  if (!buffer || buffer.length < 1024) {
+    throw new Error(
+      "Downloaded audio is empty or invalid."
+    );
   }
 
-  if (Array.isArray(data)) {
-    for (const item of data) {
-      const found = findAudioUrl(item);
-
-      if (found) return found;
-    }
-
-    return null;
-  }
-
-  if (typeof data === "object") {
-    const possibleKeys = [
-      "downloadUrl",
-      "download_url",
-      "audioUrl",
-      "audio_url",
-      "url",
-      "link",
-      "mediaUrl",
-      "media_url",
-      "audio",
-      "download",
-    ];
-
-    for (const key of possibleKeys) {
-      if (data[key]) {
-        const found = findAudioUrl(data[key]);
-
-        if (found) return found;
-      }
-    }
-
-    for (const key of Object.keys(data)) {
-      const found = findAudioUrl(data[key]);
-
-      if (found) return found;
-    }
-  }
-
-  return null;
+  return buffer;
 }
 
 /* =========================================================
@@ -103,7 +75,7 @@ module.exports = {
   category: "music",
 
   description:
-    "Download song as MP3",
+    "Download YouTube song as MP3",
 
   usage:
     ".song <song name>",
@@ -114,10 +86,9 @@ module.exports = {
     args,
     options = {}
   ) {
-    const chatId = getChatId(
-      message,
-      options
-    );
+    const chatId =
+      options.chatId ||
+      message?.key?.remoteJid;
 
     const query = args
       .join(" ")
@@ -135,6 +106,7 @@ module.exports = {
             "🎵 *Song Downloader*\n\n" +
             "Usage:\n" +
             ".song <song name>",
+
           ...channelInfo,
         },
         {
@@ -145,7 +117,7 @@ module.exports = {
 
     try {
       /* ===================================================
-         ONLY DOWNLOADING MESSAGE
+         DOWNLOADING MESSAGE
          
          NO IMAGE
          NO TITLE
@@ -166,121 +138,121 @@ module.exports = {
       );
 
       /* ===================================================
-         API URL
+         DAVID CYRIL API
       =================================================== */
 
-      const apiUrl =
-        "https://apis.davidcyril.name.ng/play";
+      const apiResponse =
+        await axios.get(
+          "https://apis.davidcyril.name.ng/play",
+          {
+            params: {
+              query: query,
+            },
 
-      /* ===================================================
-         REQUEST API
-      =================================================== */
+            timeout: 60000,
 
-      const response = await axios.get(
-        apiUrl,
-        {
-          params: {
-            query: query,
-          },
+            headers: {
+              Accept:
+                "application/json",
 
-          timeout: 60000,
+              "User-Agent":
+                "Mozilla/5.0",
+            },
+          }
+        );
 
-          headers: {
-            Accept:
-              "application/json",
-          },
-        }
-      );
-
-      const body = response.data;
+      const apiData =
+        apiResponse.data;
 
       console.log(
         "SONG API RESPONSE:",
         JSON.stringify(
-          body,
+          apiData,
           null,
           2
         )
       );
 
       /* ===================================================
-         API SUCCESS CHECK
+         CHECK API STATUS
       =================================================== */
 
       if (
-        body?.success === false
+        !apiData ||
+        apiData.status !== true
       ) {
         throw new Error(
-          body?.message ||
-          "Song API failed"
+          apiData?.message ||
+          "Song API failed."
         );
       }
 
       /* ===================================================
-         FIND AUDIO URL
+         GET RESULT
       =================================================== */
 
-      const audioUrl =
-        findAudioUrl(body);
+      const result =
+        apiData.result;
 
-      if (!audioUrl) {
+      if (!result) {
         throw new Error(
-          "Audio URL not found in API response"
+          "No song result received."
+        );
+      }
+
+      /* ===================================================
+         GET DOWNLOAD URL
+      =================================================== */
+
+      const downloadUrl =
+        result.download_url;
+
+      if (!downloadUrl) {
+        throw new Error(
+          "Download URL not found."
         );
       }
 
       console.log(
-        "AUDIO URL:",
-        audioUrl
+        "DOWNLOAD URL:",
+        downloadUrl
       );
 
       /* ===================================================
-         SEND MP3
+         DOWNLOAD MP3 INTO BUFFER
       =================================================== */
 
-      await bot.sendMessage(
-        chatId,
-        {
-          audio: {
-            url: audioUrl,
-          },
-
-          mimetype:
-            "audio/mpeg",
-
-          fileName:
-            "PUTTUS-AI.mp3",
-
-          ptt: false,
-
-          ...channelInfo,
-        },
-        {
-          quoted: message,
-        }
+      console.log(
+        "Downloading audio into Buffer..."
       );
 
-    } catch (error) {
-      console.error(
-        "SONG ERROR:",
-        error?.response?.data ||
-        error?.message ||
-        error
+      const audioBuffer =
+        await downloadAudioBuffer(
+          downloadUrl
+        );
+
+      console.log(
+        "Audio Buffer size:",
+        audioBuffer.length,
+        "bytes"
       );
 
-      await bot.sendMessage(
-        chatId,
-        {
-          text:
-            "❌ *Download failed!*\n\n" +
-            "Please try another song or try again later.",
+      /* ===================================================
+         FILE NAME
+      =================================================== */
 
-          ...channelInfo,
-        },
-        {
-          quoted: message,
-        }
-      );
-    }
-  },
-};
+      let fileName =
+        result.title ||
+        "PUTTUS-AI";
+
+      fileName = fileName
+        .replace(/[\\/:*?"<>|]/g, "")
+        .trim();
+
+      if (!fileName) {
+        fileName = "PUTTUS-AI";
+      }
+
+      fileName += ".mp3";
+
+     
