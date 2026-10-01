@@ -1,7 +1,7 @@
 const axios = require("axios");
 
 /* =========================================================
-   CHANNEL / NEWSLETTER INFO
+   CHANNEL INFO
 ========================================================= */
 
 const channelInfo = {
@@ -24,7 +24,7 @@ const channelInfo = {
    DOWNLOAD AUDIO AS BUFFER
 ========================================================= */
 
-async function downloadAudioBuffer(url) {
+async function downloadAudio(url) {
   const response = await axios.get(url, {
     responseType: "arraybuffer",
 
@@ -35,24 +35,22 @@ async function downloadAudioBuffer(url) {
     maxBodyLength: 100 * 1024 * 1024,
 
     headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/140 Mobile Safari/537.36",
+
       Accept:
         "audio/mpeg,audio/*,*/*",
-
-      "User-Agent":
-        "Mozilla/5.0 (Android 14; Mobile) AppleWebKit/537.36 Chrome/140 Safari/537.36",
     },
 
     validateStatus: (status) =>
       status >= 200 && status < 400,
   });
 
-  const buffer = Buffer.from(
-    response.data
-  );
+  const buffer = Buffer.from(response.data);
 
   if (!buffer || buffer.length < 1024) {
     throw new Error(
-      "Downloaded audio is empty or invalid."
+      "Invalid or empty audio file"
     );
   }
 
@@ -60,7 +58,7 @@ async function downloadAudioBuffer(url) {
 }
 
 /* =========================================================
-   SONG COMMAND
+   SONG PLUGIN
 ========================================================= */
 
 module.exports = {
@@ -75,7 +73,7 @@ module.exports = {
   category: "music",
 
   description:
-    "Download YouTube song as MP3",
+    "Download YouTube songs as MP3",
 
   usage:
     ".song <song name>",
@@ -90,12 +88,12 @@ module.exports = {
       options.chatId ||
       message?.key?.remoteJid;
 
-    const query = args
-      .join(" ")
-      .trim();
+    const query = Array.isArray(args)
+      ? args.join(" ").trim()
+      : String(args || "").trim();
 
     /* =====================================================
-       CHECK QUERY
+       NO QUERY
     ===================================================== */
 
     if (!query) {
@@ -105,7 +103,7 @@ module.exports = {
           text:
             "🎵 *Song Downloader*\n\n" +
             "Usage:\n" +
-            ".song <song name>",
+            "`.song <song name>`",
 
           ...channelInfo,
         },
@@ -118,10 +116,6 @@ module.exports = {
     try {
       /* ===================================================
          DOWNLOADING MESSAGE
-         
-         NO IMAGE
-         NO TITLE
-         NO DURATION
       =================================================== */
 
       await bot.sendMessage(
@@ -141,28 +135,25 @@ module.exports = {
          DAVID CYRIL API
       =================================================== */
 
-      const apiResponse =
-        await axios.get(
-          "https://apis.davidcyril.name.ng/play",
-          {
-            params: {
-              query: query,
-            },
+      const response = await axios.get(
+        "https://apis.davidcyril.name.ng/play",
+        {
+          params: {
+            query: query,
+          },
 
-            timeout: 60000,
+          timeout: 60000,
 
-            headers: {
-              Accept:
-                "application/json",
+          headers: {
+            Accept: "application/json",
 
-              "User-Agent":
-                "Mozilla/5.0",
-            },
-          }
-        );
+            "User-Agent":
+              "Mozilla/5.0",
+          },
+        }
+      );
 
-      const apiData =
-        apiResponse.data;
+      const apiData = response.data;
 
       console.log(
         "SONG API RESPONSE:",
@@ -174,42 +165,32 @@ module.exports = {
       );
 
       /* ===================================================
-         CHECK API STATUS
+         CHECK API RESPONSE
       =================================================== */
 
       if (
         !apiData ||
-        apiData.status !== true
+        apiData.status !== true ||
+        !apiData.result
       ) {
         throw new Error(
           apiData?.message ||
-          "Song API failed."
+          "Song information not found"
         );
       }
 
-      /* ===================================================
-         GET RESULT
-      =================================================== */
-
-      const result =
-        apiData.result;
-
-      if (!result) {
-        throw new Error(
-          "No song result received."
-        );
-      }
+      const song = apiData.result;
 
       /* ===================================================
          GET DOWNLOAD URL
       =================================================== */
 
       const downloadUrl =
-        result.download_url;
+        song.download_url;
 
       if (!downloadUrl) {
         throw new Error(
-          "Download URL not found."
+          "Download URL not found"
         );
       }
 
@@ -223,18 +204,16 @@ module.exports = {
       =================================================== */
 
       console.log(
-        "Downloading audio into Buffer..."
+        "Downloading MP3..."
       );
 
       const audioBuffer =
-        await downloadAudioBuffer(
+        await downloadAudio(
           downloadUrl
         );
 
       console.log(
-        "Audio Buffer size:",
-        audioBuffer.length,
-        "bytes"
+        `Audio downloaded: ${audioBuffer.length} bytes`
       );
 
       /* ===================================================
@@ -242,17 +221,104 @@ module.exports = {
       =================================================== */
 
       let fileName =
-        result.title ||
+        song.title ||
         "PUTTUS-AI";
 
       fileName = fileName
-        .replace(/[\\/:*?"<>|]/g, "")
+        .replace(
+          /[\\/:*?"<>|]/g,
+          ""
+        )
+        .replace(
+          /\s+/g,
+          " "
+        )
         .trim();
 
       if (!fileName) {
         fileName = "PUTTUS-AI";
       }
 
-      fileName += ".mp3";
+      if (
+        !fileName
+          .toLowerCase()
+          .endsWith(".mp3")
+      ) {
+        fileName += ".mp3";
+      }
 
-     
+      /* ===================================================
+         SEND AUDIO BUFFER
+      =================================================== */
+
+      await bot.sendMessage(
+        chatId,
+        {
+          audio: audioBuffer,
+
+          mimetype:
+            "audio/mpeg",
+
+          fileName:
+            fileName,
+
+          ptt: false,
+
+          ...channelInfo,
+        },
+        {
+          quoted: message,
+        }
+      );
+
+      console.log(
+        `Song sent successfully: ${fileName}`
+      );
+
+    } catch (error) {
+      console.error(
+        "Song Command Error:",
+        error?.response?.data ||
+        error?.message ||
+        error
+      );
+
+      /* ===================================================
+         ERROR MESSAGE
+      =================================================== */
+
+      let errorText =
+        "❌ *Song download failed!*\n\n";
+
+      const errorMessage =
+        String(
+          error?.message || ""
+        ).toLowerCase();
+
+      if (
+        errorMessage.includes(
+          "timeout"
+        ) ||
+        errorMessage.includes(
+          "etimedout"
+        )
+      ) {
+        errorText +=
+          "⏱️ *Download timed out.*\n" +
+          "Please try again.";
+      }
+
+      else if (
+        errorMessage.includes("404")
+      ) {
+        errorText +=
+          "🔍 *Song download not found.*\n" +
+          "Please try another song.";
+      }
+
+      else if (
+        errorMessage.includes("403") ||
+        errorMessage.includes("401")
+      ) {
+        errorText +=
+          "🔒 *
