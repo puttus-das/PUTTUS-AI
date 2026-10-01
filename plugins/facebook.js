@@ -36,7 +36,7 @@ module.exports = {
         message: {
           contactMessage: {
             displayName: "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
-            vcard,
+            vcard: vcard,
           },
         },
       };
@@ -55,7 +55,7 @@ module.exports = {
               "📘 *⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜*\n\n" +
               "❯ *Usage:* .fb <Facebook video link>\n\n" +
               "❯ Example:\n" +
-              ".fb https://www.facebook.com/...",
+              "*.fb https://www.facebook.com/...*",
           },
           { quoted: statusQuote }
         );
@@ -65,9 +65,7 @@ module.exports = {
          FACEBOOK URL CHECK
       ========================================================= */
 
-      if (
-        !/(facebook\.com|fb\.watch)/i.test(url)
-      ) {
+      if (!/(facebook\.com|fb\.watch)/i.test(url)) {
         return await sock.sendMessage(
           chatId,
           {
@@ -80,7 +78,7 @@ module.exports = {
       }
 
       /* =========================================================
-         DOWNLOADING
+         DOWNLOADING REACTION
       ========================================================= */
 
       await sock.sendMessage(chatId, {
@@ -105,149 +103,58 @@ module.exports = {
           "User-Agent":
             "Mozilla/5.0 (Linux; Android 10; Mobile) " +
             "AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36",
-          Accept: "application/json, text/plain, */*",
+          Accept: "application/json",
         },
       });
 
-      const body = response?.data;
+      const data = response?.data;
 
       console.log(
-        "[RABBIT FB API RESPONSE]",
-        JSON.stringify(body, null, 2)
+        "[PUTTUS FB API]",
+        JSON.stringify(data, null, 2)
       );
 
       /* =========================================================
-         FIND VIDEO URL
+         API STATUS CHECK
       ========================================================= */
 
-      let videoUrl = null;
-      let quality = "Unknown";
-
-      const findVideo = (obj) => {
-        if (!obj || typeof obj !== "object") return null;
-
-        const possibleKeys = [
-          "url",
-          "video",
-          "videoUrl",
-          "download",
-          "downloadUrl",
-          "download_url",
-          "hd",
-          "hdUrl",
-          "hd_url",
-          "sd",
-          "sdUrl",
-          "sd_url",
-        ];
-
-        for (const key of possibleKeys) {
-          const value = obj[key];
-
-          if (
-            typeof value === "string" &&
-            /^https?:\/\//i.test(value)
-          ) {
-            return {
-              url: value,
-              quality:
-                key.toLowerCase().includes("hd")
-                  ? "HD"
-                  : key.toLowerCase().includes("sd")
-                  ? "SD"
-                  : "Unknown",
-            };
-          }
-        }
-
-        return null;
-      };
-
-      /* =========================================================
-         SEARCH COMMON API STRUCTURES
-      ========================================================= */
-
-      const candidates = [
-        body,
-        body?.data,
-        body?.result,
-        body?.results,
-        body?.data?.data,
-        body?.data?.result,
-        body?.result?.data,
-      ];
-
-      for (const candidate of candidates) {
-        if (Array.isArray(candidate)) {
-          for (const item of candidate) {
-            const found = findVideo(item);
-
-            if (found) {
-              videoUrl = found.url;
-              quality = found.quality;
-              break;
-            }
-          }
-        } else {
-          const found = findVideo(candidate);
-
-          if (found) {
-            videoUrl = found.url;
-            quality = found.quality;
-          }
-        }
-
-        if (videoUrl) break;
+      if (!data || data.status !== true) {
+        throw new Error("Facebook API returned an unsuccessful response");
       }
 
       /* =========================================================
-         RECURSIVE FALLBACK
+         GET VIDEO
       ========================================================= */
 
-      const recursiveFind = (obj) => {
-        if (!obj || typeof obj !== "object") return null;
+      const hd = data?.hd;
+      const sd = data?.sd;
 
-        const direct = findVideo(obj);
+      const videoUrl =
+        typeof hd === "string" && /^https?:\/\//i.test(hd)
+          ? hd
+          : typeof sd === "string" && /^https?:\/\//i.test(sd)
+          ? sd
+          : null;
 
-        if (direct) return direct;
-
-        if (Array.isArray(obj)) {
-          for (const item of obj) {
-            const result = recursiveFind(item);
-
-            if (result) return result;
-          }
-        } else {
-          for (const value of Object.values(obj)) {
-            if (value && typeof value === "object") {
-              const result = recursiveFind(value);
-
-              if (result) return result;
-            }
-          }
-        }
-
-        return null;
-      };
+      const quality =
+        videoUrl === hd
+          ? "HD"
+          : videoUrl === sd
+          ? "SD"
+          : "Unknown";
 
       if (!videoUrl) {
-        const found = recursiveFind(body);
-
-        if (found) {
-          videoUrl = found.url;
-          quality = found.quality;
-        }
+        throw new Error("No HD/SD video URL returned by API");
       }
 
       /* =========================================================
-         NO VIDEO
+         TITLE
       ========================================================= */
 
-      if (!videoUrl) {
-        throw new Error(
-          "Rabbit API did not return a downloadable video URL"
-        );
-      }
+      const title =
+        typeof data?.title === "string"
+          ? data.title.trim()
+          : "Facebook Video";
 
       /* =========================================================
          SEND VIDEO
@@ -262,7 +169,9 @@ module.exports = {
           mimetype: "video/mp4",
           caption:
             "📘 *⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜*\n\n" +
-            `🎞 Quality: *${quality}*\n\n` +
+            `🎬 *${title}*\n\n` +
+            `🎞 Quality: *${quality}*\n` +
+            `👤 Creator: *${data.creator || "Rabbit API"}*\n\n` +
             "> *_Downloaded by PUTTUS-AI_*",
         },
         {
@@ -271,7 +180,7 @@ module.exports = {
       );
 
       /* =========================================================
-         SUCCESS
+         SUCCESS REACTION
       ========================================================= */
 
       await sock.sendMessage(chatId, {
@@ -282,7 +191,7 @@ module.exports = {
       });
     } catch (error) {
       console.error(
-        "[PUTTUS FACEBOOK ERROR]",
+        "[PUTTUS-AI FACEBOOK ERROR]",
         error?.response?.data || error?.message || error
       );
 
@@ -299,7 +208,7 @@ module.exports = {
           {
             text:
               "❌ *Facebook Download Failed*\n\n" +
-              "Rabbit API did not return a downloadable video.\n\n" +
+              "The Facebook video could not be downloaded right now.\n\n" +
               "💡 Try another Facebook/Reel link.",
           },
           {
@@ -308,7 +217,7 @@ module.exports = {
         );
       } catch (sendError) {
         console.error(
-          "[FACEBOOK SEND ERROR]",
+          "[PUTTUS-AI FACEBOOK SEND ERROR]",
           sendError?.message || sendError
         );
       }
