@@ -1,335 +1,579 @@
-const { exec } = require("child_process");
+const { exec, spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
-const https = require("https");
+
 const settings = require("../settings");
 
-function run(cmd) {
+/* =========================================================
+   HELPERS
+========================================================= */
+
+function run(cmd, options = {}) {
   return new Promise((resolve, reject) => {
-    exec(cmd, { windowsHide: true }, (err, stdout, stderr) => {
-      if (err)
-        return reject(
-          new Error((stderr || stdout || err.message || "").toString()),
-        );
-      resolve((stdout || "").toString());
-    });
+    exec(
+      cmd,
+      {
+        windowsHide: true,
+        maxBuffer: 10 * 1024 * 1024,
+        ...options,
+      },
+      (err, stdout, stderr) => {
+        if (err) {
+          return reject(
+            new Error(
+              String(stderr || stdout || err.message || "").trim()
+            )
+          );
+        }
+
+        resolve(String(stdout || "").trim());
+      }
+    );
   });
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/* =========================================================
+   PUTTUS VCARD
+========================================================= */
+
+function getPuttusVCard() {
+  const botJid = "919641092392@s.whatsapp.net";
+
+  const vcard =
+    "BEGIN:VCARD\n" +
+    "VERSION:3.0\n" +
+    "N:PUTTUS;BOT;;;\n" +
+    "FN:🌸•𝐏ᴜᴛᴛᴜꜱ•⌲\n" +
+    "ORG:PUTTUS BOT\n" +
+    "TEL;TYPE=CELL;TYPE=VOICE;waid=919641092392:+919641092392\n" +
+    "END:VCARD";
+
+  return {
+    key: {
+      remoteJid: "status@broadcast",
+      fromMe: false,
+      id: "PUTTUS-UPDATE-" + Date.now(),
+      participant: botJid,
+    },
+
+    message: {
+      contactMessage: {
+        displayName:
+          "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
+        vcard,
+      },
+    },
+  };
+}
+
+/* =========================================================
+   CHECK GIT
+========================================================= */
+
 async function hasGitRepo() {
   const gitDir = path.join(process.cwd(), ".git");
-  if (!fs.existsSync(gitDir)) return false;
+
+  if (!fs.existsSync(gitDir)) {
+    return false;
+  }
+
   try {
     await run("git --version");
+    await run("git rev-parse --is-inside-work-tree");
     return true;
   } catch {
     return false;
   }
 }
 
+/* =========================================================
+   GITHUB UPDATE
+========================================================= */
+
 async function updateViaGit() {
-  const oldRev = (
-    await run("git rev-parse HEAD").catch(() => "unknown")
-  ).trim();
-  await run("git fetch --all --prune");
-  const newRev = (await run("git rev-parse origin/main")).trim();
-  const alreadyUpToDate = oldRev === newRev;
-  const commits = alreadyUpToDate
-    ? ""
-    : await run(
-        `git log --pretty=format:"%h %s (%an)" ${oldRev}..${newRev}`,
-      ).catch(() => "");
-  const files = alreadyUpToDate
-    ? ""
-    : await run(`git diff --name-status ${oldRev} ${newRev}`).catch(() => "");
-  await run(`git reset --hard ${newRev}`);
-  await run("git clean -fd");
-  return { oldRev, newRev, alreadyUpToDate, commits, files };
-}
-
-function downloadFile(url, dest, visited = new Set()) {
-  return new Promise((resolve, reject) => {
-    try {
-      if (visited.has(url) || visited.size > 5) {
-        return reject(new Error("Too many redirects"));
-      }
-      visited.add(url);
-
-      const useHttps = url.startsWith("https://");
-      const client = useHttps ? require("https") : require("http");
-      const req = client.get(
-        url,
-        {
-          headers: {
-            "User-Agent": "puttusBot-Updater/1.0",
-            Accept: "*/*",
-          },
-        },
-        (res) => {
-          if ([301, 302, 303, 307, 308].includes(res.statusCode)) {
-            const location = res.headers.location;
-            if (!location)
-              return reject(
-                new Error(`HTTP ${res.statusCode} without Location`),
-              );
-            const nextUrl = new URL(location, url).toString();
-            res.resume();
-            return downloadFile(nextUrl, dest, visited)
-              .then(resolve)
-              .catch(reject);
-          }
-
-          if (res.statusCode !== 200) {
-            return reject(new Error(`HTTP ${res.statusCode}`));
-          }
-
-          const file = fs.createWriteStream(dest);
-          res.pipe(file);
-          file.on("finish", () => file.close(resolve));
-          file.on("error", (err) => {
-            try {
-              file.close(() => {});
-            } catch {}
-            fs.unlink(dest, () => reject(err));
-          });
-        },
-      );
-      req.on("error", (err) => {
-        fs.unlink(dest, () => reject(err));
-      });
-    } catch (e) {
-      reject(e);
-    }
-  });
-}
-
-async function extractZip(zipPath, outDir) {
-  if (process.platform === "win32") {
-    const cmd = `powershell -NoProfile -Command "Expand-Archive -Path '${zipPath}' -DestinationPath '${outDir.replace(/\\/g, "/")}' -Force"`;
-    await run(cmd);
-    return;
-  }
-  try {
-    await run("command -v unzip");
-    await run(`unzip -o '${zipPath}' -d '${outDir}'`);
-    return;
-  } catch {}
-  try {
-    await run("command -v 7z");
-    await run(`7z x -y '${zipPath}' -o'${outDir}'`);
-    return;
-  } catch {}
-  try {
-    await run("busybox unzip -h");
-    await run(`busybox unzip -o '${zipPath}' -d '${outDir}'`);
-    return;
-  } catch {}
-  throw new Error(
-    "No system unzip tool found (unzip/7z/busybox). Git mode is recommended on this panel.",
+  const oldRev = await run("git rev-parse HEAD").catch(
+    () => "unknown"
   );
-}
 
-function copyRecursive(src, dest, ignore = [], relative = "", outList = []) {
-  if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
-  for (const entry of fs.readdirSync(src)) {
-    if (ignore.includes(entry)) continue;
-    const s = path.join(src, entry);
-    const d = path.join(dest, entry);
-    const stat = fs.lstatSync(s);
-    if (stat.isDirectory()) {
-      copyRecursive(s, d, ignore, path.join(relative, entry), outList);
-    } else {
-      fs.copyFileSync(s, d);
-      if (outList) outList.push(path.join(relative, entry).replace(/\\/g, "/"));
-    }
+  await run("git fetch origin main --prune");
+
+  const newRev = await run(
+    "git rev-parse origin/main"
+  );
+
+  const alreadyUpToDate =
+    oldRev.trim() === newRev.trim();
+
+  let commits = "";
+  let files = "";
+
+  if (!alreadyUpToDate && oldRev !== "unknown") {
+    commits = await run(
+      `git log --pretty=format:"%h %s (%an)" ${oldRev}..${newRev}`
+    ).catch(() => "");
+
+    files = await run(
+      `git diff --name-status ${oldRev} ${newRev}`
+    ).catch(() => "");
   }
-}
 
-async function updateViaZip(sock, chatId, message, zipOverride) {
-  const zipUrl = (
-    zipOverride ||
-    settings.updateZipUrl ||
-    process.env.UPDATE_ZIP_URL ||
-    ""
-  ).trim();
-  if (!zipUrl) {
-    throw new Error(
-      "No ZIP URL configured. Set settings.updateZipUrl or UPDATE_ZIP_URL env.",
-    );
-  }
-  const tmpDir = path.join(process.cwd(), "tmp");
-  if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
-  const zipPath = path.join(tmpDir, "update.zip");
-  await downloadFile(zipUrl, zipPath);
-  const extractTo = path.join(tmpDir, "update_extract");
-  if (fs.existsSync(extractTo))
-    fs.rmSync(extractTo, { recursive: true, force: true });
-  await extractZip(zipPath, extractTo);
+  /* =======================================================
+     PRESERVE OWNER SETTINGS
+  ======================================================= */
 
-  const [root] = fs.readdirSync(extractTo).map((n) => path.join(extractTo, n));
-  const srcRoot =
-    fs.existsSync(root) && fs.lstatSync(root).isDirectory() ? root : extractTo;
-  const ignore = [
-    "node_modules",
-    ".git",
-    "session",
-    "tmp",
-    "tmp/",
-    "temp",
-    "data",
-    "baileys_store.json",
-  ];
-  const copied = [];
   let preservedOwner = null;
   let preservedBotOwner = null;
+
   try {
     const currentSettings = require("../settings");
-    preservedOwner =
-      currentSettings && currentSettings.ownerNumber
-        ? String(currentSettings.ownerNumber)
-        : null;
-    preservedBotOwner =
-      currentSettings && currentSettings.botOwner
-        ? String(currentSettings.botOwner)
-        : null;
+
+    if (currentSettings?.ownerNumber) {
+      preservedOwner = String(
+        currentSettings.ownerNumber
+      );
+    }
+
+    if (currentSettings?.botOwner) {
+      preservedBotOwner = String(
+        currentSettings.botOwner
+      );
+    }
   } catch {}
-  copyRecursive(srcRoot, process.cwd(), ignore, "", copied);
+
+  /* =======================================================
+     RESET TO GITHUB VERSION
+  ======================================================= */
+
+  await run(`git reset --hard ${newRev}`);
+
+  /*
+   * Clean untracked files but protect important folders.
+   */
+  await run(
+    "git clean -fd " +
+      "-e session " +
+      "-e session/ " +
+      "-e data " +
+      "-e data/ " +
+      "-e tmp " +
+      "-e tmp/ " +
+      "-e temp " +
+      "-e temp/"
+  );
+
+  /* =======================================================
+     RESTORE OWNER SETTINGS
+  ======================================================= */
+
   if (preservedOwner) {
     try {
-      const settingsPath = path.join(process.cwd(), "settings.js");
+      const settingsPath = path.join(
+        process.cwd(),
+        "settings.js"
+      );
+
       if (fs.existsSync(settingsPath)) {
-        let text = fs.readFileSync(settingsPath, "utf8");
-        text = text.replace(
-          /ownerNumber:\s*'[^']*'/,
-          `ownerNumber: '${preservedOwner}'`,
+        let text = fs.readFileSync(
+          settingsPath,
+          "utf8"
         );
+
+        text = text.replace(
+          /ownerNumber\s*:\s*['"][^'"]*['"]/,
+          `ownerNumber: '${preservedOwner}'`
+        );
+
         if (preservedBotOwner) {
           text = text.replace(
-            /botOwner:\s*'[^']*'/,
-            `botOwner: '${preservedBotOwner}'`,
+            /botOwner\s*:\s*['"][^'"]*['"]/,
+            `botOwner: '${preservedBotOwner}'`
           );
         }
-        fs.writeFileSync(settingsPath, text);
+
+        fs.writeFileSync(
+          settingsPath,
+          text
+        );
       }
-    } catch {}
+    } catch (err) {
+      console.log(
+        "[UPDATE] Owner settings preserve failed:",
+        err.message
+      );
+    }
   }
-  try {
-    fs.rmSync(extractTo, { recursive: true, force: true });
-  } catch {}
-  try {
-    fs.rmSync(zipPath, { force: true });
-  } catch {}
-  return { copiedFiles: copied };
+
+  return {
+    oldRev: oldRev.trim(),
+    newRev: newRev.trim(),
+    alreadyUpToDate,
+    commits,
+    files,
+  };
 }
 
-async function restartProcess() {
+/* =========================================================
+   NPM INSTALL
+========================================================= */
+
+async function installDependencies() {
   try {
+    const npmPath = await run("which npm");
+
+    console.log(
+      "[UPDATE] Using npm:",
+      npmPath
+    );
+
+    await run(
+      "npm install --no-audit --no-fund"
+    );
+
+    return true;
+  } catch (err) {
+    console.error(
+      "[UPDATE] npm install failed:",
+      err.message
+    );
+
+    throw new Error(
+      `npm install failed:\n${err.message}`
+    );
+  }
+}
+
+/* =========================================================
+   BUILD UPDATE MESSAGE
+========================================================= */
+
+function buildUpdateMessage({
+  oldRev,
+  newRev,
+  alreadyUpToDate,
+  commits,
+  files,
+}) {
+  if (alreadyUpToDate) {
+    return (
+      `*✅ ᴀʟʀᴇᴀᴅʏ ᴜᴘ ᴛᴏ ᴅᴀᴛᴇ!*\n\n` +
+      `📌 *ᴄᴜʀʀᴇɴᴛ:* \`${newRev.substring(0, 7)}\``
+    );
+  }
+
+  let text =
+    `*✅ ᴜᴘᴅᴀᴛᴇᴅ sᴜᴄᴄᴇssғᴜʟʟʏ!*\n\n` +
+    `📌 *ᴏʟᴅ:* \`${oldRev.substring(0, 7)}\`\n` +
+    `📌 *ɴᴇᴡ:* \`${newRev.substring(0, 7)}\`\n`;
+
+  /* =======================================================
+     COMMITS
+  ======================================================= */
+
+  if (commits) {
+    const commitLines = commits
+      .split("\n")
+      .filter(Boolean)
+      .slice(0, 5);
+
+    text +=
+      `\n📝 *ʀᴇᴄᴇɴᴛ ᴄᴏᴍᴍɪᴛs:*\n`;
+
+    for (const commit of commitLines) {
+      const match = commit.match(
+        /^([a-f0-9]+)\s+(.*?)(?:\s+\((.*?)\))?$/
+      );
+
+      if (match) {
+        const hash = match[1];
+        const subject = match[2];
+        const author = match[3];
+
+        text +=
+          `• *${hash}* — *${subject}*`;
+
+        if (author) {
+          text += ` *(${author})*`;
+        }
+
+        text += `\n`;
+      } else {
+        text += `• *${commit}*\n`;
+      }
+    }
+  }
+
+  /* =======================================================
+     CHANGED FILES
+  ======================================================= */
+
+  if (files) {
+    const fileLines = files
+      .split("\n")
+      .filter(Boolean);
+
+    text +=
+      `\n📁 *ᴄʜᴀɴɢᴇᴅ ғɪʟᴇs:*\n`;
+
+    for (const file of fileLines.slice(0, 10)) {
+      const parts = file.split(/\s+/);
+
+      if (parts.length >= 2) {
+        text +=
+          `• *${parts[0]}* — *${parts
+            .slice(1)
+            .join(" ")}*\n`;
+      } else {
+        text += `• *${file}*\n`;
+      }
+    }
+
+    if (fileLines.length > 10) {
+      text +=
+        `• ... ᴀɴᴅ ${
+          fileLines.length - 10
+        } ᴍᴏʀᴇ\n`;
+    }
+  }
+
+  return text;
+}
+
+/* =========================================================
+   RESTART BOT
+========================================================= */
+
+async function restartProcess() {
+  /*
+   * Try PM2 first.
+   */
+  try {
+    await run("command -v pm2");
     await run("pm2 restart all");
+
+    console.log(
+      "[UPDATE] Bot restarted using PM2."
+    );
+
     return;
   } catch {}
+
+  /*
+   * PM2 not available.
+   * Start index.js directly.
+   */
+
+  const indexPath = path.join(
+    process.cwd(),
+    "index.js"
+  );
+
+  if (!fs.existsSync(indexPath)) {
+    throw new Error(
+      "index.js not found. Cannot restart bot."
+    );
+  }
+
+  console.log(
+    "[UPDATE] PM2 not found. Restarting index.js..."
+  );
+
+  const child = spawn(
+    process.execPath,
+    [indexPath],
+    {
+      cwd: process.cwd(),
+
+      env: {
+        ...process.env,
+      },
+
+      detached: true,
+
+      stdio: "ignore",
+    }
+  );
+
+  child.unref();
+
   setTimeout(() => {
     process.exit(0);
-  }, 500);
+  }, 1500);
 }
+
+/* =========================================================
+   UPDATE COMMAND
+========================================================= */
 
 module.exports = {
   command: "update",
-  aliases: ["upgrade", "restart"],
+
+  aliases: [
+    "upgrade",
+    "restart",
+  ],
+
   category: "owner",
-  description: "Update bot from git or zip without stopping",
-  usage: ".update [zip_url]",
+
+  description:
+    "Update bot from GitHub and restart automatically",
+
+  usage:
+    ".update",
+
   ownerOnly: true,
 
-  async handler(sock, message, args, context) {
-    const { chatId, channelInfo } = context;
+  async handler(
+    sock,
+    message,
+    args,
+    context = {}
+  ) {
+    const {
+      chatId,
+      channelInfo,
+    } = context;
 
     try {
+      /* =====================================================
+         START MESSAGE
+      ===================================================== */
+
       await sock.sendMessage(
         chatId,
         {
-          text: "🔄 Updating the bot, please wait…",
+          text:
+            `🔄 *ᴘᴜᴛᴛᴜs-ʙᴏᴛ ᴜᴘᴅᴀᴛᴇ*\n\n` +
+            `⏳ *ᴄʜᴇᴄᴋɪɴɢ ɢɪᴛʜᴜʙ...*\n` +
+            `*ᴘʟᴇᴀsᴇ ᴡᴀɪᴛ...*`,
           ...channelInfo,
         },
-        { quoted: message },
+        {
+          quoted: message,
+        }
       );
 
-      let changesSummary = "";
+      /* =====================================================
+         CHECK GIT REPOSITORY
+      ===================================================== */
 
-      if (await hasGitRepo()) {
-        const { oldRev, newRev, alreadyUpToDate, commits, files } =
-          await updateViaGit();
+      const gitAvailable =
+        await hasGitRepo();
 
-        if (alreadyUpToDate) {
-          changesSummary = `✅ Already up to date\nCurrent: ${newRev.substring(0, 7)}`;
-        } else {
-          changesSummary = `✅ Updated successfully!\n\n`;
-          changesSummary += `📌 Old: ${oldRev.substring(0, 7)}\n`;
-          changesSummary += `📌 New: ${newRev.substring(0, 7)}\n\n`;
-
-          if (commits) {
-            const commitLines = commits.split("\n").slice(0, 5);
-            changesSummary += `📝 Recent commits:\n${commitLines.map((c) => `• ${c}`).join("\n")}\n\n`;
-          }
-
-          if (files) {
-            const fileLines = files.split("\n").slice(0, 10);
-            changesSummary += `📁 Changed files:\n${fileLines.map((f) => `• ${f}`).join("\n")}`;
-            if (files.split("\n").length > 10) {
-              changesSummary += `\n... and ${files.split("\n").length - 10} more`;
-            }
-          }
-        }
-
-        await run("npm install --no-audit --no-fund");
-      } else {
-        const zipOverride = args[0] || null;
-        const { copiedFiles } = await updateViaZip(
-          sock,
-          chatId,
-          message,
-          zipOverride,
+      if (!gitAvailable) {
+        throw new Error(
+          "Git repository not found.\n" +
+          "PUTTUS-AI must be cloned from GitHub."
         );
-
-        changesSummary = `✅ Updated from ZIP!\n\n`;
-        changesSummary += `📁 Files updated: ${copiedFiles.length}\n\n`;
-
-        if (copiedFiles.length > 0) {
-          const shown = copiedFiles.slice(0, 10);
-          changesSummary += `Recent changes:\n${shown.map((f) => `• ${f}`).join("\n")}`;
-          if (copiedFiles.length > 10) {
-            changesSummary += `\n... and ${copiedFiles.length - 10} more files`;
-          }
-        }
       }
 
+      /* =====================================================
+         UPDATE
+      ===================================================== */
+
+      const update =
+        await updateViaGit();
+
+      /* =====================================================
+         NPM INSTALL
+      ===================================================== */
+
+      await installDependencies();
+
+      /* =====================================================
+         VERSION
+      ===================================================== */
+
+      let version = "unknown";
+
       try {
-        delete require.cache[require.resolve("../settings")];
-        const newSettings = require("../settings");
-        const v = newSettings.version || "unknown";
-        changesSummary += `\n\n🔖 Version: ${v}`;
+        delete require.cache[
+          require.resolve("../settings")
+        ];
+
+        const newSettings =
+          require("../settings");
+
+        version =
+          newSettings?.version ||
+          "unknown";
       } catch {}
 
+      /* =====================================================
+         REPORT
+      ===================================================== */
+
+      let report =
+        buildUpdateMessage(update);
+
+      report +=
+        `\n\n🔖 *ᴠᴇʀsɪᴏɴ:* *${version}*` +
+        `\n\n♻️ *ʀᴇsᴛᴀʀᴛɪɴɢ ʙᴏᴛ...*`;
+
+      /* =====================================================
+         PUTTUS VCARD
+      ===================================================== */
+
+      const statusQuote =
+        getPuttusVCard();
+
+      /* =====================================================
+         SEND UPDATE REPORT
+      ===================================================== */
+
       await sock.sendMessage(
         chatId,
         {
-          text: changesSummary + "\n\n♻️ Restarting bot...",
+          text: report,
           ...channelInfo,
         },
-        { quoted: message },
+        {
+          quoted: statusQuote,
+        }
       );
 
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      /* =====================================================
+         WAIT BEFORE RESTART
+      ===================================================== */
+
+      await sleep(2000);
+
+      /* =====================================================
+         RESTART
+      ===================================================== */
+
       await restartProcess();
+
     } catch (err) {
-      console.error("Update failed:", err);
-      await sock.sendMessage(
-        chatId,
-        {
-          text: `❌ Update failed:\n${String(err.message || err)}`,
-          ...channelInfo,
-        },
-        { quoted: message },
+      console.error(
+        "[UPDATE] Update failed:",
+        err
       );
+
+      try {
+        await sock.sendMessage(
+          chatId,
+          {
+            text:
+              `❌ *ᴜᴘᴅᴀᴛᴇ ғᴀɪʟᴇᴅ*\n\n` +
+              `└─ ${String(
+                err?.message || err
+              )}`,
+            ...channelInfo,
+          },
+          {
+            quoted: message,
+          }
+        );
+      } catch (sendError) {
+        console.error(
+          "[UPDATE] Error message failed:",
+          sendError
+        );
+      }
     }
   },
 };
