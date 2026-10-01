@@ -1,24 +1,48 @@
 const axios = require("axios");
 
 /* =========================================================
-   CHANNEL INFO
+   PUTTUS-BOT VCARD
+   No Newsletter
 ========================================================= */
 
-const channelInfo = {
-  forwardingScore: 1,
+const vcard = `BEGIN:VCARD
+VERSION:3.0
+FN:🌸•𝐏ᴜᴛᴛᴜꜱ•⌲
+ORG:PUTTUS BOT;
+TEL;type=CELL;type=VOICE;waid=918967360566:+91 8967360566
+END:VCARD`;
 
-  isForwarded: true,
+/* =========================================================
+   SEND VCARD
+========================================================= */
 
-  forwardedNewsletterMessageInfo: {
-    newsletterJid:
-      "120363411471428911@newsletter",
+async function sendVCard(bot, chatId, quoted) {
+  try {
+    await bot.sendMessage(
+      chatId,
+      {
+        contacts: {
+          displayName:
+            "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
 
-    newsletterName:
-      "━[ 𝐏ᴜᴛᴛᴜꜱ - 𝐃ᴀꜱ]━",
-
-    serverMessageId: -1,
-  },
-};
+          contacts: [
+            {
+              vcard: vcard,
+            },
+          ],
+        },
+      },
+      {
+        quoted,
+      }
+    );
+  } catch (error) {
+    console.error(
+      "VCard Error:",
+      error?.message || error
+    );
+  }
+}
 
 /* =========================================================
    DOWNLOAD AUDIO AS BUFFER
@@ -30,9 +54,11 @@ async function downloadAudio(url) {
 
     timeout: 120000,
 
-    maxContentLength: 100 * 1024 * 1024,
+    maxContentLength:
+      100 * 1024 * 1024,
 
-    maxBodyLength: 100 * 1024 * 1024,
+    maxBodyLength:
+      100 * 1024 * 1024,
 
     headers: {
       "User-Agent":
@@ -46,9 +72,14 @@ async function downloadAudio(url) {
       status >= 200 && status < 400,
   });
 
-  const buffer = Buffer.from(response.data);
+  const buffer = Buffer.from(
+    response.data
+  );
 
-  if (!buffer || buffer.length < 1024) {
+  if (
+    !buffer ||
+    buffer.length < 1024
+  ) {
     throw new Error(
       "Invalid or empty audio file"
     );
@@ -58,7 +89,7 @@ async function downloadAudio(url) {
 }
 
 /* =========================================================
-   SONG PLUGIN
+   SONG COMMAND
 ========================================================= */
 
 module.exports = {
@@ -73,7 +104,7 @@ module.exports = {
   category: "music",
 
   description:
-    "Download YouTube songs as MP3",
+    "Download YouTube song as MP3",
 
   usage:
     ".song <song name>",
@@ -88,29 +119,36 @@ module.exports = {
       options.chatId ||
       message?.key?.remoteJid;
 
-    const query = Array.isArray(args)
-      ? args.join(" ").trim()
-      : String(args || "").trim();
+    const query =
+      Array.isArray(args)
+        ? args.join(" ").trim()
+        : String(args || "").trim();
 
     /* =====================================================
        NO QUERY
     ===================================================== */
 
     if (!query) {
-      return await bot.sendMessage(
+      await bot.sendMessage(
         chatId,
         {
           text:
             "🎵 *Song Downloader*\n\n" +
             "Usage:\n" +
             "`.song <song name>`",
-
-          ...channelInfo,
         },
         {
           quoted: message,
         }
       );
+
+      await sendVCard(
+        bot,
+        chatId,
+        message
+      );
+
+      return;
     }
 
     try {
@@ -123,8 +161,6 @@ module.exports = {
         {
           text:
             "*ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ... 𝐏ᴜᴛᴛᴜs-𝐀ɪ ᴡᴀɪᴛ...*",
-
-          ...channelInfo,
         },
         {
           quoted: message,
@@ -135,85 +171,79 @@ module.exports = {
          DAVID CYRIL API
       =================================================== */
 
-      const response = await axios.get(
-        "https://apis.davidcyril.name.ng/play",
-        {
-          params: {
-            query: query,
-          },
+      const apiResponse =
+        await axios.get(
+          "https://apis.davidcyril.name.ng/play",
+          {
+            params: {
+              query: query,
+            },
 
-          timeout: 60000,
+            timeout: 60000,
 
-          headers: {
-            Accept: "application/json",
+            headers: {
+              Accept:
+                "application/json",
 
-            "User-Agent":
-              "Mozilla/5.0",
-          },
-        }
-      );
+              "User-Agent":
+                "PUTTUS-AI",
+            },
+          }
+        );
 
-      const apiData = response.data;
+      const data =
+        apiResponse.data;
 
       console.log(
         "SONG API RESPONSE:",
         JSON.stringify(
-          apiData,
+          data,
           null,
           2
         )
       );
 
       /* ===================================================
-         CHECK API RESPONSE
+         VALIDATE API
       =================================================== */
 
       if (
-        !apiData ||
-        apiData.status !== true ||
-        !apiData.result
+        !data ||
+        data.status !== true ||
+        !data.result
       ) {
         throw new Error(
-          apiData?.message ||
-          "Song information not found"
+          data?.message ||
+          "Invalid API response"
         );
       }
 
-      const song = apiData.result;
+      const song =
+        data.result;
 
-      /* ===================================================
-         GET DOWNLOAD URL
-      =================================================== */
-
-      const downloadUrl =
-        song.download_url;
-
-      if (!downloadUrl) {
+      if (!song.download_url) {
         throw new Error(
           "Download URL not found"
         );
       }
 
       console.log(
-        "DOWNLOAD URL:",
-        downloadUrl
+        "AUDIO URL:",
+        song.download_url
       );
 
       /* ===================================================
-         DOWNLOAD MP3 INTO BUFFER
+         DOWNLOAD AUDIO
       =================================================== */
-
-      console.log(
-        "Downloading MP3..."
-      );
 
       const audioBuffer =
         await downloadAudio(
-          downloadUrl
+          song.download_url
         );
 
       console.log(
-        `Audio downloaded: ${audioBuffer.length} bytes`
+        "Audio Buffer Size:",
+        audioBuffer.length
       );
 
       /* ===================================================
@@ -236,7 +266,8 @@ module.exports = {
         .trim();
 
       if (!fileName) {
-        fileName = "PUTTUS-AI";
+        fileName =
+          "PUTTUS-AI";
       }
 
       if (
@@ -248,7 +279,7 @@ module.exports = {
       }
 
       /* ===================================================
-         SEND AUDIO BUFFER
+         SEND MP3
       =================================================== */
 
       await bot.sendMessage(
@@ -263,8 +294,6 @@ module.exports = {
             fileName,
 
           ptt: false,
-
-          ...channelInfo,
         },
         {
           quoted: message,
@@ -272,7 +301,18 @@ module.exports = {
       );
 
       console.log(
-        `Song sent successfully: ${fileName}`
+        "Song sent successfully:",
+        fileName
+      );
+
+      /* ===================================================
+         SEND VCARD
+      =================================================== */
+
+      await sendVCard(
+        bot,
+        chatId,
+        message
       );
 
     } catch (error) {
@@ -306,19 +346,49 @@ module.exports = {
         errorText +=
           "⏱️ *Download timed out.*\n" +
           "Please try again.";
-      }
-
-      else if (
-        errorMessage.includes("404")
+      } else if (
+        errorMessage.includes(
+          "404"
+        )
       ) {
         errorText +=
           "🔍 *Song download not found.*\n" +
-          "Please try another song.";
-      }
-
-      else if (
-        errorMessage.includes("403") ||
-        errorMessage.includes("401")
+          "Try another song.";
+      } else if (
+        errorMessage.includes(
+          "403"
+        ) ||
+        errorMessage.includes(
+          "401"
+        )
       ) {
         errorText +=
-          "🔒 *
+          "🔒 *Download server rejected the request.*\n" +
+          "Please try again later.";
+      } else {
+        errorText +=
+          "Please try again later.";
+      }
+
+      await bot.sendMessage(
+        chatId,
+        {
+          text: errorText,
+        },
+        {
+          quoted: message,
+        }
+      );
+
+      /* ===================================================
+         VCARD AFTER ERROR
+      =================================================== */
+
+      await sendVCard(
+        bot,
+        chatId,
+        message
+      );
+    }
+  },
+};
