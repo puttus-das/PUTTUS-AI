@@ -45,11 +45,9 @@ function getPuttusVCardQuote() {
 function getQuotedMessage(message) {
   const msg = message?.message;
 
-  if (!msg) {
-    return null;
-  }
+  if (!msg) return null;
 
-  const messageTypes = [
+  const types = [
     "extendedTextMessage",
     "imageMessage",
     "videoMessage",
@@ -58,12 +56,12 @@ function getQuotedMessage(message) {
     "listResponseMessage",
   ];
 
-  for (const type of messageTypes) {
-    const contextInfo =
-      msg?.[type]?.contextInfo;
+  for (const type of types) {
+    const quoted =
+      msg?.[type]?.contextInfo?.quotedMessage;
 
-    if (contextInfo?.quotedMessage) {
-      return contextInfo.quotedMessage;
+    if (quoted) {
+      return quoted;
     }
   }
 
@@ -91,7 +89,7 @@ async function downloadImage(imageMessage) {
 }
 
 /* =========================================================
-   JIMP LOADER
+   LOAD JIMP
 ========================================================= */
 
 async function loadJimp() {
@@ -106,7 +104,7 @@ async function loadJimp() {
     typeof Jimp.read !== "function"
   ) {
     throw new Error(
-      "Jimp is installed but Jimp.read() is unavailable."
+      "Jimp image processor is not available."
     );
   }
 
@@ -117,12 +115,12 @@ async function loadJimp() {
 }
 
 /* =========================================================
-   CREATE 9:16 LONG IMAGE
+   AUTO ASPECT RATIO
    NO CROP
 ========================================================= */
 
-async function createLong9x16(
-  inputBuffer
+async function prepareProfilePicture(
+  buffer
 ) {
   const {
     Jimp,
@@ -130,7 +128,7 @@ async function createLong9x16(
   } = await loadJimp();
 
   const image =
-    await Jimp.read(inputBuffer);
+    await Jimp.read(buffer);
 
   const originalWidth =
     image.width;
@@ -143,27 +141,53 @@ async function createLong9x16(
     !originalHeight
   ) {
     throw new Error(
-      "Unable to detect image dimensions."
+      "Unable to read image dimensions."
     );
   }
 
+  /* -------------------------------------------------------
+     DETECT ORIGINAL ASPECT RATIO
+  ------------------------------------------------------- */
+
+  const aspectRatio =
+    originalWidth /
+    originalHeight;
+
+  console.log(
+    `[SET-PP] Original: ${originalWidth}x${originalHeight}`
+  );
+
+  console.log(
+    `[SET-PP] Aspect Ratio: ${aspectRatio.toFixed(3)}`
+  );
+
   /*
-   * Target 9:16
+   * Examples:
    *
-   * 1080 x 1920
+   * 1080x1080  = 1:1
+   * 1080x1350  = 4:5
+   * 1080x1920  = 9:16
+   * 1920x1080  = 16:9
+   *
+   * The original ratio is NOT changed.
    */
 
-  const targetWidth = 1080;
-  const targetHeight = 1920;
+  /* -------------------------------------------------------
+     WHATSAPP SAFE CANVAS
+  ------------------------------------------------------- */
+
+  const canvasSize = 640;
 
   /*
-   * FIT INSIDE 9:16
-   * NEVER CROP
+   * Fit image inside square.
+   *
+   * IMPORTANT:
+   * No crop.
    */
 
   const scale = Math.min(
-    targetWidth / originalWidth,
-    targetHeight / originalHeight
+    canvasSize / originalWidth,
+    canvasSize / originalHeight
   );
 
   const newWidth =
@@ -182,6 +206,10 @@ async function createLong9x16(
       )
     );
 
+  /* -------------------------------------------------------
+     RESIZE WITHOUT CHANGING RATIO
+  ------------------------------------------------------- */
+
   image.resize({
     w: newWidth,
     h: newHeight,
@@ -189,155 +217,58 @@ async function createLong9x16(
       ResizeStrategy.BILINEAR,
   });
 
-  /*
-   * Create 9:16 canvas
-   */
+  /* -------------------------------------------------------
+     SQUARE CANVAS
+  ------------------------------------------------------- */
 
-  const longCanvas =
-    new Jimp({
-      width: targetWidth,
-      height: targetHeight,
-      color: 0xff000000,
-    });
-
-  /*
-   * Center image
-   */
-
-  const x = Math.floor(
-    (targetWidth - newWidth) / 2
-  );
-
-  const y = Math.floor(
-    (targetHeight - newHeight) / 2
-  );
-
-  longCanvas.composite(
-    image,
-    x,
-    y
-  );
-
-  return await longCanvas.getBuffer(
-    "image/jpeg",
-    {
-      quality: 95,
-    }
-  );
-}
-
-/* =========================================================
-   PUT 9:16 IMAGE INSIDE SQUARE
-   IMPORTANT:
-   BAILEYS updateProfilePicture() EXPECTS SQUARE
-========================================================= */
-
-async function createWhatsAppDP(
-  longBuffer
-) {
-  const {
-    Jimp,
-    ResizeStrategy,
-  } = await loadJimp();
-
-  const longImage =
-    await Jimp.read(longBuffer);
-
-  const longWidth =
-    longImage.width;
-
-  const longHeight =
-    longImage.height;
-
-  if (
-    !longWidth ||
-    !longHeight
-  ) {
-    throw new Error(
-      "Unable to read 9:16 image."
-    );
-  }
-
-  /*
-   * WhatsApp-safe square
-   */
-
-  const canvasSize = 640;
-
-  /*
-   * Fit 9:16 image inside
-   * 640 x 640
-   *
-   * NO CROP
-   */
-
-  const scale = Math.min(
-    canvasSize / longWidth,
-    canvasSize / longHeight
-  );
-
-  const newWidth =
-    Math.max(
-      1,
-      Math.round(
-        longWidth * scale
-      )
-    );
-
-  const newHeight =
-    Math.max(
-      1,
-      Math.round(
-        longHeight * scale
-      )
-    );
-
-  longImage.resize({
-    w: newWidth,
-    h: newHeight,
-    mode:
-      ResizeStrategy.BILINEAR,
-  });
-
-  /*
-   * Black square background
-   */
-
-  const square =
+  const canvas =
     new Jimp({
       width: canvasSize,
       height: canvasSize,
       color: 0xff000000,
     });
 
-  /*
-   * Center 9:16 image
-   */
+  /* -------------------------------------------------------
+     CENTER IMAGE
+  ------------------------------------------------------- */
 
-  const x = Math.floor(
-    (canvasSize - newWidth) / 2
-  );
+  const x =
+    Math.floor(
+      (canvasSize - newWidth) / 2
+    );
 
-  const y = Math.floor(
-    (canvasSize - newHeight) / 2
-  );
+  const y =
+    Math.floor(
+      (canvasSize - newHeight) / 2
+    );
 
-  square.composite(
-    longImage,
+  canvas.composite(
+    image,
     x,
     y
   );
 
-  /*
-   * JPEG output
-   */
+  /* -------------------------------------------------------
+     FINAL JPEG
+  ------------------------------------------------------- */
 
-  return await square.getBuffer(
-    "image/jpeg",
-    {
-      quality: 95,
-    }
+  const output =
+    await canvas.getBuffer(
+      "image/jpeg",
+      {
+        quality: 95,
+      }
+    );
+
+  console.log(
+    `[SET-PP] Final canvas: ${canvasSize}x${canvasSize}`
   );
+
+  console.log(
+    `[SET-PP] Original ratio preserved: ${aspectRatio.toFixed(3)}`
+  );
+
+  return output;
 }
 
 /* =========================================================
@@ -355,7 +286,7 @@ module.exports = {
   category: "owner",
 
   description:
-    "Set bot profile picture using 9:16 long format without cropping.",
+    "Set bot profile picture while preserving the original image ratio.",
 
   usage:
     ".setpp (reply to an image)",
@@ -404,7 +335,7 @@ module.exports = {
       }
 
       /* =====================================================
-         GET REPLIED MESSAGE
+         GET QUOTED MESSAGE
       ===================================================== */
 
       const quotedMessage =
@@ -446,7 +377,7 @@ module.exports = {
       }
 
       /* =====================================================
-         DOWNLOAD ORIGINAL
+         DOWNLOAD ORIGINAL IMAGE
       ===================================================== */
 
       const originalImage =
@@ -465,48 +396,14 @@ module.exports = {
         );
       }
 
-      console.log(
-        "[SET-PP] Original image:",
-        originalImage.length,
-        "bytes"
-      );
-
       /* =====================================================
-         STEP 1
-         CREATE 9:16 LONG IMAGE
-      ===================================================== */
-
-      const longImage =
-        await createLong9x16(
-          originalImage
-        );
-
-      if (
-        !Buffer.isBuffer(
-          longImage
-        ) ||
-        longImage.length === 0
-      ) {
-        throw new Error(
-          "9:16 image creation failed."
-        );
-      }
-
-      console.log(
-        "[SET-PP] 9:16 image created:",
-        longImage.length,
-        "bytes"
-      );
-
-      /* =====================================================
-         STEP 2
-         CREATE SQUARE WHATSAPP DP
-         WITHOUT CROPPING
+         AUTO RESIZE
+         ORIGINAL ASPECT RATIO PRESERVED
       ===================================================== */
 
       const profilePicture =
-        await createWhatsAppDP(
-          longImage
+        await prepareProfilePicture(
+          originalImage
         );
 
       if (
@@ -516,15 +413,9 @@ module.exports = {
         profilePicture.length === 0
       ) {
         throw new Error(
-          "WhatsApp DP processing failed."
+          "Profile picture processing failed."
         );
       }
-
-      console.log(
-        "[SET-PP] Final DP created:",
-        profilePicture.length,
-        "bytes"
-      );
 
       /* =====================================================
          CHECK WHATSAPP CONNECTION
@@ -555,9 +446,9 @@ module.exports = {
           text:
             "✅ *⎯꯭⃜ ꯭𔘓⃪꯭[]꯭🩸꯭𝐒꯭ᴜ꯭ᴄ꯭ᴄ꯭ᴇ꯭ꜱ꯭ꜱ꯭ꜰ꯭ᴜ꯭ʟ꯭ʟ꯭ʏ꯭ 𝐔꯭ᴘ꯭ᴅ꯭ᴀ꯭ᴛ꯭ᴇ꯭ᴅ꯭ 𝐁꯭ᴏ꯭ᴛ꯭ 𝐏꯭ɪ꯭ᴄ꯭ ⚡ 𝐀꯭ᴘ꯭ᴜ꯭ʀ꯭ʙ꯭ᴏ꯭/𝐏꯭ᴜ꯭ᴛ꯭ᴛ꯭ᴜ꯭𝐒꯭ ⟶᯦꯭*\n\n" +
             "╭─〔 *𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ* 〕\n" +
-            "│ ᯓ 9:16 *LONG FORMAT*\n" +
+            "│ ᯓ *AUTO SIZE*\n" +
+            "│ ᯓ *ORIGINAL RATIO PRESERVED*\n" +
             "│ ᯓ *NO CROP*\n" +
-            "│ ᯓ *FULL IMAGE PRESERVED*\n" +
             "╰──────────────\n\n" +
             "*ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*",
         },
