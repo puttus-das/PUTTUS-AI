@@ -1,7 +1,3 @@
-/* =========================================================
-   PUTTUS-BOT GROUP INFO
-========================================================= */
-
 function getPuttusVCard() {
   const botJid = "919641092392@s.whatsapp.net";
 
@@ -32,32 +28,17 @@ function getPuttusVCard() {
   };
 }
 
-/* =========================================================
-   SEND PUTTUS VCARD
-========================================================= */
-
 async function sendPuttusVCard(sock, chatId) {
-  try {
-    const vcardMessage = getPuttusVCard();
+  const vcardMessage = getPuttusVCard();
 
-    await sock.relayMessage(
-      chatId,
-      vcardMessage.message,
-      {
-        messageId: vcardMessage.key.id,
-      },
-    );
-  } catch (error) {
-    console.error(
-      "[GROUPINFO] VCard send error:",
-      error.message,
-    );
-  }
+  await sock.relayMessage(
+    chatId,
+    vcardMessage.message,
+    {
+      messageId: vcardMessage.key.id,
+    },
+  );
 }
-
-/* =========================================================
-   GROUP INFO COMMAND
-========================================================= */
 
 module.exports = {
   command: "groupinfo",
@@ -82,20 +63,9 @@ module.exports = {
       context.chatId ||
       message.key.remoteJid;
 
-    const channelInfo =
-      context.channelInfo || {};
-
     try {
-      /* =====================================================
-         GET GROUP METADATA
-      ===================================================== */
-
       const groupMetadata =
         await sock.groupMetadata(chatId);
-
-      /* =====================================================
-         GROUP PROFILE PICTURE
-      ===================================================== */
 
       let pp;
 
@@ -109,16 +79,8 @@ module.exports = {
           "https://files.catbox.moe/fhifrt.jpeg";
       }
 
-      /* =====================================================
-         PARTICIPANTS
-      ===================================================== */
-
       const participants =
         groupMetadata.participants || [];
-
-      /* =====================================================
-         ADMINS
-      ===================================================== */
 
       const groupAdmins =
         participants.filter(
@@ -130,14 +92,10 @@ module.exports = {
           ? groupAdmins
               .map(
                 (v, i) =>
-                  `${i + 1}. @${v.id.split("@")[0]}`,
+                  `*${i + 1}. @${v.id.split("@")[0]}*`,
               )
               .join("\n")
-          : "No admins found";
-
-      /* =====================================================
-         GROUP OWNER
-      ===================================================== */
+          : "*No admins found*";
 
       const owner =
         groupMetadata.owner ||
@@ -148,56 +106,30 @@ module.exports = {
         chatId.split("-")[0] +
           "@s.whatsapp.net";
 
-      /* =====================================================
-         GROUP DESCRIPTION
-      ===================================================== */
-
       const description =
-        groupMetadata.desc
-          ? groupMetadata.desc.toString()
-          : "No description";
-
-      /* =====================================================
-         GROUP INFO TEXT
-      ===================================================== */
+        groupMetadata.desc?.toString() ||
+        "No description";
 
       const text = `
 ┌──「 *INFO GROUP* 」
 ▢ *♻️ ID:*
-   • ${groupMetadata.id}
+• *${groupMetadata.id}*
 
 ▢ *🔖 NAME:*
-   • ${groupMetadata.subject}
+• *${groupMetadata.subject}*
 
-▢ *👥 Members:*
-   • ${participants.length}
+▢ *👥 MEMBERS:*
+• *${participants.length}*
 
-▢ *🤿 Group Owner:*
-   • @${owner.split("@")[0]}
+▢ *🤿 GROUP OWNER:*
+• *@${owner.split("@")[0]}*
 
-▢ *🕵🏻‍♂️ Admins:*
+▢ *🕵🏻‍♂️ ADMINS:*
 ${listAdmin}
 
-▢ *📌 Description:*
-   • ${description}
-
-*ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*
+▢ *📌 DESCRIPTION:*
+• *${description}*
 `.trim();
-
-      /* =====================================================
-         MENTIONS
-      ===================================================== */
-
-      const mentions = [
-        ...groupAdmins.map(
-          (v) => v.id,
-        ),
-        owner,
-      ];
-
-      /* =====================================================
-         SEND GROUP INFO
-      ===================================================== */
 
       await sock.sendMessage(
         chatId,
@@ -205,21 +137,18 @@ ${listAdmin}
           image: {
             url: pp,
           },
-
           caption: text,
-
-          mentions,
-
-          ...channelInfo,
+          mentions: [
+            ...groupAdmins.map(
+              (v) => v.id,
+            ),
+            owner,
+          ],
         },
         {
           quoted: message,
         },
       );
-
-      /* =====================================================
-         SEND PUTTUS VCARD
-      ===================================================== */
 
       await sendPuttusVCard(
         sock,
@@ -236,10 +165,7 @@ ${listAdmin}
         chatId,
         {
           text:
-            "❌ *Failed to get group info.*\n\n" +
-            "*ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*",
-
-          ...channelInfo,
+            "*❌ Failed to get group info!*",
         },
         {
           quoted: message,
