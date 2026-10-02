@@ -1011,7 +1011,6 @@ module.exports = {
 
   aliases: [
     "bot",
-    "ai",
     "achat",
   ],
 
