@@ -4,7 +4,7 @@ const {
 
 /* =========================================================
    PUTTUS VCARD
-   SAME AS ANTILINK PLUGIN
+   SAME AS ANTILINK — DO NOT CHANGE
 ========================================================= */
 
 function getPuttusVCardQuote() {
@@ -42,55 +42,99 @@ function getPuttusVCardQuote() {
 ========================================================= */
 
 function getQuotedMessage(message) {
-  const contextInfo =
-    message?.message?.extendedTextMessage?.contextInfo ||
-    message?.message?.imageMessage?.contextInfo ||
-    message?.message?.videoMessage?.contextInfo ||
-    message?.message?.documentMessage?.contextInfo;
+  if (!message?.message) {
+    return null;
+  }
 
-  return contextInfo?.quotedMessage || null;
+  const msg = message.message;
+
+  /* Normal text reply */
+  if (msg.extendedTextMessage?.contextInfo?.quotedMessage) {
+    return msg.extendedTextMessage.contextInfo.quotedMessage;
+  }
+
+  /* Image reply */
+  if (msg.imageMessage?.contextInfo?.quotedMessage) {
+    return msg.imageMessage.contextInfo.quotedMessage;
+  }
+
+  /* Video reply */
+  if (msg.videoMessage?.contextInfo?.quotedMessage) {
+    return msg.videoMessage.contextInfo.quotedMessage;
+  }
+
+  /* Document reply */
+  if (msg.documentMessage?.contextInfo?.quotedMessage) {
+    return msg.documentMessage.contextInfo.quotedMessage;
+  }
+
+  /* Buttons / interactive reply */
+  if (msg.buttonsResponseMessage?.contextInfo?.quotedMessage) {
+    return msg.buttonsResponseMessage.contextInfo.quotedMessage;
+  }
+
+  if (
+    msg.templateButtonReplyMessage?.contextInfo
+      ?.quotedMessage
+  ) {
+    return msg.templateButtonReplyMessage.contextInfo
+      .quotedMessage;
+  }
+
+  return null;
 }
 
 /* =========================================================
-   UNWRAP VIEW ONCE
+   UNWRAP MESSAGE
 ========================================================= */
 
-function unwrapViewOnce(message) {
+function unwrapMessage(message) {
   if (!message) {
     return null;
   }
 
   let current = message;
 
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 15; i++) {
     if (!current) {
       return null;
     }
 
+    /* View Once V1 */
     if (current.viewOnceMessage?.message) {
       current = current.viewOnceMessage.message;
       continue;
     }
 
+    /* View Once V2 */
     if (current.viewOnceMessageV2?.message) {
       current = current.viewOnceMessageV2.message;
       continue;
     }
 
+    /* View Once V2 Extension */
     if (current.viewOnceMessageV2Extension?.message) {
       current =
         current.viewOnceMessageV2Extension.message;
       continue;
     }
 
+    /* Ephemeral */
     if (current.ephemeralMessage?.message) {
       current = current.ephemeralMessage.message;
       continue;
     }
 
+    /* Document with caption */
     if (current.documentWithCaptionMessage?.message) {
       current =
         current.documentWithCaptionMessage.message;
+      continue;
+    }
+
+    /* Edited message wrapper */
+    if (current.editedMessage?.message) {
+      current = current.editedMessage.message;
       continue;
     }
 
@@ -101,10 +145,42 @@ function unwrapViewOnce(message) {
 }
 
 /* =========================================================
+   GET MEDIA
+========================================================= */
+
+function getMedia(message) {
+  const unwrapped = unwrapMessage(message);
+
+  if (!unwrapped) {
+    return null;
+  }
+
+  if (unwrapped.imageMessage) {
+    return {
+      type: "image",
+      data: unwrapped.imageMessage,
+    };
+  }
+
+  if (unwrapped.videoMessage) {
+    return {
+      type: "video",
+      data: unwrapped.videoMessage,
+    };
+  }
+
+  return null;
+}
+
+/* =========================================================
    DOWNLOAD MEDIA
 ========================================================= */
 
 async function downloadMedia(media, type) {
+  if (!media) {
+    throw new Error("Media not found");
+  }
+
   const stream =
     await downloadContentFromMessage(
       media,
@@ -115,6 +191,10 @@ async function downloadMedia(media, type) {
 
   for await (const chunk of stream) {
     chunks.push(chunk);
+  }
+
+  if (!chunks.length) {
+    throw new Error("Downloaded media is empty");
   }
 
   return Buffer.concat(chunks);
@@ -153,7 +233,7 @@ module.exports = {
 
     try {
       /* =====================================================
-         CHECK CHAT
+         BASIC CHECK
       ===================================================== */
 
       if (!sock || !chatId) {
@@ -183,11 +263,11 @@ module.exports = {
       }
 
       /* =====================================================
-         UNWRAP VIEW ONCE
+         FIND VIEW ONCE MEDIA
       ===================================================== */
 
       const media =
-        unwrapViewOnce(quoted);
+        getMedia(quoted);
 
       if (!media) {
         return await sock.sendMessage(
@@ -205,13 +285,10 @@ module.exports = {
       }
 
       /* =====================================================
-         VIEW ONCE IMAGE
+         REACT
       ===================================================== */
 
-      if (media.imageMessage) {
-        const image =
-          media.imageMessage;
-
+      try {
         await sock.sendMessage(
           chatId,
           {
@@ -221,37 +298,49 @@ module.exports = {
             },
           },
         );
+      } catch (_) {}
 
-        /* ===================================================
-           DOWNLOAD IMAGE
-        =================================================== */
+      /* =====================================================
+         DOWNLOAD PHOTO / VIDEO
+      ===================================================== */
 
-        const buffer =
-          await downloadMedia(
-            image,
-            "image",
-          );
-
-        /* ===================================================
-           VCARD FIRST
-           SAME VCARD AS ANTILINK
-        =================================================== */
-
-        await sock.sendMessage(
-          chatId,
-          {
-            text: "🌸 *PUTTUS-BOT*",
-          },
-          {
-            quoted:
-              getPuttusVCardQuote(),
-          },
+      const buffer =
+        await downloadMedia(
+          media.data,
+          media.type,
         );
 
-        /* ===================================================
-           IMAGE SECOND
-           IMAGE WILL APPEAR BELOW VCARD
-        =================================================== */
+      if (!buffer || !buffer.length) {
+        throw new Error(
+          "Media buffer is empty",
+        );
+      }
+
+      /* =====================================================
+         IMPORTANT
+
+         VCard is NOT sent separately.
+
+         The recovered photo/video itself is sent
+         QUOTED TO THE PUTTUS VCARD.
+
+         Result:
+
+         [ PUTTUS VCARD ]
+                 ↓
+         [ RECOVERED PHOTO/VIDEO ]
+      ===================================================== */
+
+      const vcardQuote =
+        getPuttusVCardQuote();
+
+      /* =====================================================
+         SEND PHOTO
+      ===================================================== */
+
+      if (media.type === "image") {
+        const image =
+          media.data;
 
         await sock.sendMessage(
           chatId,
@@ -264,71 +353,18 @@ module.exports = {
               "🤖 *𝙋𝙐𝙏𝙏𝙐𝙎-𝘼𝙄*",
           },
           {
-            quoted: message,
+            quoted: vcardQuote,
           },
         );
-
-        await sock.sendMessage(
-          chatId,
-          {
-            react: {
-              text: "✅",
-              key: message.key,
-            },
-          },
-        );
-
-        return;
       }
 
       /* =====================================================
-         VIEW ONCE VIDEO
+         SEND VIDEO
       ===================================================== */
 
-      if (media.videoMessage) {
+      else if (media.type === "video") {
         const video =
-          media.videoMessage;
-
-        await sock.sendMessage(
-          chatId,
-          {
-            react: {
-              text: "👁️",
-              key: message.key,
-            },
-          },
-        );
-
-        /* ===================================================
-           DOWNLOAD VIDEO
-        =================================================== */
-
-        const buffer =
-          await downloadMedia(
-            video,
-            "video",
-          );
-
-        /* ===================================================
-           VCARD FIRST
-           SAME VCARD AS ANTILINK
-        =================================================== */
-
-        await sock.sendMessage(
-          chatId,
-          {
-            text: "🌸 *PUTTUS-BOT*",
-          },
-          {
-            quoted:
-              getPuttusVCardQuote(),
-          },
-        );
-
-        /* ===================================================
-           VIDEO SECOND
-           VIDEO WILL APPEAR BELOW VCARD
-        =================================================== */
+          media.data;
 
         await sock.sendMessage(
           chatId,
@@ -345,10 +381,16 @@ module.exports = {
               "🤖 *𝙋𝙐𝙏𝙏𝙐𝙎-𝘼𝙄*",
           },
           {
-            quoted: message,
+            quoted: vcardQuote,
           },
         );
+      }
 
+      /* =====================================================
+         SUCCESS REACTION
+      ===================================================== */
+
+      try {
         await sock.sendMessage(
           chatId,
           {
@@ -358,25 +400,9 @@ module.exports = {
             },
           },
         );
+      } catch (_) {}
 
-        return;
-      }
-
-      /* =====================================================
-         UNSUPPORTED MEDIA
-      ===================================================== */
-
-      return await sock.sendMessage(
-        chatId,
-        {
-          text:
-            "❌ *Not a View-Once photo/video!*\n\n" +
-            "Only view-once photos and videos are supported.",
-        },
-        {
-          quoted: message,
-        },
-      );
+      return;
 
     } catch (error) {
       console.error(
@@ -390,22 +416,24 @@ module.exports = {
           {
             text:
               "❌ *View-Once Failed!*\n\n" +
-              "The media could not be recovered.",
+              "The photo/video could not be recovered.",
           },
           {
             quoted: message,
           },
         );
 
-        await sock.sendMessage(
-          chatId,
-          {
-            react: {
-              text: "❌",
-              key: message.key,
+        try {
+          await sock.sendMessage(
+            chatId,
+            {
+              react: {
+                text: "❌",
+                key: message.key,
+              },
             },
-          },
-        );
+          );
+        } catch (_) {}
 
       } catch (sendError) {
         console.error(
