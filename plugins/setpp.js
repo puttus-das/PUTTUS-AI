@@ -1,4 +1,7 @@
-const { downloadContentFromMessage } = require("@whiskeysockets/baileys");
+const {
+  downloadContentFromMessage,
+} = require("@whiskeysockets/baileys");
+
 const isOwnerOrSudo = require("../lib/isOwner");
 
 /* =========================================================
@@ -42,39 +45,85 @@ function getPuttusVCardQuote() {
 function getQuotedMessage(message) {
   const msg = message?.message;
 
-  if (!msg) return null;
+  if (!msg) {
+    return null;
+  }
 
-  const types = [
-    "extendedTextMessage",
-    "imageMessage",
-    "buttonsResponseMessage",
-    "templateButtonReplyMessage",
-    "listResponseMessage",
-  ];
+  /* Normal text reply */
+  if (
+    msg.extendedTextMessage
+      ?.contextInfo
+      ?.quotedMessage
+  ) {
+    return (
+      msg.extendedTextMessage
+        .contextInfo.quotedMessage
+    );
+  }
 
-  for (const type of types) {
-    const quoted =
-      msg?.[type]?.contextInfo?.quotedMessage;
+  /* Image reply */
+  if (
+    msg.imageMessage
+      ?.contextInfo
+      ?.quotedMessage
+  ) {
+    return (
+      msg.imageMessage
+        .contextInfo.quotedMessage
+    );
+  }
 
-    if (quoted) {
-      return quoted;
-    }
+  /* Buttons */
+  if (
+    msg.buttonsResponseMessage
+      ?.contextInfo
+      ?.quotedMessage
+  ) {
+    return (
+      msg.buttonsResponseMessage
+        .contextInfo.quotedMessage
+    );
+  }
+
+  /* Template buttons */
+  if (
+    msg.templateButtonReplyMessage
+      ?.contextInfo
+      ?.quotedMessage
+  ) {
+    return (
+      msg.templateButtonReplyMessage
+        .contextInfo.quotedMessage
+    );
+  }
+
+  /* List */
+  if (
+    msg.listResponseMessage
+      ?.contextInfo
+      ?.quotedMessage
+  ) {
+    return (
+      msg.listResponseMessage
+        .contextInfo.quotedMessage
+    );
   }
 
   return null;
 }
 
 /* =========================================================
-   DOWNLOAD ORIGINAL IMAGE
-   NO RESIZE
-   NO CROP
+   DOWNLOAD IMAGE
 ========================================================= */
 
-async function downloadImage(imageMessage) {
-  const stream = await downloadContentFromMessage(
-    imageMessage,
-    "image"
-  );
+async function downloadImage(
+  imageMessage
+) {
+  const stream =
+    await downloadContentFromMessage(
+      imageMessage,
+      "image"
+    );
 
   const chunks = [];
 
@@ -86,7 +135,7 @@ async function downloadImage(imageMessage) {
 }
 
 /* =========================================================
-   SET PROFILE PICTURE
+   COMMAND
 ========================================================= */
 
 module.exports = {
@@ -101,10 +150,10 @@ module.exports = {
   category: "owner",
 
   description:
-    "Set bot profile picture from the replied image.",
+    "Set bot profile picture from replied image.",
 
   usage:
-    ".setpp (reply to an image)",
+    ".setpp (reply to image)",
 
   async handler(
     sock,
@@ -150,7 +199,7 @@ module.exports = {
       }
 
       /* =====================================================
-         GET REPLIED MESSAGE
+         CHECK REPLY
       ===================================================== */
 
       const quotedMessage =
@@ -171,7 +220,7 @@ module.exports = {
       }
 
       /* =====================================================
-         IMAGE ONLY
+         CHECK IMAGE
       ===================================================== */
 
       const imageMessage =
@@ -182,7 +231,7 @@ module.exports = {
           chatId,
           {
             text:
-              "*❌ The replied message must contain an image!*",
+              "*❌ The replied message is not an image!*",
           },
           {
             quoted:
@@ -192,11 +241,29 @@ module.exports = {
       }
 
       /* =====================================================
-         DOWNLOAD ORIGINAL
-         NO JIMP
-         NO SHARP
-         NO RESIZE
-         NO CROP
+         IMPORTANT:
+         SEND RESPONSE BEFORE PROCESSING
+      ===================================================== */
+
+      await sock.sendMessage(
+        chatId,
+        {
+          text:
+            "⏳ *Processing profile picture...*\n\n" +
+            "*Please wait.*",
+        },
+        {
+          quoted:
+            getPuttusVCardQuote(),
+        }
+      );
+
+      console.log(
+        "[SET-PP] Image reply detected."
+      );
+
+      /* =====================================================
+         DOWNLOAD ORIGINAL IMAGE
       ===================================================== */
 
       const image =
@@ -209,34 +276,52 @@ module.exports = {
         image.length === 0
       ) {
         throw new Error(
-          "Image download failed."
+          "Downloaded image is empty."
         );
       }
 
       console.log(
-        "[SET-PP] Original image:",
+        "[SET-PP] Image downloaded:",
         image.length,
         "bytes"
       );
 
       /* =====================================================
-         WHATSAPP CONNECTION CHECK
+         CHECK SOCKET
       ===================================================== */
 
-      if (!sock?.user?.id) {
+      if (
+        !sock ||
+        typeof sock.updateProfilePicture !==
+          "function"
+      ) {
         throw new Error(
-          "WhatsApp connection is not ready."
+          "updateProfilePicture() is not available."
         );
       }
 
+      if (!sock.user?.id) {
+        throw new Error(
+          "WhatsApp user ID is not available."
+        );
+      }
+
+      console.log(
+        "[SET-PP] Updating profile picture..."
+      );
+
       /* =====================================================
-         DIRECT PROFILE PICTURE UPDATE
+         DIRECT UPDATE
          SAME IDEA AS FULLPP
       ===================================================== */
 
       await sock.updateProfilePicture(
         sock.user.id,
         image
+      );
+
+      console.log(
+        "[SET-PP] Profile picture updated."
       );
 
       /* =====================================================
@@ -248,6 +333,10 @@ module.exports = {
         {
           text:
             "✅ *⎯꯭⃜ ꯭𔘓⃪꯭[]꯭🩸꯭𝐒꯭ᴜ꯭ᴄ꯭ᴄ꯭ᴇ꯭ꜱ꯭ꜱ꯭ꜰ꯭ᴜ꯭ʟ꯭ʟ꯭ʏ꯭ 𝐔꯭ᴘ꯭ᴅ꯭ᴀ꯭ᴛ꯭ᴇ꯭ᴅ꯭ 𝐁꯭ᴏ꯭ᴛ꯭ 𝐏꯭ɪ꯭ᴄ꯭ ⚡ 𝐀꯭ᴘ꯭ᴜ꯭ʀ꯭ʙ꯭ᴏ꯭/𝐏꯭ᴜ꯭ᴛ꯭ᴛ꯭ᴜ꯭𝐒꯭*\n\n" +
+            "╭─〔 *𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ* 〕\n" +
+            "│ ᯓ *PHOTO UPDATED*\n" +
+            "│ ᯓ *ORIGINAL IMAGE USED*\n" +
+            "╰──────────────\n\n" +
             "*ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*",
         },
         {
@@ -257,8 +346,12 @@ module.exports = {
       );
 
     } catch (error) {
+      /* =====================================================
+         ERROR
+      ===================================================== */
+
       console.error(
-        "[SET-PP ERROR]",
+        "[SET-PP ERROR]:",
         error
       );
 
@@ -266,7 +359,7 @@ module.exports = {
         chatId,
         {
           text:
-            "*❌ Failed to update profile picture.*\n\n" +
+            "*❌ SETPP ERROR*\n\n" +
             `_${error?.message || "Unknown error"}_`,
         },
         {
