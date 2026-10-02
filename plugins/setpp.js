@@ -1,6 +1,10 @@
 const { downloadContentFromMessage } = require("@whiskeysockets/baileys");
 const isOwnerOrSudo = require("../lib/isOwner");
 
+/* =========================================================
+   PUTTUS VCARD
+========================================================= */
+
 function getPuttusVCardQuote() {
   const botJid = "919641092392@s.whatsapp.net";
 
@@ -20,14 +24,20 @@ function getPuttusVCardQuote() {
       id: "PUTTUS-" + Date.now(),
       participant: botJid,
     },
+
     message: {
       contactMessage: {
-        displayName: "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
+        displayName:
+          "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
         vcard,
       },
     },
   };
 }
+
+/* =========================================================
+   DOWNLOAD IMAGE
+========================================================= */
 
 async function downloadImage(imageMessage) {
   const stream = await downloadContentFromMessage(
@@ -44,40 +54,69 @@ async function downloadImage(imageMessage) {
   return Buffer.concat(chunks);
 }
 
-module.exports = {
-  command: "fullpp",
-  aliases: ["setpp", "setppic", "setdp"],
-  category: "owner",
-  description: "Set the bot profile picture.",
-  usage: ".fullpp (reply to an image)",
+/* =========================================================
+   SET PROFILE PICTURE
+========================================================= */
 
-  async handler(sock, message, args = [], context = {}) {
+module.exports = {
+  command: "setpp",
+
+  aliases: [
+    "setppic",
+    "setdp",
+  ],
+
+  category: "owner",
+
+  description:
+    "Set or update the bot profile picture.",
+
+  usage:
+    ".setpp (reply to an image)",
+
+  async handler(
+    sock,
+    message,
+    args = [],
+    context = {}
+  ) {
     const chatId =
       context.chatId ||
       message.key.remoteJid;
 
     try {
+      /* =====================================================
+         OWNER CHECK
+      ===================================================== */
+
       const senderId =
         message.key.participant ||
         message.key.remoteJid;
 
-      const owner = await isOwnerOrSudo(
-        senderId,
-        sock,
-        chatId
-      );
+      const owner =
+        await isOwnerOrSudo(
+          senderId,
+          sock,
+          chatId
+        );
 
       if (!message.key.fromMe && !owner) {
         return await sock.sendMessage(
           chatId,
           {
-            text: "*❌ Owner only command.*",
+            text:
+              "*This command is only available for the owner!*",
           },
           {
-            quoted: getPuttusVCardQuote(),
+            quoted:
+              getPuttusVCardQuote(),
           }
         );
       }
+
+      /* =====================================================
+         GET REPLIED MESSAGE
+      ===================================================== */
 
       const quotedMessage =
         message.message
@@ -85,46 +124,104 @@ module.exports = {
           ?.contextInfo
           ?.quotedMessage;
 
-      if (!quotedMessage?.imageMessage) {
+      if (!quotedMessage) {
         return await sock.sendMessage(
           chatId,
           {
             text:
-              "*❌ Reply to an image with .fullpp*",
+              "*⚠️ Reply to an image with .setpp*",
           },
           {
-            quoted: getPuttusVCardQuote(),
+            quoted:
+              getPuttusVCardQuote(),
           }
         );
       }
 
-      const image = await downloadImage(
-        quotedMessage.imageMessage
-      );
+      /* =====================================================
+         IMAGE ONLY
+      ===================================================== */
 
-      if (!image?.length) {
-        throw new Error("Image download failed");
+      const imageMessage =
+        quotedMessage.imageMessage;
+
+      if (!imageMessage) {
+        return await sock.sendMessage(
+          chatId,
+          {
+            text:
+              "*❌ The replied message must contain an image!*",
+          },
+          {
+            quoted:
+              getPuttusVCardQuote(),
+          }
+        );
+      }
+
+      /* =====================================================
+         DOWNLOAD IMAGE
+      ===================================================== */
+
+      const image =
+        await downloadImage(
+          imageMessage
+        );
+
+      if (
+        !Buffer.isBuffer(image) ||
+        image.length === 0
+      ) {
+        throw new Error(
+          "Unable to download the image."
+        );
+      }
+
+      /* =====================================================
+         UPDATE BOT PROFILE PICTURE
+      ===================================================== */
+
+      const botJid =
+        sock.user?.id;
+
+      if (!botJid) {
+        throw new Error(
+          "WhatsApp session is not ready."
+        );
       }
 
       await sock.updateProfilePicture(
-        sock.user.id,
+        botJid,
         image
       );
+
+      /* =====================================================
+         SUCCESS
+      ===================================================== */
 
       return await sock.sendMessage(
         chatId,
         {
           text:
-            "✅ *Bot profile picture updated successfully!*\n\n" +
+            "✅ *⎯꯭⃜ ꯭𔘓⃪꯭[]꯭🩸꯭𝐒꯭ᴜ꯭ᴄ꯭ᴄ꯭ᴇ꯭ꜱ꯭ꜱ꯭ꜰ꯭ᴜ꯭ʟ꯭ʟ꯭ʏ꯭ 𝐔꯭ᴘ꯭ᴅ꯭ᴀ꯭ᴛ꯭ᴇ꯭ᴅ꯭ 𝐁꯭ᴏ꯭ᴛ꯭ 𝐏꯭ɪ꯭ᴄ꯭ ⚡ 𝐀꯭ᴘ꯭ᴜ꯭ʀ꯭ʙ꯭ᴏ꯭/𝐏꯭ᴜ꯭ᴛ꯭ᴛ꯭ᴜ꯭𝐒꯭ ⟶᯦꯭*\n\n" +
             "*ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*",
         },
         {
-          quoted: getPuttusVCardQuote(),
+          quoted:
+            getPuttusVCardQuote(),
         }
       );
 
     } catch (error) {
-      console.error("FULLPP ERROR:", error);
+
+      console.error(
+        "SET-PP ERROR:",
+        error
+      );
+
+      /* =====================================================
+         ERROR
+      ===================================================== */
 
       return await sock.sendMessage(
         chatId,
@@ -134,7 +231,8 @@ module.exports = {
             `_${error?.message || "Unknown error"}_`,
         },
         {
-          quoted: getPuttusVCardQuote(),
+          quoted:
+            getPuttusVCardQuote(),
         }
       );
     }
