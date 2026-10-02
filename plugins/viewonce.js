@@ -4,7 +4,7 @@ const {
 
 /* =========================================================
    PUTTUS VCARD
-   ========================================================= */
+========================================================= */
 
 function getPuttusVCardQuote() {
   const botJid = "919641092392@s.whatsapp.net";
@@ -28,7 +28,8 @@ function getPuttusVCardQuote() {
 
     message: {
       contactMessage: {
-        displayName: "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
+        displayName:
+          "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
         vcard,
       },
     },
@@ -36,11 +37,14 @@ function getPuttusVCardQuote() {
 }
 
 /* =========================================================
-   DOWNLOAD BUFFER
+   DOWNLOAD MEDIA
 ========================================================= */
 
 async function downloadMedia(media, type) {
-  const stream = await downloadContentFromMessage(media, type);
+  const stream = await downloadContentFromMessage(
+    media,
+    type
+  );
 
   const chunks = [];
 
@@ -65,11 +69,18 @@ module.exports = {
 
   category: "general",
 
-  description: "Recover view-once image or video.",
+  description:
+    "Recover view-once image or video.",
 
-  usage: ".vv",
+  usage:
+    ".vv",
 
-  async handler(sock, message, args = [], context = {}) {
+  async handler(
+    sock,
+    message,
+    args = [],
+    context = {}
+  ) {
     const chatId =
       context?.chatId ||
       message?.key?.remoteJid;
@@ -93,7 +104,8 @@ module.exports = {
         await sock.sendMessage(
           chatId,
           {
-            text: "❌ *Reply to a View Once photo or video.*",
+            text:
+              "❌ *ᴘʟᴇᴀsᴇ ʀᴇᴘʟʏ ᴛᴏ ᴀ ᴠɪᴇᴡ ᴏɴᴄᴇ ᴘʜᴏᴛᴏ ᴏʀ ᴠɪᴅᴇᴏ.*",
           },
           {
             quoted: message,
@@ -110,12 +122,15 @@ module.exports = {
       let image = quoted.imageMessage;
 
       if (image?.viewOnceMessage) {
-        image = image.viewOnceMessage.message?.imageMessage;
+        image =
+          image.viewOnceMessage.message
+            ?.imageMessage;
       }
 
       if (image?.viewOnceMessageV2) {
         image =
-          image.viewOnceMessageV2.message?.imageMessage;
+          image.viewOnceMessageV2.message
+            ?.imageMessage;
       }
 
       if (image?.viewOnceMessageV2Extension) {
@@ -131,12 +146,15 @@ module.exports = {
       let video = quoted.videoMessage;
 
       if (video?.viewOnceMessage) {
-        video = video.viewOnceMessage.message?.videoMessage;
+        video =
+          video.viewOnceMessage.message
+            ?.videoMessage;
       }
 
       if (video?.viewOnceMessageV2) {
         video =
-          video.viewOnceMessageV2.message?.videoMessage;
+          video.viewOnceMessageV2.message
+            ?.videoMessage;
       }
 
       if (video?.viewOnceMessageV2Extension) {
@@ -150,20 +168,31 @@ module.exports = {
       ===================================================== */
 
       if (image) {
-        const buffer = await downloadMedia(
-          image,
-          "image"
-        );
+        const buffer =
+          await downloadMedia(
+            image,
+            "image"
+          );
 
         await sock.sendMessage(
           chatId,
           {
             image: buffer,
-            mimetype: image.mimetype || "image/jpeg",
-            caption: image.caption || "",
+
+            mimetype:
+              image.mimetype ||
+              "image/jpeg",
+
+            caption:
+              image.caption
+                ? image.caption +
+                  "\n\n" +
+                  "*ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*"
+                : "*ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*",
           },
           {
-            quoted: getPuttusVCardQuote(),
+            quoted:
+              getPuttusVCardQuote(),
           }
         );
 
@@ -175,20 +204,31 @@ module.exports = {
       ===================================================== */
 
       if (video) {
-        const buffer = await downloadMedia(
-          video,
-          "video"
-        );
+        const buffer =
+          await downloadMedia(
+            video,
+            "video"
+          );
 
         await sock.sendMessage(
           chatId,
           {
             video: buffer,
-            mimetype: video.mimetype || "video/mp4",
-            caption: video.caption || "",
+
+            mimetype:
+              video.mimetype ||
+              "video/mp4",
+
+            caption:
+              video.caption
+                ? video.caption +
+                  "\n\n" +
+                  "*ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*"
+                : "*ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*",
           },
           {
-            quoted: getPuttusVCardQuote(),
+            quoted:
+              getPuttusVCardQuote(),
           }
         );
 
@@ -203,7 +243,7 @@ module.exports = {
         chatId,
         {
           text:
-            "❌ *Reply to a View Once photo or video.*",
+            "❌ *ᴘʟᴇᴀsᴇ ʀᴇᴘʟʏ ᴛᴏ ᴀ ᴠɪᴇᴡ ᴏɴᴄᴇ ᴘʜᴏᴛᴏ ᴏʀ ᴠɪᴅᴇᴏ.*",
         },
         {
           quoted: message,
@@ -211,22 +251,28 @@ module.exports = {
       );
 
     } catch (error) {
-      console.error("VV ERROR:", error);
+      console.error(
+        "VV ERROR:",
+        error
+      );
 
       try {
         await sock.sendMessage(
           chatId,
           {
             text:
-              "❌ *View Once media recover করা যায়নি.*\n\n" +
-              "Please reply directly to the View Once photo/video and try again.",
+              "❌ *ᴠɪᴇᴡ ᴏɴᴄᴇ ᴍᴇᴅɪᴀ ᴄᴏᴜʟᴅ ɴᴏᴛ ʙᴇ ʀᴇᴄᴏᴠᴇʀᴇᴅ.*\n\n" +
+              "*ᴘʟᴇᴀsᴇ ʀᴇᴘʟʏ ᴛᴏ ᴛʜᴇ ᴠɪᴇᴡ ᴏɴᴄᴇ ᴘʜᴏᴛᴏ ᴏʀ ᴠɪᴅᴇᴏ ᴀɴᴅ ᴛʀʏ ᴀɢᴀɪɴ.*",
           },
           {
             quoted: message,
           }
         );
       } catch (sendError) {
-        console.error("VV SEND ERROR:", sendError);
+        console.error(
+          "VV SEND ERROR:",
+          sendError
+        );
       }
     }
   },
