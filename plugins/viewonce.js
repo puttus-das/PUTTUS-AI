@@ -3,7 +3,7 @@ const {
 } = require("@whiskeysockets/baileys");
 
 /* =========================================================
-   PUTTUS VCard
+   PUTTUS VCARD
 ========================================================= */
 
 const PUTTUS_VCARD = {
@@ -17,35 +17,70 @@ END:VCARD`,
 };
 
 /* =========================================================
-   GET VIEW-ONCE MESSAGE
+   GET QUOTED MESSAGE
 ========================================================= */
 
-function getViewOnceMessage(message) {
-  if (!message?.message) return null;
+function getQuotedMessage(message) {
+  const contextInfo =
+    message?.message?.extendedTextMessage?.contextInfo ||
+    message?.message?.imageMessage?.contextInfo ||
+    message?.message?.videoMessage?.contextInfo;
 
-  const msg = message.message;
+  return contextInfo?.quotedMessage || null;
+}
 
-  if (msg.viewOnceMessage?.message) {
-    return msg.viewOnceMessage.message;
+/* =========================================================
+   UNWRAP VIEW ONCE
+========================================================= */
+
+function unwrapViewOnce(message) {
+  if (!message) return null;
+
+  let current = message;
+
+  for (let i = 0; i < 10; i++) {
+    if (!current) return null;
+
+    if (current.viewOnceMessage?.message) {
+      current = current.viewOnceMessage.message;
+      continue;
+    }
+
+    if (current.viewOnceMessageV2?.message) {
+      current = current.viewOnceMessageV2.message;
+      continue;
+    }
+
+    if (current.viewOnceMessageV2Extension?.message) {
+      current = current.viewOnceMessageV2Extension.message;
+      continue;
+    }
+
+    if (current.ephemeralMessage?.message) {
+      current = current.ephemeralMessage.message;
+      continue;
+    }
+
+    if (current.documentWithCaptionMessage?.message) {
+      current = current.documentWithCaptionMessage.message;
+      continue;
+    }
+
+    break;
   }
 
-  if (msg.viewOnceMessageV2?.message) {
-    return msg.viewOnceMessageV2.message;
-  }
-
-  if (msg.viewOnceMessageV2Extension?.message) {
-    return msg.viewOnceMessageV2Extension.message;
-  }
-
-  return null;
+  return current;
 }
 
 /* =========================================================
    DOWNLOAD MEDIA
 ========================================================= */
 
-async function downloadMedia(media, type) {
-  const stream = await downloadContentFromMessage(media, type);
+async function downloadMedia(message, type) {
+  const stream = await downloadContentFromMessage(
+    message,
+    type,
+  );
 
   const chunks = [];
 
@@ -63,11 +98,14 @@ async function downloadMedia(media, type) {
 module.exports = {
   command: "viewonce",
   aliases: ["vv", "view", "viewmedia"],
+
   category: "general",
 
-  description: "Recover and resend a view-once photo or video",
+  description:
+    "Recover and resend a view-once photo or video",
 
-  usage: ".vv (reply to a view-once photo/video)",
+  usage:
+    ".vv - reply to a view-once photo/video",
 
   async handler(sock, message, args = [], context = {}) {
     const chatId =
@@ -76,21 +114,19 @@ module.exports = {
 
     try {
       /* =====================================================
-         CHECK REPLIED MESSAGE
+         GET QUOTED MESSAGE
       ===================================================== */
 
-      const quoted =
-        message?.message?.extendedTextMessage?.contextInfo
-          ?.quotedMessage;
+      const quoted = getQuotedMessage(message);
 
       if (!quoted) {
         return await sock.sendMessage(
           chatId,
           {
             text:
-              "👁️ *View Once*\n\n" +
-              "❯ Reply to a *view-once photo/video*\n" +
-              "❯ Then use *.vv*",
+              "👁️ *VIEW ONCE*\n\n" +
+              "❯ Reply to a view-once photo/video\n" +
+              "❯ Then type *.vv*",
           },
           {
             quoted: message,
@@ -99,33 +135,36 @@ module.exports = {
       }
 
       /* =====================================================
-         FIND VIEW ONCE
+         DEBUG STRUCTURE
       ===================================================== */
 
-      const viewOnce = getViewOnceMessage({
-        message: quoted,
-      });
+      console.log(
+        "[PUTTUS VV] Quoted message:",
+        JSON.stringify(
+          Object.keys(quoted),
+          null,
+          2,
+        ),
+      );
 
-      if (!viewOnce) {
-        return await sock.sendMessage(
-          chatId,
-          {
-            text:
-              "❌ *Not a View-Once message!*\n\n" +
-              "Reply directly to a view-once photo or video.",
-          },
-          {
-            quoted: message,
-          },
+      /* =====================================================
+         UNWRAP
+      ===================================================== */
+
+      const media = unwrapViewOnce(quoted);
+
+      if (!media) {
+        throw new Error(
+          "Unable to unwrap quoted message",
         );
       }
 
       /* =====================================================
-         VIEW-ONCE IMAGE
+         IMAGE
       ===================================================== */
 
-      if (viewOnce.imageMessage) {
-        const media = viewOnce.imageMessage;
+      if (media.imageMessage) {
+        const image = media.imageMessage;
 
         await sock.sendMessage(chatId, {
           react: {
@@ -135,7 +174,7 @@ module.exports = {
         });
 
         const buffer = await downloadMedia(
-          media,
+          image,
           "image",
         );
 
@@ -144,7 +183,7 @@ module.exports = {
           {
             image: buffer,
             caption:
-              media.caption ||
+              image.caption ||
               "👁️ *View Once Photo*\n\n" +
               "🤖 *𝙋𝙐𝙏𝙏𝙐𝙎-𝘼𝙄*",
           },
@@ -159,8 +198,12 @@ module.exports = {
           chatId,
           {
             contacts: {
-              displayName: PUTTUS_VCARD.displayName,
-              contacts: [PUTTUS_VCARD],
+              displayName:
+                PUTTUS_VCARD.displayName,
+
+              contacts: [
+                PUTTUS_VCARD,
+              ],
             },
           },
           {
@@ -179,11 +222,11 @@ module.exports = {
       }
 
       /* =====================================================
-         VIEW-ONCE VIDEO
+         VIDEO
       ===================================================== */
 
-      if (viewOnce.videoMessage) {
-        const media = viewOnce.videoMessage;
+      if (media.videoMessage) {
+        const video = media.videoMessage;
 
         await sock.sendMessage(chatId, {
           react: {
@@ -193,7 +236,7 @@ module.exports = {
         });
 
         const buffer = await downloadMedia(
-          media,
+          video,
           "video",
         );
 
@@ -202,9 +245,11 @@ module.exports = {
           {
             video: buffer,
             mimetype:
-              media.mimetype || "video/mp4",
+              video.mimetype ||
+              "video/mp4",
+
             caption:
-              media.caption ||
+              video.caption ||
               "👁️ *View Once Video*\n\n" +
               "🤖 *𝙋𝙐𝙏𝙏𝙐𝙎-𝘼𝙄*",
           },
@@ -219,8 +264,12 @@ module.exports = {
           chatId,
           {
             contacts: {
-              displayName: PUTTUS_VCARD.displayName,
-              contacts: [PUTTUS_VCARD],
+              displayName:
+                PUTTUS_VCARD.displayName,
+
+              contacts: [
+                PUTTUS_VCARD,
+              ],
             },
           },
           {
@@ -239,15 +288,16 @@ module.exports = {
       }
 
       /* =====================================================
-         OTHER MEDIA
+         NOT SUPPORTED
       ===================================================== */
 
       return await sock.sendMessage(
         chatId,
         {
           text:
-            "❌ *Unsupported View-Once Media!*\n\n" +
-            "Only view-once *photos and videos* are supported.",
+            "❌ *Not a View-Once photo/video!*\n\n" +
+            "Reply directly to the original\n" +
+            "view-once photo or video and use *.vv*.",
         },
         {
           quoted: message,
@@ -255,7 +305,7 @@ module.exports = {
       );
     } catch (error) {
       console.error(
-        "[PUTTUS VIEWONCE ERROR]",
+        "[PUTTUS VV ERROR]",
         error,
       );
 
@@ -280,7 +330,7 @@ module.exports = {
         });
       } catch (sendError) {
         console.error(
-          "[PUTTUS VIEWONCE SEND ERROR]",
+          "[PUTTUS VV SEND ERROR]",
           sendError,
         );
       }
