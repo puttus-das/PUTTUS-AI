@@ -4,6 +4,7 @@ const {
 
 /* =========================================================
    PUTTUS VCARD
+   SAME AS ANTILINK PLUGIN
 ========================================================= */
 
 function getPuttusVCardQuote() {
@@ -30,7 +31,7 @@ function getPuttusVCardQuote() {
       contactMessage: {
         displayName:
           "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
-        vcard,
+        vcard: vcard,
       },
     },
   };
@@ -55,12 +56,16 @@ function getQuotedMessage(message) {
 ========================================================= */
 
 function unwrapViewOnce(message) {
-  if (!message) return null;
+  if (!message) {
+    return null;
+  }
 
   let current = message;
 
   for (let i = 0; i < 10; i++) {
-    if (!current) return null;
+    if (!current) {
+      return null;
+    }
 
     if (current.viewOnceMessage?.message) {
       current = current.viewOnceMessage.message;
@@ -73,7 +78,8 @@ function unwrapViewOnce(message) {
     }
 
     if (current.viewOnceMessageV2Extension?.message) {
-      current = current.viewOnceMessageV2Extension.message;
+      current =
+        current.viewOnceMessageV2Extension.message;
       continue;
     }
 
@@ -83,7 +89,8 @@ function unwrapViewOnce(message) {
     }
 
     if (current.documentWithCaptionMessage?.message) {
-      current = current.documentWithCaptionMessage.message;
+      current =
+        current.documentWithCaptionMessage.message;
       continue;
     }
 
@@ -98,10 +105,11 @@ function unwrapViewOnce(message) {
 ========================================================= */
 
 async function downloadMedia(media, type) {
-  const stream = await downloadContentFromMessage(
-    media,
-    type,
-  );
+  const stream =
+    await downloadContentFromMessage(
+      media,
+      type,
+    );
 
   const chunks = [];
 
@@ -113,7 +121,7 @@ async function downloadMedia(media, type) {
 }
 
 /* =========================================================
-   VIEW ONCE
+   VIEW ONCE PLUGIN
 ========================================================= */
 
 module.exports = {
@@ -145,10 +153,19 @@ module.exports = {
 
     try {
       /* =====================================================
+         CHECK CHAT
+      ===================================================== */
+
+      if (!sock || !chatId) {
+        return;
+      }
+
+      /* =====================================================
          GET QUOTED MESSAGE
       ===================================================== */
 
-      const quoted = getQuotedMessage(message);
+      const quoted =
+        getQuotedMessage(message);
 
       if (!quoted) {
         return await sock.sendMessage(
@@ -169,7 +186,8 @@ module.exports = {
          UNWRAP VIEW ONCE
       ===================================================== */
 
-      const media = unwrapViewOnce(quoted);
+      const media =
+        unwrapViewOnce(quoted);
 
       if (!media) {
         return await sock.sendMessage(
@@ -191,23 +209,32 @@ module.exports = {
       ===================================================== */
 
       if (media.imageMessage) {
-        const image = media.imageMessage;
+        const image =
+          media.imageMessage;
 
-        await sock.sendMessage(chatId, {
-          react: {
-            text: "👁️",
-            key: message.key,
+        await sock.sendMessage(
+          chatId,
+          {
+            react: {
+              text: "👁️",
+              key: message.key,
+            },
           },
-        });
-
-        const buffer = await downloadMedia(
-          image,
-          "image",
         );
 
         /* ===================================================
+           DOWNLOAD IMAGE
+        =================================================== */
+
+        const buffer =
+          await downloadMedia(
+            image,
+            "image",
+          );
+
+        /* ===================================================
            VCARD FIRST
-           VCard will appear ABOVE the recovered photo
+           SAME VCARD AS ANTILINK
         =================================================== */
 
         await sock.sendMessage(
@@ -216,12 +243,14 @@ module.exports = {
             text: "🌸 *PUTTUS-BOT*",
           },
           {
-            quoted: getPuttusVCardQuote(),
+            quoted:
+              getPuttusVCardQuote(),
           },
         );
 
         /* ===================================================
-           PHOTO SECOND
+           IMAGE SECOND
+           IMAGE WILL APPEAR BELOW VCARD
         =================================================== */
 
         await sock.sendMessage(
@@ -239,12 +268,15 @@ module.exports = {
           },
         );
 
-        await sock.sendMessage(chatId, {
-          react: {
-            text: "✅",
-            key: message.key,
+        await sock.sendMessage(
+          chatId,
+          {
+            react: {
+              text: "✅",
+              key: message.key,
+            },
           },
-        });
+        );
 
         return;
       }
@@ -254,23 +286,32 @@ module.exports = {
       ===================================================== */
 
       if (media.videoMessage) {
-        const video = media.videoMessage;
+        const video =
+          media.videoMessage;
 
-        await sock.sendMessage(chatId, {
-          react: {
-            text: "👁️",
-            key: message.key,
+        await sock.sendMessage(
+          chatId,
+          {
+            react: {
+              text: "👁️",
+              key: message.key,
+            },
           },
-        });
-
-        const buffer = await downloadMedia(
-          video,
-          "video",
         );
 
         /* ===================================================
+           DOWNLOAD VIDEO
+        =================================================== */
+
+        const buffer =
+          await downloadMedia(
+            video,
+            "video",
+          );
+
+        /* ===================================================
            VCARD FIRST
-           VCard will appear ABOVE the recovered video
+           SAME VCARD AS ANTILINK
         =================================================== */
 
         await sock.sendMessage(
@@ -279,12 +320,14 @@ module.exports = {
             text: "🌸 *PUTTUS-BOT*",
           },
           {
-            quoted: getPuttusVCardQuote(),
+            quoted:
+              getPuttusVCardQuote(),
           },
         );
 
         /* ===================================================
            VIDEO SECOND
+           VIDEO WILL APPEAR BELOW VCARD
         =================================================== */
 
         await sock.sendMessage(
@@ -306,12 +349,15 @@ module.exports = {
           },
         );
 
-        await sock.sendMessage(chatId, {
-          react: {
-            text: "✅",
-            key: message.key,
+        await sock.sendMessage(
+          chatId,
+          {
+            react: {
+              text: "✅",
+              key: message.key,
+            },
           },
-        });
+        );
 
         return;
       }
@@ -331,6 +377,7 @@ module.exports = {
           quoted: message,
         },
       );
+
     } catch (error) {
       console.error(
         "PUTTUS VIEWONCE ERROR:",
@@ -350,12 +397,16 @@ module.exports = {
           },
         );
 
-        await sock.sendMessage(chatId, {
-          react: {
-            text: "❌",
-            key: message.key,
+        await sock.sendMessage(
+          chatId,
+          {
+            react: {
+              text: "❌",
+              key: message.key,
+            },
           },
-        });
+        );
+
       } catch (sendError) {
         console.error(
           "PUTTUS VIEWONCE SEND ERROR:",
