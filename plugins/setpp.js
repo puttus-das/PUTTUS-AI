@@ -1,12 +1,5 @@
-const {
-  downloadContentFromMessage,
-} = require("@whiskeysockets/baileys");
-
+const { downloadContentFromMessage } = require("@whiskeysockets/baileys");
 const isOwnerOrSudo = require("../lib/isOwner");
-
-/* =========================================================
-   PUTTUS-BOT VCARD
-========================================================= */
 
 function getPuttusVCardQuote() {
   const botJid = "919641092392@s.whatsapp.net";
@@ -27,43 +20,19 @@ function getPuttusVCardQuote() {
       id: "PUTTUS-" + Date.now(),
       participant: botJid,
     },
-
     message: {
       contactMessage: {
-        displayName:
-          "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
+        displayName: "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
         vcard,
       },
     },
   };
 }
 
-/* =========================================================
-   GET REPLIED MESSAGE
-========================================================= */
-
-function getQuotedMessage(message) {
-  return (
-    message?.message
-      ?.extendedTextMessage
-      ?.contextInfo
-      ?.quotedMessage ||
-    message?.message
-      ?.imageMessage
-      ?.contextInfo
-      ?.quotedMessage ||
-    null
-  );
-}
-
-/* =========================================================
-   DOWNLOAD IMAGE
-========================================================= */
-
 async function downloadImage(imageMessage) {
   const stream = await downloadContentFromMessage(
     imageMessage,
-    "image",
+    "image"
   );
 
   const chunks = [];
@@ -75,168 +44,74 @@ async function downloadImage(imageMessage) {
   return Buffer.concat(chunks);
 }
 
-/* =========================================================
-   SETPP COMMAND
-========================================================= */
-
 module.exports = {
-  command: "setpp",
-
-  aliases: [
-    "setppic",
-    "setdp",
-  ],
-
+  command: "fullpp",
+  aliases: ["setpp", "setppic", "setdp"],
   category: "owner",
+  description: "Set the bot profile picture.",
+  usage: ".fullpp (reply to an image)",
 
-  description:
-    "Set bot profile picture from a replied photo.",
-
-  usage:
-    ".setpp",
-
-  async handler(
-    sock,
-    message,
-    args = [],
-    context = {},
-  ) {
+  async handler(sock, message, args = [], context = {}) {
     const chatId =
-      context?.chatId ||
-      message?.key?.remoteJid;
-
-    if (!chatId) {
-      return;
-    }
+      context.chatId ||
+      message.key.remoteJid;
 
     try {
-      /* =====================================================
-         OWNER CHECK
-      ===================================================== */
-
       const senderId =
-        message?.key?.participant ||
-        message?.key?.remoteJid;
+        message.key.participant ||
+        message.key.remoteJid;
 
-      const owner =
-        await isOwnerOrSudo(
-          senderId,
-          sock,
-          chatId,
-        );
+      const owner = await isOwnerOrSudo(
+        senderId,
+        sock,
+        chatId
+      );
 
-      if (
-        !message?.key?.fromMe &&
-        !owner
-      ) {
-        await sock.sendMessage(
+      if (!message.key.fromMe && !owner) {
+        return await sock.sendMessage(
           chatId,
           {
-            text:
-              "*❌ Owner only command!*",
+            text: "*❌ Owner only command.*",
           },
           {
-            quoted: message,
-          },
+            quoted: getPuttusVCardQuote(),
+          }
         );
-
-        return;
       }
 
-      /* =====================================================
-         GET REPLIED MESSAGE
-      ===================================================== */
+      const quotedMessage =
+        message.message
+          ?.extendedTextMessage
+          ?.contextInfo
+          ?.quotedMessage;
 
-      const quoted =
-        getQuotedMessage(message);
-
-      if (!quoted) {
-        await sock.sendMessage(
+      if (!quotedMessage?.imageMessage) {
+        return await sock.sendMessage(
           chatId,
           {
             text:
-              "*⚠️ Reply to a photo with .setpp*",
+              "*❌ Reply to an image with .fullpp*",
           },
           {
-            quoted:
-              getPuttusVCardQuote(),
-          },
-        );
-
-        return;
-      }
-
-      /* =====================================================
-         PHOTO ONLY
-      ===================================================== */
-
-      const imageMessage =
-        quoted?.imageMessage;
-
-      if (!imageMessage) {
-        await sock.sendMessage(
-          chatId,
-          {
-            text:
-              "*❌ Only photos are supported.*",
-          },
-          {
-            quoted:
-              getPuttusVCardQuote(),
-          },
-        );
-
-        return;
-      }
-
-      /* =====================================================
-         DOWNLOAD PHOTO
-      ===================================================== */
-
-      const image =
-        await downloadImage(
-          imageMessage,
-        );
-
-      if (
-        !Buffer.isBuffer(image) ||
-        image.length === 0
-      ) {
-        throw new Error(
-          "Photo download failed.",
+            quoted: getPuttusVCardQuote(),
+          }
         );
       }
 
-      /* =====================================================
-         CHECK CONNECTION
-      ===================================================== */
+      const image = await downloadImage(
+        quotedMessage.imageMessage
+      );
 
-      if (
-        !sock.user ||
-        !sock.user.id
-      ) {
-        throw new Error(
-          "WhatsApp is not connected.",
-        );
+      if (!image?.length) {
+        throw new Error("Image download failed");
       }
-
-      /* =====================================================
-         UPDATE BOT PROFILE PICTURE
-
-         Baileys handles the required
-         profile-picture processing here.
-      ===================================================== */
 
       await sock.updateProfilePicture(
         sock.user.id,
-        image,
+        image
       );
 
-      /* =====================================================
-         SUCCESS RESPONSE + VCARD
-      ===================================================== */
-
-      await sock.sendMessage(
+      return await sock.sendMessage(
         chatId,
         {
           text:
@@ -244,67 +119,24 @@ module.exports = {
             "*ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*",
         },
         {
-          quoted:
-            getPuttusVCardQuote(),
-        },
+          quoted: getPuttusVCardQuote(),
+        }
       );
 
     } catch (error) {
-      console.error(
-        "[SETPP ERROR]",
-        error,
+      console.error("FULLPP ERROR:", error);
+
+      return await sock.sendMessage(
+        chatId,
+        {
+          text:
+            "*❌ Failed to update profile picture.*\n\n" +
+            `_${error?.message || "Unknown error"}_`,
+        },
+        {
+          quoted: getPuttusVCardQuote(),
+        }
       );
-
-      /* =====================================================
-         SAFE ERROR RESPONSE
-      ===================================================== */
-
-      let text =
-        "*❌ Failed to update bot profile picture.*";
-
-      const errorText =
-        String(
-          error?.message || "",
-        );
-
-      if (
-        errorText.includes(
-          "No image processing library",
-        )
-      ) {
-        text +=
-          "\n\n*Image processor is unavailable on this device.*";
-      } else if (
-        errorText.includes(
-          "Connection Closed",
-        )
-      ) {
-        text +=
-          "\n\n*WhatsApp connection was closed. Please try again after the bot reconnects.*";
-      } else {
-        text +=
-          "\n\n_" +
-          errorText +
-          "_";
-      }
-
-      try {
-        await sock.sendMessage(
-          chatId,
-          {
-            text,
-          },
-          {
-            quoted:
-              getPuttusVCardQuote(),
-          },
-        );
-      } catch (sendError) {
-        console.error(
-          "[SETPP SEND ERROR]",
-          sendError,
-        );
-      }
     }
   },
 };
