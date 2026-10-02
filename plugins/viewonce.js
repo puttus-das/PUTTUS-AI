@@ -30,7 +30,7 @@ function getPuttusVCardQuote() {
       contactMessage: {
         displayName:
           "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
-        vcard: vcard,
+        vcard,
       },
     },
   };
@@ -113,7 +113,7 @@ async function downloadMedia(media, type) {
 }
 
 /* =========================================================
-   VIEW ONCE PLUGIN
+   VIEW ONCE
 ========================================================= */
 
 module.exports = {
@@ -205,6 +205,25 @@ module.exports = {
           "image",
         );
 
+        /* ===================================================
+           VCARD FIRST
+           VCard will appear ABOVE the recovered photo
+        =================================================== */
+
+        await sock.sendMessage(
+          chatId,
+          {
+            text: "🌸 *PUTTUS-BOT*",
+          },
+          {
+            quoted: getPuttusVCardQuote(),
+          },
+        );
+
+        /* ===================================================
+           PHOTO SECOND
+        =================================================== */
+
         await sock.sendMessage(
           chatId,
           {
@@ -217,20 +236,6 @@ module.exports = {
           },
           {
             quoted: message,
-          },
-        );
-
-        /* ===================================================
-           PUTTUS VCARD
-        =================================================== */
-
-        await sock.sendMessage(
-          chatId,
-          {
-            text: "🌸 *PUTTUS-BOT*",
-          },
-          {
-            quoted: getPuttusVCardQuote(),
           },
         );
 
@@ -263,6 +268,25 @@ module.exports = {
           "video",
         );
 
+        /* ===================================================
+           VCARD FIRST
+           VCard will appear ABOVE the recovered video
+        =================================================== */
+
+        await sock.sendMessage(
+          chatId,
+          {
+            text: "🌸 *PUTTUS-BOT*",
+          },
+          {
+            quoted: getPuttusVCardQuote(),
+          },
+        );
+
+        /* ===================================================
+           VIDEO SECOND
+        =================================================== */
+
         await sock.sendMessage(
           chatId,
           {
@@ -279,20 +303,6 @@ module.exports = {
           },
           {
             quoted: message,
-          },
-        );
-
-        /* ===================================================
-           PUTTUS VCARD
-        =================================================== */
-
-        await sock.sendMessage(
-          chatId,
-          {
-            text: "🌸 *PUTTUS-BOT*",
-          },
-          {
-            quoted: getPuttusVCardQuote(),
           },
         );
 
