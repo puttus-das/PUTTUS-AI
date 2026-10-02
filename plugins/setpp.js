@@ -1,7 +1,4 @@
-const {
-  downloadContentFromMessage,
-} = require("@whiskeysockets/baileys");
-
+const { downloadContentFromMessage } = require("@whiskeysockets/baileys");
 const isOwnerOrSudo = require("../lib/isOwner");
 
 /* =========================================================
@@ -50,7 +47,6 @@ function getQuotedMessage(message) {
   const types = [
     "extendedTextMessage",
     "imageMessage",
-    "videoMessage",
     "buttonsResponseMessage",
     "templateButtonReplyMessage",
     "listResponseMessage",
@@ -69,15 +65,16 @@ function getQuotedMessage(message) {
 }
 
 /* =========================================================
-   DOWNLOAD IMAGE
+   DOWNLOAD ORIGINAL IMAGE
+   NO RESIZE
+   NO CROP
 ========================================================= */
 
 async function downloadImage(imageMessage) {
-  const stream =
-    await downloadContentFromMessage(
-      imageMessage,
-      "image"
-    );
+  const stream = await downloadContentFromMessage(
+    imageMessage,
+    "image"
+  );
 
   const chunks = [];
 
@@ -86,189 +83,6 @@ async function downloadImage(imageMessage) {
   }
 
   return Buffer.concat(chunks);
-}
-
-/* =========================================================
-   LOAD JIMP
-========================================================= */
-
-async function loadJimp() {
-  const jimpModule = await import("jimp");
-
-  const Jimp = jimpModule.Jimp;
-  const ResizeStrategy =
-    jimpModule.ResizeStrategy;
-
-  if (
-    !Jimp ||
-    typeof Jimp.read !== "function"
-  ) {
-    throw new Error(
-      "Jimp image processor is not available."
-    );
-  }
-
-  return {
-    Jimp,
-    ResizeStrategy,
-  };
-}
-
-/* =========================================================
-   AUTO ASPECT RATIO
-   NO CROP
-========================================================= */
-
-async function prepareProfilePicture(
-  buffer
-) {
-  const {
-    Jimp,
-    ResizeStrategy,
-  } = await loadJimp();
-
-  const image =
-    await Jimp.read(buffer);
-
-  const originalWidth =
-    image.width;
-
-  const originalHeight =
-    image.height;
-
-  if (
-    !originalWidth ||
-    !originalHeight
-  ) {
-    throw new Error(
-      "Unable to read image dimensions."
-    );
-  }
-
-  /* -------------------------------------------------------
-     DETECT ORIGINAL ASPECT RATIO
-  ------------------------------------------------------- */
-
-  const aspectRatio =
-    originalWidth /
-    originalHeight;
-
-  console.log(
-    `[SET-PP] Original: ${originalWidth}x${originalHeight}`
-  );
-
-  console.log(
-    `[SET-PP] Aspect Ratio: ${aspectRatio.toFixed(3)}`
-  );
-
-  /*
-   * Examples:
-   *
-   * 1080x1080  = 1:1
-   * 1080x1350  = 4:5
-   * 1080x1920  = 9:16
-   * 1920x1080  = 16:9
-   *
-   * The original ratio is NOT changed.
-   */
-
-  /* -------------------------------------------------------
-     WHATSAPP SAFE CANVAS
-  ------------------------------------------------------- */
-
-  const canvasSize = 640;
-
-  /*
-   * Fit image inside square.
-   *
-   * IMPORTANT:
-   * No crop.
-   */
-
-  const scale = Math.min(
-    canvasSize / originalWidth,
-    canvasSize / originalHeight
-  );
-
-  const newWidth =
-    Math.max(
-      1,
-      Math.round(
-        originalWidth * scale
-      )
-    );
-
-  const newHeight =
-    Math.max(
-      1,
-      Math.round(
-        originalHeight * scale
-      )
-    );
-
-  /* -------------------------------------------------------
-     RESIZE WITHOUT CHANGING RATIO
-  ------------------------------------------------------- */
-
-  image.resize({
-    w: newWidth,
-    h: newHeight,
-    mode:
-      ResizeStrategy.BILINEAR,
-  });
-
-  /* -------------------------------------------------------
-     SQUARE CANVAS
-  ------------------------------------------------------- */
-
-  const canvas =
-    new Jimp({
-      width: canvasSize,
-      height: canvasSize,
-      color: 0xff000000,
-    });
-
-  /* -------------------------------------------------------
-     CENTER IMAGE
-  ------------------------------------------------------- */
-
-  const x =
-    Math.floor(
-      (canvasSize - newWidth) / 2
-    );
-
-  const y =
-    Math.floor(
-      (canvasSize - newHeight) / 2
-    );
-
-  canvas.composite(
-    image,
-    x,
-    y
-  );
-
-  /* -------------------------------------------------------
-     FINAL JPEG
-  ------------------------------------------------------- */
-
-  const output =
-    await canvas.getBuffer(
-      "image/jpeg",
-      {
-        quality: 95,
-      }
-    );
-
-  console.log(
-    `[SET-PP] Final canvas: ${canvasSize}x${canvasSize}`
-  );
-
-  console.log(
-    `[SET-PP] Original ratio preserved: ${aspectRatio.toFixed(3)}`
-  );
-
-  return output;
 }
 
 /* =========================================================
@@ -281,12 +95,13 @@ module.exports = {
   aliases: [
     "setppic",
     "setdp",
+    "fullpp",
   ],
 
   category: "owner",
 
   description:
-    "Set bot profile picture while preserving the original image ratio.",
+    "Set bot profile picture from the replied image.",
 
   usage:
     ".setpp (reply to an image)",
@@ -335,7 +150,7 @@ module.exports = {
       }
 
       /* =====================================================
-         GET QUOTED MESSAGE
+         GET REPLIED MESSAGE
       ===================================================== */
 
       const quotedMessage =
@@ -356,7 +171,7 @@ module.exports = {
       }
 
       /* =====================================================
-         GET IMAGE
+         IMAGE ONLY
       ===================================================== */
 
       const imageMessage =
@@ -377,48 +192,35 @@ module.exports = {
       }
 
       /* =====================================================
-         DOWNLOAD ORIGINAL IMAGE
+         DOWNLOAD ORIGINAL
+         NO JIMP
+         NO SHARP
+         NO RESIZE
+         NO CROP
       ===================================================== */
 
-      const originalImage =
+      const image =
         await downloadImage(
           imageMessage
         );
 
       if (
-        !Buffer.isBuffer(
-          originalImage
-        ) ||
-        originalImage.length === 0
+        !Buffer.isBuffer(image) ||
+        image.length === 0
       ) {
         throw new Error(
           "Image download failed."
         );
       }
 
-      /* =====================================================
-         AUTO RESIZE
-         ORIGINAL ASPECT RATIO PRESERVED
-      ===================================================== */
-
-      const profilePicture =
-        await prepareProfilePicture(
-          originalImage
-        );
-
-      if (
-        !Buffer.isBuffer(
-          profilePicture
-        ) ||
-        profilePicture.length === 0
-      ) {
-        throw new Error(
-          "Profile picture processing failed."
-        );
-      }
+      console.log(
+        "[SET-PP] Original image:",
+        image.length,
+        "bytes"
+      );
 
       /* =====================================================
-         CHECK WHATSAPP CONNECTION
+         WHATSAPP CONNECTION CHECK
       ===================================================== */
 
       if (!sock?.user?.id) {
@@ -428,12 +230,13 @@ module.exports = {
       }
 
       /* =====================================================
-         UPDATE PROFILE PICTURE
+         DIRECT PROFILE PICTURE UPDATE
+         SAME IDEA AS FULLPP
       ===================================================== */
 
       await sock.updateProfilePicture(
         sock.user.id,
-        profilePicture
+        image
       );
 
       /* =====================================================
@@ -444,12 +247,7 @@ module.exports = {
         chatId,
         {
           text:
-            "✅ *⎯꯭⃜ ꯭𔘓⃪꯭[]꯭🩸꯭𝐒꯭ᴜ꯭ᴄ꯭ᴄ꯭ᴇ꯭ꜱ꯭ꜱ꯭ꜰ꯭ᴜ꯭ʟ꯭ʟ꯭ʏ꯭ 𝐔꯭ᴘ꯭ᴅ꯭ᴀ꯭ᴛ꯭ᴇ꯭ᴅ꯭ 𝐁꯭ᴏ꯭ᴛ꯭ 𝐏꯭ɪ꯭ᴄ꯭ ⚡ 𝐀꯭ᴘ꯭ᴜ꯭ʀ꯭ʙ꯭ᴏ꯭/𝐏꯭ᴜ꯭ᴛ꯭ᴛ꯭ᴜ꯭𝐒꯭ ⟶᯦꯭*\n\n" +
-            "╭─〔 *𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ* 〕\n" +
-            "│ ᯓ *AUTO SIZE*\n" +
-            "│ ᯓ *ORIGINAL RATIO PRESERVED*\n" +
-            "│ ᯓ *NO CROP*\n" +
-            "╰──────────────\n\n" +
+            "✅ *⎯꯭⃜ ꯭𔘓⃪꯭[]꯭🩸꯭𝐒꯭ᴜ꯭ᴄ꯭ᴄ꯭ᴇ꯭ꜱ꯭ꜱ꯭ꜰ꯭ᴜ꯭ʟ꯭ʟ꯭ʏ꯭ 𝐔꯭ᴘ꯭ᴅ꯭ᴀ꯭ᴛ꯭ᴇ꯭ᴅ꯭ 𝐁꯭ᴏ꯭ᴛ꯭ 𝐏꯭ɪ꯭ᴄ꯭ ⚡ 𝐀꯭ᴘ꯭ᴜ꯭ʀ꯭ʙ꯭ᴏ꯭/𝐏꯭ᴜ꯭ᴛ꯭ᴛ꯭ᴜ꯭𝐒꯭*\n\n" +
             "*ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*",
         },
         {
@@ -459,10 +257,6 @@ module.exports = {
       );
 
     } catch (error) {
-      /* =====================================================
-         ERROR
-      ===================================================== */
-
       console.error(
         "[SET-PP ERROR]",
         error
