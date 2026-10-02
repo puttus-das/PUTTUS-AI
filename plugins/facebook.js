@@ -7,7 +7,7 @@ module.exports = {
   description: "Download Facebook videos",
   usage: ".fb <facebook video link>",
 
-  async handler(sock, message, args, context = {}) {
+  async handler(sock, message, args = [], context = {}) {
     const chatId = context.chatId || message.key.remoteJid;
 
     try {
@@ -42,10 +42,51 @@ module.exports = {
       };
 
       /* =========================================================
-         GET FACEBOOK URL
+         GET RAW MESSAGE TEXT
       ========================================================= */
 
-      const url = args.join(" ").trim();
+      function getMessageText(msg) {
+        const m = msg?.message;
+
+        if (!m) return "";
+
+        return (
+          m.conversation ||
+          m.extendedTextMessage?.text ||
+          m.imageMessage?.caption ||
+          m.videoMessage?.caption ||
+          m.documentMessage?.caption ||
+          m.buttonsResponseMessage?.selectedButtonId ||
+          m.listResponseMessage?.singleSelectReply?.selectedRowId ||
+          ""
+        );
+      }
+
+      /* =========================================================
+         FIND FACEBOOK URL
+      ========================================================= */
+
+      const rawText = getMessageText(message);
+
+      const argText = Array.isArray(args)
+        ? args.join(" ")
+        : String(args || "");
+
+      const combinedText = `${argText} ${rawText}`.trim();
+
+      const urlMatch = combinedText.match(
+        /https?:\/\/(?:www\.|m\.|web\.)?(?:facebook\.com|fb\.watch)\/[^\s]+/i
+      );
+
+      const url = urlMatch
+        ? urlMatch[0].replace(/[)>.,]+$/, "")
+        : "";
+
+      console.log("[PUTTUS FB URL]", url);
+
+      /* =========================================================
+         NO URL
+      ========================================================= */
 
       if (!url) {
         return await sock.sendMessage(
@@ -54,10 +95,12 @@ module.exports = {
             text:
               "📘 *⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜*\n\n" +
               "❯ *Usage:* .fb <Facebook video link>\n\n" +
-              "❯ Example:\n" +
-              "*.fb https://www.facebook.com/...*",
+              "❯ *Example:*\n" +
+              "*.fb https://www.facebook.com/share/r/xxxx/*",
           },
-          { quoted: statusQuote }
+          {
+            quoted: statusQuote,
+          }
         );
       }
 
@@ -73,12 +116,14 @@ module.exports = {
               "❌ *Invalid Facebook Link*\n\n" +
               "Please send a valid Facebook video or Reel URL.",
           },
-          { quoted: statusQuote }
+          {
+            quoted: statusQuote,
+          }
         );
       }
 
       /* =========================================================
-         DOWNLOADING REACTION
+         REACTION
       ========================================================= */
 
       await sock.sendMessage(chatId, {
@@ -110,54 +155,59 @@ module.exports = {
       const data = response?.data;
 
       console.log(
-        "[PUTTUS FB API]",
+        "[PUTTUS FB API RESPONSE]",
         JSON.stringify(data, null, 2)
       );
 
       /* =========================================================
-         API STATUS CHECK
+         API STATUS
       ========================================================= */
 
       if (!data || data.status !== true) {
-        throw new Error("Facebook API returned an unsuccessful response");
+        throw new Error("Rabbit API returned status false");
       }
 
       /* =========================================================
-         GET VIDEO
+         HD / SD
       ========================================================= */
 
-      const hd = data?.hd;
-      const sd = data?.sd;
-
-      const videoUrl =
-        typeof hd === "string" && /^https?:\/\//i.test(hd)
-          ? hd
-          : typeof sd === "string" && /^https?:\/\//i.test(sd)
-          ? sd
+      const hdUrl =
+        typeof data.hd === "string" &&
+        /^https?:\/\//i.test(data.hd)
+          ? data.hd
           : null;
 
-      const quality =
-        videoUrl === hd
-          ? "HD"
-          : videoUrl === sd
-          ? "SD"
-          : "Unknown";
+      const sdUrl =
+        typeof data.sd === "string" &&
+        /^https?:\/\//i.test(data.sd)
+          ? data.sd
+          : null;
+
+      const videoUrl = hdUrl || sdUrl;
+
+      const quality = hdUrl ? "HD" : "SD";
 
       if (!videoUrl) {
-        throw new Error("No HD/SD video URL returned by API");
+        throw new Error(
+          "Rabbit API returned no HD or SD video URL"
+        );
       }
 
       /* =========================================================
          TITLE
       ========================================================= */
 
-      const title =
-        typeof data?.title === "string"
+      let title =
+        typeof data.title === "string"
           ? data.title.trim()
           : "Facebook Video";
 
+      if (title.length > 500) {
+        title = title.substring(0, 500);
+      }
+
       /* =========================================================
-         SEND VIDEO
+         DOWNLOAD VIDEO
       ========================================================= */
 
       await sock.sendMessage(
@@ -180,7 +230,7 @@ module.exports = {
       );
 
       /* =========================================================
-         SUCCESS REACTION
+         SUCCESS
       ========================================================= */
 
       await sock.sendMessage(chatId, {
@@ -189,10 +239,13 @@ module.exports = {
           key: message.key,
         },
       });
+
     } catch (error) {
       console.error(
         "[PUTTUS-AI FACEBOOK ERROR]",
-        error?.response?.data || error?.message || error
+        error?.response?.data ||
+          error?.message ||
+          error
       );
 
       try {
