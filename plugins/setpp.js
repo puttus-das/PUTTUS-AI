@@ -24,7 +24,6 @@ function getPuttusVCardQuote() {
       id: "PUTTUS-" + Date.now(),
       participant: botJid,
     },
-
     message: {
       contactMessage: {
         displayName:
@@ -33,6 +32,42 @@ function getPuttusVCardQuote() {
       },
     },
   };
+}
+
+/* =========================================================
+   GET QUOTED MESSAGE
+========================================================= */
+
+function getQuotedMessage(message) {
+  const msg = message?.message;
+
+  if (!msg) return null;
+
+  // Normal text reply
+  if (msg.extendedTextMessage?.contextInfo?.quotedMessage) {
+    return msg.extendedTextMessage.contextInfo.quotedMessage;
+  }
+
+  // Image message with quoted context
+  if (msg.imageMessage?.contextInfo?.quotedMessage) {
+    return msg.imageMessage.contextInfo.quotedMessage;
+  }
+
+  // Video message with quoted context
+  if (msg.videoMessage?.contextInfo?.quotedMessage) {
+    return msg.videoMessage.contextInfo.quotedMessage;
+  }
+
+  // Buttons / template messages
+  if (msg.buttonsResponseMessage?.contextInfo?.quotedMessage) {
+    return msg.buttonsResponseMessage.contextInfo.quotedMessage;
+  }
+
+  if (msg.templateButtonReplyMessage?.contextInfo?.quotedMessage) {
+    return msg.templateButtonReplyMessage.contextInfo.quotedMessage;
+  }
+
+  return null;
 }
 
 /* =========================================================
@@ -55,7 +90,7 @@ async function downloadImage(imageMessage) {
 }
 
 /* =========================================================
-   SET PROFILE PICTURE
+   COMMAND
 ========================================================= */
 
 module.exports = {
@@ -69,7 +104,7 @@ module.exports = {
   category: "owner",
 
   description:
-    "Set or update the bot profile picture.",
+    "Set the bot profile picture.",
 
   usage:
     ".setpp (reply to an image)",
@@ -86,7 +121,7 @@ module.exports = {
 
     try {
       /* =====================================================
-         OWNER CHECK
+         OWNER
       ===================================================== */
 
       const senderId =
@@ -115,14 +150,11 @@ module.exports = {
       }
 
       /* =====================================================
-         GET REPLIED MESSAGE
+         QUOTED MESSAGE
       ===================================================== */
 
       const quotedMessage =
-        message.message
-          ?.extendedTextMessage
-          ?.contextInfo
-          ?.quotedMessage;
+        getQuotedMessage(message);
 
       if (!quotedMessage) {
         return await sock.sendMessage(
@@ -160,7 +192,7 @@ module.exports = {
       }
 
       /* =====================================================
-         DOWNLOAD IMAGE
+         DOWNLOAD
       ===================================================== */
 
       const image =
@@ -173,25 +205,22 @@ module.exports = {
         image.length === 0
       ) {
         throw new Error(
-          "Unable to download the image."
+          "Image download failed."
         );
       }
 
       /* =====================================================
-         UPDATE BOT PROFILE PICTURE
+         UPDATE PROFILE
       ===================================================== */
 
-      const botJid =
-        sock.user?.id;
-
-      if (!botJid) {
+      if (!sock.user?.id) {
         throw new Error(
-          "WhatsApp session is not ready."
+          "WhatsApp connection is not ready."
         );
       }
 
       await sock.updateProfilePicture(
-        botJid,
+        sock.user.id,
         image
       );
 
@@ -213,15 +242,10 @@ module.exports = {
       );
 
     } catch (error) {
-
       console.error(
         "SET-PP ERROR:",
         error
       );
-
-      /* =====================================================
-         ERROR
-      ===================================================== */
 
       return await sock.sendMessage(
         chatId,
