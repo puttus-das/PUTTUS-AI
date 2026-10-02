@@ -1,23 +1,18 @@
 const axios = require("axios");
 
-/* =========================================================
-   PUTTUS-AI — FACEBOOK DOWNLOADER
-========================================================= */
+const API_URL = "https://fdown.isuru.eu.org/download";
 
-const HTTP_CONFIG = {
-  timeout: 60000,
-  maxContentLength: 50 * 1024 * 1024,
-  maxBodyLength: 50 * 1024 * 1024,
+const axiosConfig = {
+  timeout: 120000,
+  maxContentLength: 100 * 1024 * 1024,
+  maxBodyLength: 100 * 1024 * 1024,
   headers: {
     "User-Agent":
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140.0 Safari/537.36",
+      "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36",
     Accept: "application/json, text/plain, */*",
+    "Content-Type": "application/json",
   },
 };
-
-/* =========================================================
-   FACEBOOK URL CHECK
-========================================================= */
 
 function isFacebookUrl(url) {
   return /^(https?:\/\/)?(www\.|m\.|mbasic\.)?(facebook\.com|fb\.watch)\//i.test(
@@ -25,14 +20,49 @@ function isFacebookUrl(url) {
   );
 }
 
-/* =========================================================
-   GET URL FROM DIFFERENT API RESPONSES
-========================================================= */
+function cleanFacebookUrl(url) {
+  return url
+    .trim()
+    .replace(/[<>]/g, "")
+    .split("\n")[0]
+    .trim();
+}
 
-function findVideoUrl(data) {
+function extractVideoUrl(data) {
   if (!data) return null;
 
-  const candidates = [];
+  const possible = [
+    data.download_url,
+    data.downloadUrl,
+    data.video_url,
+    data.videoUrl,
+    data.url,
+    data.data?.download_url,
+    data.data?.downloadUrl,
+    data.data?.video_url,
+    data.data?.videoUrl,
+    data.data?.url,
+    data.result?.download_url,
+    data.result?.downloadUrl,
+    data.result?.video_url,
+    data.result?.videoUrl,
+    data.result?.url,
+    data.video_info?.download_url,
+    data.video_info?.url,
+    data.videoInfo?.download_url,
+    data.videoInfo?.url,
+  ];
+
+  for (const item of possible) {
+    if (
+      typeof item === "string" &&
+      /^https?:\/\//i.test(item)
+    ) {
+      return item;
+    }
+  }
+
+  const found = [];
 
   function scan(value, depth = 0) {
     if (!value || depth > 8) return;
@@ -41,14 +71,13 @@ function findVideoUrl(data) {
       if (
         /^https?:\/\//i.test(value) &&
         (
-          /\.mp4(\?|$)/i.test(value) ||
-          /video/i.test(value) ||
-          /fbcdn/i.test(value)
+          /\.mp4/i.test(value) ||
+          /fbcdn/i.test(value) ||
+          /video/i.test(value)
         )
       ) {
-        candidates.push(value);
+        found.push(value);
       }
-
       return;
     }
 
@@ -56,26 +85,24 @@ function findVideoUrl(data) {
       for (const item of value) {
         scan(item, depth + 1);
       }
-
       return;
     }
 
     if (typeof value === "object") {
       for (const [key, val] of Object.entries(value)) {
-        const keyName = key.toLowerCase();
+        const lowerKey = key.toLowerCase();
 
         if (
           typeof val === "string" &&
           /^https?:\/\//i.test(val) &&
           (
-            keyName.includes("url") ||
-            keyName.includes("video") ||
-            keyName.includes("download") ||
-            keyName.includes("hd") ||
-            keyName.includes("sd")
+            lowerKey.includes("url") ||
+            lowerKey.includes("video") ||
+            lowerKey.includes("download") ||
+            lowerKey.includes("stream")
           )
         ) {
-          candidates.push(val);
+          found.push(val);
         }
 
         scan(val, depth + 1);
@@ -85,38 +112,35 @@ function findVideoUrl(data) {
 
   scan(data);
 
-  return candidates.find((url) => /^https?:\/\//i.test(url)) || null;
+  return found[0] || null;
 }
 
-/* =========================================================
-   GET QUALITY
-========================================================= */
+function getTitle(data) {
+  return (
+    data?.video_info?.title ||
+    data?.videoInfo?.title ||
+    data?.data?.video_info?.title ||
+    data?.data?.title ||
+    data?.title ||
+    "Facebook Video"
+  );
+}
 
 function getQuality(data) {
-  const possible =
-    data?.resolution ||
-    data?.quality ||
+  return (
     data?.video_info?.quality ||
     data?.videoInfo?.quality ||
-    data?.format ||
-    "Best";
-
-  return String(possible);
+    data?.quality ||
+    data?.data?.quality ||
+    "Best"
+  );
 }
-
-/* =========================================================
-   MAIN PLUGIN
-========================================================= */
 
 module.exports = {
   command: "facebook",
-
   aliases: ["fb", "fbdl"],
-
   category: "download",
-
   description: "Download Facebook videos",
-
   usage: ".fb <facebook video link>",
 
   async handler(sock, message, args = [], context = {}) {
@@ -125,11 +149,9 @@ module.exports = {
       message?.key?.remoteJid;
 
     try {
-      /* =====================================================
-         GET URL
-      ===================================================== */
-
-      let url = args.join(" ").trim();
+      let url = Array.isArray(args)
+        ? args.join(" ").trim()
+        : "";
 
       if (!url) {
         url =
@@ -138,16 +160,14 @@ module.exports = {
           "";
       }
 
-      url = url.trim();
+      url = cleanFacebookUrl(url);
 
-      /* Remove command if it accidentally came through text */
       url = url
-        .replace(/^\.?(facebook|fb|fbdl)\s*/i, "")
+        .replace(
+          /^\.?(facebook|fb|fbdl)\s*/i,
+          "",
+        )
         .trim();
-
-      /* =====================================================
-         NO URL
-      ===================================================== */
 
       if (!url) {
         return await sock.sendMessage(
@@ -155,17 +175,13 @@ module.exports = {
           {
             text:
               "📘 *Facebook Downloader*\n\n" +
-              "❯ Usage: *.fb <facebook video link>*",
+              "❯ *.fb <Facebook video link>*",
           },
           {
             quoted: message,
           },
         );
       }
-
-      /* =====================================================
-         INVALID URL
-      ===================================================== */
 
       if (!isFacebookUrl(url)) {
         return await sock.sendMessage(
@@ -173,7 +189,7 @@ module.exports = {
           {
             text:
               "❌ *Invalid Facebook link!*\n\n" +
-              "Please send a valid public Facebook video/Reel URL.",
+              "Send a public Facebook video, Reel or fb.watch link.",
           },
           {
             quoted: message,
@@ -181,20 +197,12 @@ module.exports = {
         );
       }
 
-      /* =====================================================
-         REACT
-      ===================================================== */
-
       await sock.sendMessage(chatId, {
         react: {
           text: "🔄",
           key: message.key,
         },
       });
-
-      /* =====================================================
-         DOWNLOAD MESSAGE
-      ===================================================== */
 
       await sock.sendMessage(
         chatId,
@@ -209,116 +217,78 @@ module.exports = {
         },
       );
 
-      /* =====================================================
-         API
-         
-         IMPORTANT:
-         Replace this with YOUR working API endpoint.
-         The old APIKEY placeholder has intentionally
-         been removed.
-      ===================================================== */
-
-      const apiUrl =
-        "https://fdown.isuru.eu.org/download";
+      console.log("[PUTTUS FB] Processing:", url);
 
       let response;
 
       try {
         response = await axios.post(
-          apiUrl,
+          API_URL,
           {
             url,
             quality: "best",
           },
-          {
-            ...HTTP_CONFIG,
-            headers: {
-              ...HTTP_CONFIG.headers,
-              "Content-Type": "application/json",
-            },
-          },
+          axiosConfig,
         );
       } catch (apiError) {
         console.error(
-          "Facebook API request failed:",
+          "[PUTTUS FB] API ERROR:",
           apiError?.response?.data ||
             apiError?.message,
         );
 
+        if (apiError?.response?.status === 429) {
+          throw new Error(
+            "Facebook downloader rate limit reached",
+          );
+        }
+
         throw new Error(
-          "Facebook API request failed",
+          "Facebook downloader API failed",
         );
       }
-
-      /* =====================================================
-         API RESPONSE
-      ===================================================== */
 
       const data = response?.data;
 
       console.log(
-        "[FACEBOOK API RESPONSE]",
+        "[PUTTUS FB] API RESPONSE:",
         JSON.stringify(data, null, 2),
       );
 
+      if (!data) {
+        throw new Error("Empty API response");
+      }
+
       if (
-        !data ||
-        data.status === "error"
+        data.status === "error" ||
+        data.success === false
       ) {
         throw new Error(
-          data?.message ||
-            "API could not process the Facebook URL",
+          data.message ||
+            data.error ||
+            "Facebook video could not be processed",
         );
       }
 
-      /* =====================================================
-         FIND VIDEO URL
-      ===================================================== */
-
-      const videoUrl =
-        data?.download_url ||
-        data?.downloadUrl ||
-        data?.url ||
-        data?.video_url ||
-        data?.videoUrl ||
-        data?.data?.download_url ||
-        data?.data?.downloadUrl ||
-        data?.data?.url ||
-        data?.data?.video_url ||
-        data?.data?.videoUrl ||
-        findVideoUrl(data);
+      const videoUrl = extractVideoUrl(data);
 
       if (
         !videoUrl ||
         !/^https?:\/\//i.test(videoUrl)
       ) {
         throw new Error(
-          "No downloadable video URL returned by API",
+          "API returned no video URL",
         );
       }
 
-      /* =====================================================
-         QUALITY
-      ===================================================== */
-
-      const quality = getQuality(
-        data?.video_info ||
-          data?.videoInfo ||
-          data,
-      );
-
-      /* =====================================================
-         CAPTION
-      ===================================================== */
+      const title = getTitle(data);
+      const quality = getQuality(data);
 
       const caption =
         "📘 *Facebook Downloader*\n\n" +
-        `🎞 Quality: ${quality}\n` +
-        "🤖 𝙋𝙐𝙏𝙏𝙐𝙎-𝘼𝙄";
-
-      /* =====================================================
-         SEND VIDEO
-      ===================================================== */
+        `🎞 *Quality:* ${quality}\n` +
+        `📝 *Title:* ${title}\n\n` +
+        "🤖 *𝙋𝙐𝙏𝙏𝙐𝙎-𝘼𝙄*";
 
       await sock.sendMessage(
         chatId,
@@ -328,15 +298,12 @@ module.exports = {
           },
           mimetype: "video/mp4",
           caption,
+          fileName: "PUTTUS-Facebook.mp4",
         },
         {
           quoted: message,
         },
       );
-
-      /* =====================================================
-         SUCCESS REACTION
-      ===================================================== */
 
       await sock.sendMessage(chatId, {
         react: {
@@ -344,12 +311,14 @@ module.exports = {
           key: message.key,
         },
       });
+
+      console.log(
+        "[PUTTUS FB] Download sent successfully",
+      );
     } catch (error) {
       console.error(
-        "❌ Facebook downloader error:",
-        error?.response?.data ||
-          error?.message ||
-          error,
+        "[PUTTUS FB ERROR]",
+        error?.message || error,
       );
 
       try {
@@ -357,15 +326,19 @@ module.exports = {
           chatId,
           {
             text:
-              "❌ *Facebook download failed!*\n\n" +
-              "The video could not be downloaded.\n\n" +
-              "💡 Make sure the Facebook video is public and try again.",
+              "❌ *Facebook Download Failed!*\n\n" +
+              "Possible reasons:\n" +
+              "❯ Video is private\n" +
+              "❯ Facebook link is invalid\n" +
+              "❯ Downloader service is busy\n" +
+              "❯ Video is not accessible publicly\n\n" +
+              "💡 Try a public Facebook video/Reel link.",
           },
           {
             quoted: message,
           },
         );
-m
+
         await sock.sendMessage(chatId, {
           react: {
             text: "❌",
@@ -374,7 +347,7 @@ m
         });
       } catch (sendError) {
         console.error(
-          "Facebook error message failed:",
+          "[PUTTUS FB] Error message failed:",
           sendError?.message,
         );
       }
