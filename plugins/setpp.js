@@ -5,7 +5,7 @@ const {
 const isOwnerOrSudo = require("../lib/isOwner");
 
 /* =========================================================
-   PUTTUS VCARD
+   PUTTUS-BOT VCARD
 ========================================================= */
 
 function getPuttusVCardQuote() {
@@ -39,7 +39,25 @@ function getPuttusVCardQuote() {
 }
 
 /* =========================================================
-   DOWNLOAD PHOTO
+   GET REPLIED MESSAGE
+========================================================= */
+
+function getQuotedMessage(message) {
+  return (
+    message?.message
+      ?.extendedTextMessage
+      ?.contextInfo
+      ?.quotedMessage ||
+    message?.message
+      ?.imageMessage
+      ?.contextInfo
+      ?.quotedMessage ||
+    null
+  );
+}
+
+/* =========================================================
+   DOWNLOAD IMAGE
 ========================================================= */
 
 async function downloadImage(imageMessage) {
@@ -58,7 +76,7 @@ async function downloadImage(imageMessage) {
 }
 
 /* =========================================================
-   SETPP
+   SETPP COMMAND
 ========================================================= */
 
 module.exports = {
@@ -77,10 +95,19 @@ module.exports = {
   usage:
     ".setpp",
 
-  async handler(sock, message, args = [], context = {}) {
+  async handler(
+    sock,
+    message,
+    args = [],
+    context = {},
+  ) {
     const chatId =
-      context.chatId ||
-      message.key.remoteJid;
+      context?.chatId ||
+      message?.key?.remoteJid;
+
+    if (!chatId) {
+      return;
+    }
 
     try {
       /* =====================================================
@@ -88,8 +115,8 @@ module.exports = {
       ===================================================== */
 
       const senderId =
-        message.key.participant ||
-        message.key.remoteJid;
+        message?.key?.participant ||
+        message?.key?.remoteJid;
 
       const owner =
         await isOwnerOrSudo(
@@ -98,8 +125,11 @@ module.exports = {
           chatId,
         );
 
-      if (!message.key.fromMe && !owner) {
-        return await sock.sendMessage(
+      if (
+        !message?.key?.fromMe &&
+        !owner
+      ) {
+        await sock.sendMessage(
           chatId,
           {
             text:
@@ -109,52 +139,54 @@ module.exports = {
             quoted: message,
           },
         );
+
+        return;
       }
 
       /* =====================================================
          GET REPLIED MESSAGE
       ===================================================== */
 
-      const contextInfo =
-        message.message
-          ?.extendedTextMessage
-          ?.contextInfo;
+      const quoted =
+        getQuotedMessage(message);
 
-      const quotedMessage =
-        contextInfo?.quotedMessage;
-
-      if (!quotedMessage) {
-        return await sock.sendMessage(
+      if (!quoted) {
+        await sock.sendMessage(
           chatId,
           {
             text:
               "*⚠️ Reply to a photo with .setpp*",
           },
           {
-            quoted: message,
+            quoted:
+              getPuttusVCardQuote(),
           },
         );
+
+        return;
       }
 
       /* =====================================================
          PHOTO ONLY
-         VIDEO NOT SUPPORTED
       ===================================================== */
 
       const imageMessage =
-        quotedMessage.imageMessage;
+        quoted?.imageMessage;
 
       if (!imageMessage) {
-        return await sock.sendMessage(
+        await sock.sendMessage(
           chatId,
           {
             text:
-              "*❌ Only photos are supported!*",
+              "*❌ Only photos are supported.*",
           },
           {
-            quoted: message,
+            quoted:
+              getPuttusVCardQuote(),
           },
         );
+
+        return;
       }
 
       /* =====================================================
@@ -162,22 +194,37 @@ module.exports = {
       ===================================================== */
 
       const image =
-        await downloadImage(imageMessage);
+        await downloadImage(
+          imageMessage,
+        );
 
       if (
         !Buffer.isBuffer(image) ||
         image.length === 0
       ) {
         throw new Error(
-          "Unable to download the photo.",
+          "Photo download failed.",
         );
       }
 
       /* =====================================================
-         SET BOT DP
+         CHECK CONNECTION
+      ===================================================== */
 
-         Baileys automatically handles the
-         profile-picture resize/crop.
+      if (
+        !sock.user ||
+        !sock.user.id
+      ) {
+        throw new Error(
+          "WhatsApp is not connected.",
+        );
+      }
+
+      /* =====================================================
+         UPDATE BOT PROFILE PICTURE
+
+         Baileys handles the required
+         profile-picture processing here.
       ===================================================== */
 
       await sock.updateProfilePicture(
@@ -186,7 +233,7 @@ module.exports = {
       );
 
       /* =====================================================
-         SUCCESS + VCARD
+         SUCCESS RESPONSE + VCARD
       ===================================================== */
 
       await sock.sendMessage(
@@ -204,21 +251,48 @@ module.exports = {
 
     } catch (error) {
       console.error(
-        "SETPP ERROR:",
+        "[SETPP ERROR]",
         error,
       );
 
       /* =====================================================
-         ERROR + VCARD
+         SAFE ERROR RESPONSE
       ===================================================== */
+
+      let text =
+        "*❌ Failed to update bot profile picture.*";
+
+      const errorText =
+        String(
+          error?.message || "",
+        );
+
+      if (
+        errorText.includes(
+          "No image processing library",
+        )
+      ) {
+        text +=
+          "\n\n*Image processor is unavailable on this device.*";
+      } else if (
+        errorText.includes(
+          "Connection Closed",
+        )
+      ) {
+        text +=
+          "\n\n*WhatsApp connection was closed. Please try again after the bot reconnects.*";
+      } else {
+        text +=
+          "\n\n_" +
+          errorText +
+          "_";
+      }
 
       try {
         await sock.sendMessage(
           chatId,
           {
-            text:
-              "❌ *Failed to update bot profile picture.*\n\n" +
-              `_${error?.message || "Unknown error"}_`,
+            text,
           },
           {
             quoted:
@@ -227,7 +301,7 @@ module.exports = {
         );
       } catch (sendError) {
         console.error(
-          "SETPP RESPONSE ERROR:",
+          "[SETPP SEND ERROR]",
           sendError,
         );
       }
