@@ -1,4 +1,7 @@
-const { downloadContentFromMessage } = require("@whiskeysockets/baileys");
+const {
+  downloadContentFromMessage,
+} = require("@whiskeysockets/baileys");
+
 const isOwnerOrSudo = require("../lib/isOwner");
 
 /* =========================================================
@@ -42,38 +45,26 @@ function getPuttusVCardQuote() {
 function getQuotedMessage(message) {
   const msg = message?.message;
 
-  if (!msg) return null;
-
-  if (
-    msg.extendedTextMessage
-      ?.contextInfo
-      ?.quotedMessage
-  ) {
-    return msg.extendedTextMessage.contextInfo.quotedMessage;
+  if (!msg) {
+    return null;
   }
 
-  if (
-    msg.imageMessage
-      ?.contextInfo
-      ?.quotedMessage
-  ) {
-    return msg.imageMessage.contextInfo.quotedMessage;
-  }
+  const messageTypes = [
+    "extendedTextMessage",
+    "imageMessage",
+    "videoMessage",
+    "buttonsResponseMessage",
+    "templateButtonReplyMessage",
+    "listResponseMessage",
+  ];
 
-  if (
-    msg.buttonsResponseMessage
-      ?.contextInfo
-      ?.quotedMessage
-  ) {
-    return msg.buttonsResponseMessage.contextInfo.quotedMessage;
-  }
+  for (const type of messageTypes) {
+    const contextInfo =
+      msg?.[type]?.contextInfo;
 
-  if (
-    msg.templateButtonReplyMessage
-      ?.contextInfo
-      ?.quotedMessage
-  ) {
-    return msg.templateButtonReplyMessage.contextInfo.quotedMessage;
+    if (contextInfo?.quotedMessage) {
+      return contextInfo.quotedMessage;
+    }
   }
 
   return null;
@@ -84,10 +75,11 @@ function getQuotedMessage(message) {
 ========================================================= */
 
 async function downloadImage(imageMessage) {
-  const stream = await downloadContentFromMessage(
-    imageMessage,
-    "image"
-  );
+  const stream =
+    await downloadContentFromMessage(
+      imageMessage,
+      "image"
+    );
 
   const chunks = [];
 
@@ -99,63 +91,96 @@ async function downloadImage(imageMessage) {
 }
 
 /* =========================================================
-   FIT LONG IMAGE INTO SQUARE
-   - NO CROPPING
-   - WHOLE IMAGE PRESERVED
+   JIMP LOADER
 ========================================================= */
 
-async function prepareProfilePicture(buffer) {
+async function loadJimp() {
   const jimpModule = await import("jimp");
 
   const Jimp = jimpModule.Jimp;
-  const ResizeStrategy = jimpModule.ResizeStrategy;
+  const ResizeStrategy =
+    jimpModule.ResizeStrategy;
 
-  if (!Jimp || typeof Jimp.read !== "function") {
+  if (
+    !Jimp ||
+    typeof Jimp.read !== "function"
+  ) {
     throw new Error(
-      "Jimp image processor is not available."
+      "Jimp is installed but Jimp.read() is unavailable."
     );
   }
 
-  const image = await Jimp.read(buffer);
+  return {
+    Jimp,
+    ResizeStrategy,
+  };
+}
 
-  const originalWidth = image.width;
-  const originalHeight = image.height;
+/* =========================================================
+   CREATE 9:16 LONG IMAGE
+   NO CROP
+========================================================= */
+
+async function createLong9x16(
+  inputBuffer
+) {
+  const {
+    Jimp,
+    ResizeStrategy,
+  } = await loadJimp();
+
+  const image =
+    await Jimp.read(inputBuffer);
+
+  const originalWidth =
+    image.width;
+
+  const originalHeight =
+    image.height;
 
   if (
     !originalWidth ||
     !originalHeight
   ) {
     throw new Error(
-      "Unable to read image dimensions."
+      "Unable to detect image dimensions."
     );
   }
 
   /*
-   * WhatsApp profile pictures are square.
+   * Target 9:16
    *
-   * Instead of cropping the long image,
-   * calculate the largest size that fits
-   * inside a 640x640 square.
+   * 1080 x 1920
    */
 
-  const canvasSize = 640;
+  const targetWidth = 1080;
+  const targetHeight = 1920;
+
+  /*
+   * FIT INSIDE 9:16
+   * NEVER CROP
+   */
 
   const scale = Math.min(
-    canvasSize / originalWidth,
-    canvasSize / originalHeight
+    targetWidth / originalWidth,
+    targetHeight / originalHeight
   );
 
-  const newWidth = Math.max(
-    1,
-    Math.round(originalWidth * scale)
-  );
+  const newWidth =
+    Math.max(
+      1,
+      Math.round(
+        originalWidth * scale
+      )
+    );
 
-  const newHeight = Math.max(
-    1,
-    Math.round(originalHeight * scale)
-  );
-
-  /* Resize while preserving aspect ratio */
+  const newHeight =
+    Math.max(
+      1,
+      Math.round(
+        originalHeight * scale
+      )
+    );
 
   image.resize({
     w: newWidth,
@@ -165,17 +190,129 @@ async function prepareProfilePicture(buffer) {
   });
 
   /*
-   * Create square canvas.
-   *
-   * The image stays completely visible.
-   * Remaining area is filled with black.
+   * Create 9:16 canvas
    */
 
-  const canvas = new Jimp({
-    width: canvasSize,
-    height: canvasSize,
-    color: 0xff000000,
+  const longCanvas =
+    new Jimp({
+      width: targetWidth,
+      height: targetHeight,
+      color: 0xff000000,
+    });
+
+  /*
+   * Center image
+   */
+
+  const x = Math.floor(
+    (targetWidth - newWidth) / 2
+  );
+
+  const y = Math.floor(
+    (targetHeight - newHeight) / 2
+  );
+
+  longCanvas.composite(
+    image,
+    x,
+    y
+  );
+
+  return await longCanvas.getBuffer(
+    "image/jpeg",
+    {
+      quality: 95,
+    }
+  );
+}
+
+/* =========================================================
+   PUT 9:16 IMAGE INSIDE SQUARE
+   IMPORTANT:
+   BAILEYS updateProfilePicture() EXPECTS SQUARE
+========================================================= */
+
+async function createWhatsAppDP(
+  longBuffer
+) {
+  const {
+    Jimp,
+    ResizeStrategy,
+  } = await loadJimp();
+
+  const longImage =
+    await Jimp.read(longBuffer);
+
+  const longWidth =
+    longImage.width;
+
+  const longHeight =
+    longImage.height;
+
+  if (
+    !longWidth ||
+    !longHeight
+  ) {
+    throw new Error(
+      "Unable to read 9:16 image."
+    );
+  }
+
+  /*
+   * WhatsApp-safe square
+   */
+
+  const canvasSize = 640;
+
+  /*
+   * Fit 9:16 image inside
+   * 640 x 640
+   *
+   * NO CROP
+   */
+
+  const scale = Math.min(
+    canvasSize / longWidth,
+    canvasSize / longHeight
+  );
+
+  const newWidth =
+    Math.max(
+      1,
+      Math.round(
+        longWidth * scale
+      )
+    );
+
+  const newHeight =
+    Math.max(
+      1,
+      Math.round(
+        longHeight * scale
+      )
+    );
+
+  longImage.resize({
+    w: newWidth,
+    h: newHeight,
+    mode:
+      ResizeStrategy.BILINEAR,
   });
+
+  /*
+   * Black square background
+   */
+
+  const square =
+    new Jimp({
+      width: canvasSize,
+      height: canvasSize,
+      color: 0xff000000,
+    });
+
+  /*
+   * Center 9:16 image
+   */
 
   const x = Math.floor(
     (canvasSize - newWidth) / 2
@@ -185,20 +322,20 @@ async function prepareProfilePicture(buffer) {
     (canvasSize - newHeight) / 2
   );
 
-  canvas.composite(
-    image,
+  square.composite(
+    longImage,
     x,
     y
   );
 
   /*
-   * JPEG buffer for WhatsApp.
+   * JPEG output
    */
 
-  return await canvas.getBuffer(
+  return await square.getBuffer(
     "image/jpeg",
     {
-      quality: 90,
+      quality: 95,
     }
   );
 }
@@ -218,7 +355,7 @@ module.exports = {
   category: "owner",
 
   description:
-    "Set the bot profile picture without cropping long images.",
+    "Set bot profile picture using 9:16 long format without cropping.",
 
   usage:
     ".setpp (reply to an image)",
@@ -231,7 +368,7 @@ module.exports = {
   ) {
     const chatId =
       context.chatId ||
-      message.key.remoteJid;
+      message?.key?.remoteJid;
 
     try {
       /* =====================================================
@@ -239,8 +376,8 @@ module.exports = {
       ===================================================== */
 
       const senderId =
-        message.key.participant ||
-        message.key.remoteJid;
+        message?.key?.participant ||
+        message?.key?.remoteJid;
 
       const owner =
         await isOwnerOrSudo(
@@ -250,7 +387,7 @@ module.exports = {
         );
 
       if (
-        !message.key.fromMe &&
+        !message?.key?.fromMe &&
         !owner
       ) {
         return await sock.sendMessage(
@@ -288,7 +425,7 @@ module.exports = {
       }
 
       /* =====================================================
-         IMAGE ONLY
+         GET IMAGE
       ===================================================== */
 
       const imageMessage =
@@ -309,7 +446,7 @@ module.exports = {
       }
 
       /* =====================================================
-         DOWNLOAD
+         DOWNLOAD ORIGINAL
       ===================================================== */
 
       const originalImage =
@@ -318,7 +455,9 @@ module.exports = {
         );
 
       if (
-        !Buffer.isBuffer(originalImage) ||
+        !Buffer.isBuffer(
+          originalImage
+        ) ||
         originalImage.length === 0
       ) {
         throw new Error(
@@ -326,36 +465,79 @@ module.exports = {
         );
       }
 
+      console.log(
+        "[SET-PP] Original image:",
+        originalImage.length,
+        "bytes"
+      );
+
       /* =====================================================
-         PREPARE WITHOUT CROPPING
+         STEP 1
+         CREATE 9:16 LONG IMAGE
       ===================================================== */
 
-      const profilePicture =
-        await prepareProfilePicture(
+      const longImage =
+        await createLong9x16(
           originalImage
         );
 
       if (
-        !Buffer.isBuffer(profilePicture) ||
-        profilePicture.length === 0
+        !Buffer.isBuffer(
+          longImage
+        ) ||
+        longImage.length === 0
       ) {
         throw new Error(
-          "Profile picture processing failed."
+          "9:16 image creation failed."
         );
       }
 
+      console.log(
+        "[SET-PP] 9:16 image created:",
+        longImage.length,
+        "bytes"
+      );
+
       /* =====================================================
-         CHECK CONNECTION
+         STEP 2
+         CREATE SQUARE WHATSAPP DP
+         WITHOUT CROPPING
       ===================================================== */
 
-      if (!sock.user?.id) {
+      const profilePicture =
+        await createWhatsAppDP(
+          longImage
+        );
+
+      if (
+        !Buffer.isBuffer(
+          profilePicture
+        ) ||
+        profilePicture.length === 0
+      ) {
+        throw new Error(
+          "WhatsApp DP processing failed."
+        );
+      }
+
+      console.log(
+        "[SET-PP] Final DP created:",
+        profilePicture.length,
+        "bytes"
+      );
+
+      /* =====================================================
+         CHECK WHATSAPP CONNECTION
+      ===================================================== */
+
+      if (!sock?.user?.id) {
         throw new Error(
           "WhatsApp connection is not ready."
         );
       }
 
       /* =====================================================
-         UPDATE PROFILE
+         UPDATE PROFILE PICTURE
       ===================================================== */
 
       await sock.updateProfilePicture(
@@ -372,6 +554,11 @@ module.exports = {
         {
           text:
             "✅ *⎯꯭⃜ ꯭𔘓⃪꯭[]꯭🩸꯭𝐒꯭ᴜ꯭ᴄ꯭ᴄ꯭ᴇ꯭ꜱ꯭ꜱ꯭ꜰ꯭ᴜ꯭ʟ꯭ʟ꯭ʏ꯭ 𝐔꯭ᴘ꯭ᴅ꯭ᴀ꯭ᴛ꯭ᴇ꯭ᴅ꯭ 𝐁꯭ᴏ꯭ᴛ꯭ 𝐏꯭ɪ꯭ᴄ꯭ ⚡ 𝐀꯭ᴘ꯭ᴜ꯭ʀ꯭ʙ꯭ᴏ꯭/𝐏꯭ᴜ꯭ᴛ꯭ᴛ꯭ᴜ꯭𝐒꯭ ⟶᯦꯭*\n\n" +
+            "╭─〔 *𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ* 〕\n" +
+            "│ ᯓ 9:16 *LONG FORMAT*\n" +
+            "│ ᯓ *NO CROP*\n" +
+            "│ ᯓ *FULL IMAGE PRESERVED*\n" +
+            "╰──────────────\n\n" +
             "*ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*",
         },
         {
@@ -381,8 +568,12 @@ module.exports = {
       );
 
     } catch (error) {
+      /* =====================================================
+         ERROR
+      ===================================================== */
+
       console.error(
-        "SET-PP ERROR:",
+        "[SET-PP ERROR]",
         error
       );
 
