@@ -4,7 +4,7 @@ const {
 
 /* =========================================================
    PUTTUS VCARD
-   SAME AS ANTILINK — DO NOT CHANGE
+   EXACT SAME AS ANTILINK
 ========================================================= */
 
 function getPuttusVCardQuote() {
@@ -38,409 +38,192 @@ function getPuttusVCardQuote() {
 }
 
 /* =========================================================
-   GET QUOTED MESSAGE
-========================================================= */
-
-function getQuotedMessage(message) {
-  if (!message?.message) {
-    return null;
-  }
-
-  const msg = message.message;
-
-  /* Normal text reply */
-  if (msg.extendedTextMessage?.contextInfo?.quotedMessage) {
-    return msg.extendedTextMessage.contextInfo.quotedMessage;
-  }
-
-  /* Image reply */
-  if (msg.imageMessage?.contextInfo?.quotedMessage) {
-    return msg.imageMessage.contextInfo.quotedMessage;
-  }
-
-  /* Video reply */
-  if (msg.videoMessage?.contextInfo?.quotedMessage) {
-    return msg.videoMessage.contextInfo.quotedMessage;
-  }
-
-  /* Document reply */
-  if (msg.documentMessage?.contextInfo?.quotedMessage) {
-    return msg.documentMessage.contextInfo.quotedMessage;
-  }
-
-  /* Buttons / interactive reply */
-  if (msg.buttonsResponseMessage?.contextInfo?.quotedMessage) {
-    return msg.buttonsResponseMessage.contextInfo.quotedMessage;
-  }
-
-  if (
-    msg.templateButtonReplyMessage?.contextInfo
-      ?.quotedMessage
-  ) {
-    return msg.templateButtonReplyMessage.contextInfo
-      .quotedMessage;
-  }
-
-  return null;
-}
-
-/* =========================================================
-   UNWRAP MESSAGE
-========================================================= */
-
-function unwrapMessage(message) {
-  if (!message) {
-    return null;
-  }
-
-  let current = message;
-
-  for (let i = 0; i < 15; i++) {
-    if (!current) {
-      return null;
-    }
-
-    /* View Once V1 */
-    if (current.viewOnceMessage?.message) {
-      current = current.viewOnceMessage.message;
-      continue;
-    }
-
-    /* View Once V2 */
-    if (current.viewOnceMessageV2?.message) {
-      current = current.viewOnceMessageV2.message;
-      continue;
-    }
-
-    /* View Once V2 Extension */
-    if (current.viewOnceMessageV2Extension?.message) {
-      current =
-        current.viewOnceMessageV2Extension.message;
-      continue;
-    }
-
-    /* Ephemeral */
-    if (current.ephemeralMessage?.message) {
-      current = current.ephemeralMessage.message;
-      continue;
-    }
-
-    /* Document with caption */
-    if (current.documentWithCaptionMessage?.message) {
-      current =
-        current.documentWithCaptionMessage.message;
-      continue;
-    }
-
-    /* Edited message wrapper */
-    if (current.editedMessage?.message) {
-      current = current.editedMessage.message;
-      continue;
-    }
-
-    break;
-  }
-
-  return current;
-}
-
-/* =========================================================
-   GET MEDIA
-========================================================= */
-
-function getMedia(message) {
-  const unwrapped = unwrapMessage(message);
-
-  if (!unwrapped) {
-    return null;
-  }
-
-  if (unwrapped.imageMessage) {
-    return {
-      type: "image",
-      data: unwrapped.imageMessage,
-    };
-  }
-
-  if (unwrapped.videoMessage) {
-    return {
-      type: "video",
-      data: unwrapped.videoMessage,
-    };
-  }
-
-  return null;
-}
-
-/* =========================================================
-   DOWNLOAD MEDIA
-========================================================= */
-
-async function downloadMedia(media, type) {
-  if (!media) {
-    throw new Error("Media not found");
-  }
-
-  const stream =
-    await downloadContentFromMessage(
-      media,
-      type,
-    );
-
-  const chunks = [];
-
-  for await (const chunk of stream) {
-    chunks.push(chunk);
-  }
-
-  if (!chunks.length) {
-    throw new Error("Downloaded media is empty");
-  }
-
-  return Buffer.concat(chunks);
-}
-
-/* =========================================================
-   VIEW ONCE PLUGIN
+   VIEW ONCE
 ========================================================= */
 
 module.exports = {
   command: "viewonce",
 
   aliases: [
-    "vv",
-    "view",
     "viewmedia",
+    "vv",
   ],
 
   category: "general",
 
   description:
-    "Recover and resend a view-once photo or video",
+    "Re-send a view-once image or video.",
 
   usage:
-    ".vv - reply to a view-once photo/video",
+    ".viewonce (reply to a view-once media)",
 
   async handler(
     sock,
     message,
-    args = [],
+    args,
     context = {},
   ) {
     const chatId =
-      context?.chatId ||
+      context.chatId ||
       message?.key?.remoteJid;
 
     try {
-      /* =====================================================
-         BASIC CHECK
-      ===================================================== */
-
-      if (!sock || !chatId) {
-        return;
-      }
-
       /* =====================================================
          GET QUOTED MESSAGE
       ===================================================== */
 
       const quoted =
-        getQuotedMessage(message);
+        message.message
+          ?.extendedTextMessage
+          ?.contextInfo
+          ?.quotedMessage;
 
-      if (!quoted) {
-        return await sock.sendMessage(
-          chatId,
-          {
-            text:
-              "👁️ *VIEW ONCE*\n\n" +
-              "❯ Reply to a view-once photo/video\n" +
-              "❯ Then type *.vv*",
-          },
-          {
-            quoted: message,
-          },
-        );
-      }
+      const quotedImage =
+        quoted?.imageMessage;
+
+      const quotedVideo =
+        quoted?.videoMessage;
 
       /* =====================================================
-         FIND VIEW ONCE MEDIA
+         IMAGE
       ===================================================== */
 
-      const media =
-        getMedia(quoted);
+      if (
+        quotedImage &&
+        quotedImage.viewOnce
+      ) {
+        const stream =
+          await downloadContentFromMessage(
+            quotedImage,
+            "image",
+          );
 
-      if (!media) {
-        return await sock.sendMessage(
-          chatId,
-          {
-            text:
-              "❌ *Not a View-Once message!*\n\n" +
-              "Reply directly to the original " +
-              "view-once photo or video.",
-          },
-          {
-            quoted: message,
-          },
-        );
-      }
+        let buffer = Buffer.from([]);
 
-      /* =====================================================
-         REACT
-      ===================================================== */
+        for await (const chunk of stream) {
+          buffer = Buffer.concat([
+            buffer,
+            chunk,
+          ]);
+        }
 
-      try {
-        await sock.sendMessage(
-          chatId,
-          {
-            react: {
-              text: "👁️",
-              key: message.key,
-            },
-          },
-        );
-      } catch (_) {}
-
-      /* =====================================================
-         DOWNLOAD PHOTO / VIDEO
-      ===================================================== */
-
-      const buffer =
-        await downloadMedia(
-          media.data,
-          media.type,
-        );
-
-      if (!buffer || !buffer.length) {
-        throw new Error(
-          "Media buffer is empty",
-        );
-      }
-
-      /* =====================================================
-         IMPORTANT
-
-         VCard is NOT sent separately.
-
-         The recovered photo/video itself is sent
-         QUOTED TO THE PUTTUS VCARD.
-
-         Result:
-
-         [ PUTTUS VCARD ]
-                 ↓
-         [ RECOVERED PHOTO/VIDEO ]
-      ===================================================== */
-
-      const vcardQuote =
-        getPuttusVCardQuote();
-
-      /* =====================================================
-         SEND PHOTO
-      ===================================================== */
-
-      if (media.type === "image") {
-        const image =
-          media.data;
+        /* ===================================================
+           SEND RECOVERED PHOTO
+           
+           IMPORTANT:
+           AntiLink VCard is used directly
+           as the quoted message.
+        =================================================== */
 
         await sock.sendMessage(
           chatId,
           {
             image: buffer,
 
+            fileName: "media.jpg",
+
             caption:
-              image.caption ||
+              quotedImage.caption ||
               "👁️ *View Once Photo*\n\n" +
               "🤖 *𝙋𝙐𝙏𝙏𝙐𝙎-𝘼𝙄*",
           },
           {
-            quoted: vcardQuote,
+            quoted:
+              getPuttusVCardQuote(),
           },
         );
+
+        return;
       }
 
       /* =====================================================
-         SEND VIDEO
+         VIDEO
       ===================================================== */
 
-      else if (media.type === "video") {
-        const video =
-          media.data;
+      if (
+        quotedVideo &&
+        quotedVideo.viewOnce
+      ) {
+        const stream =
+          await downloadContentFromMessage(
+            quotedVideo,
+            "video",
+          );
+
+        let buffer = Buffer.from([]);
+
+        for await (const chunk of stream) {
+          buffer = Buffer.concat([
+            buffer,
+            chunk,
+          ]);
+        }
+
+        /* ===================================================
+           SEND RECOVERED VIDEO
+           
+           IMPORTANT:
+           AntiLink VCard is used directly
+           as the quoted message.
+        =================================================== */
 
         await sock.sendMessage(
           chatId,
           {
             video: buffer,
 
+            fileName: "media.mp4",
+
             mimetype:
-              video.mimetype ||
+              quotedVideo.mimetype ||
               "video/mp4",
 
             caption:
-              video.caption ||
+              quotedVideo.caption ||
               "👁️ *View Once Video*\n\n" +
               "🤖 *𝙋𝙐𝙏𝙏𝙐𝙎-𝘼𝙄*",
           },
           {
-            quoted: vcardQuote,
+            quoted:
+              getPuttusVCardQuote(),
           },
         );
+
+        return;
       }
 
       /* =====================================================
-         SUCCESS REACTION
+         NOT VIEW ONCE
       ===================================================== */
 
-      try {
-        await sock.sendMessage(
-          chatId,
-          {
-            react: {
-              text: "✅",
-              key: message.key,
-            },
-          },
-        );
-      } catch (_) {}
-
-      return;
+      await sock.sendMessage(
+        chatId,
+        {
+          text:
+            "❌ *Please reply to a view-once image or video.*",
+        },
+        {
+          quoted: message,
+        },
+      );
 
     } catch (error) {
       console.error(
-        "PUTTUS VIEWONCE ERROR:",
+        "Error in viewonceCommand:",
         error,
       );
 
-      try {
-        await sock.sendMessage(
-          chatId,
-          {
-            text:
-              "❌ *View-Once Failed!*\n\n" +
-              "The photo/video could not be recovered.",
-          },
-          {
-            quoted: message,
-          },
-        );
-
-        try {
-          await sock.sendMessage(
-            chatId,
-            {
-              react: {
-                text: "❌",
-                key: message.key,
-              },
-            },
-          );
-        } catch (_) {}
-
-      } catch (sendError) {
-        console.error(
-          "PUTTUS VIEWONCE SEND ERROR:",
-          sendError,
-        );
-      }
+      await sock.sendMessage(
+        chatId,
+        {
+          text:
+            "❌ *Failed to retrieve the view-once media.*\n\n" +
+            "Please try again later.",
+        },
+        {
+          quoted: message,
+        },
+      );
     }
   },
 };
