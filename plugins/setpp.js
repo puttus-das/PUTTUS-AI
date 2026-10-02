@@ -24,6 +24,7 @@ function getPuttusVCardQuote() {
       id: "PUTTUS-" + Date.now(),
       participant: botJid,
     },
+
     message: {
       contactMessage: {
         displayName:
@@ -43,27 +44,35 @@ function getQuotedMessage(message) {
 
   if (!msg) return null;
 
-  // Normal text reply
-  if (msg.extendedTextMessage?.contextInfo?.quotedMessage) {
+  if (
+    msg.extendedTextMessage
+      ?.contextInfo
+      ?.quotedMessage
+  ) {
     return msg.extendedTextMessage.contextInfo.quotedMessage;
   }
 
-  // Image message with quoted context
-  if (msg.imageMessage?.contextInfo?.quotedMessage) {
+  if (
+    msg.imageMessage
+      ?.contextInfo
+      ?.quotedMessage
+  ) {
     return msg.imageMessage.contextInfo.quotedMessage;
   }
 
-  // Video message with quoted context
-  if (msg.videoMessage?.contextInfo?.quotedMessage) {
-    return msg.videoMessage.contextInfo.quotedMessage;
-  }
-
-  // Buttons / template messages
-  if (msg.buttonsResponseMessage?.contextInfo?.quotedMessage) {
+  if (
+    msg.buttonsResponseMessage
+      ?.contextInfo
+      ?.quotedMessage
+  ) {
     return msg.buttonsResponseMessage.contextInfo.quotedMessage;
   }
 
-  if (msg.templateButtonReplyMessage?.contextInfo?.quotedMessage) {
+  if (
+    msg.templateButtonReplyMessage
+      ?.contextInfo
+      ?.quotedMessage
+  ) {
     return msg.templateButtonReplyMessage.contextInfo.quotedMessage;
   }
 
@@ -90,7 +99,112 @@ async function downloadImage(imageMessage) {
 }
 
 /* =========================================================
-   COMMAND
+   FIT LONG IMAGE INTO SQUARE
+   - NO CROPPING
+   - WHOLE IMAGE PRESERVED
+========================================================= */
+
+async function prepareProfilePicture(buffer) {
+  const jimpModule = await import("jimp");
+
+  const Jimp = jimpModule.Jimp;
+  const ResizeStrategy = jimpModule.ResizeStrategy;
+
+  if (!Jimp || typeof Jimp.read !== "function") {
+    throw new Error(
+      "Jimp image processor is not available."
+    );
+  }
+
+  const image = await Jimp.read(buffer);
+
+  const originalWidth = image.width;
+  const originalHeight = image.height;
+
+  if (
+    !originalWidth ||
+    !originalHeight
+  ) {
+    throw new Error(
+      "Unable to read image dimensions."
+    );
+  }
+
+  /*
+   * WhatsApp profile pictures are square.
+   *
+   * Instead of cropping the long image,
+   * calculate the largest size that fits
+   * inside a 640x640 square.
+   */
+
+  const canvasSize = 640;
+
+  const scale = Math.min(
+    canvasSize / originalWidth,
+    canvasSize / originalHeight
+  );
+
+  const newWidth = Math.max(
+    1,
+    Math.round(originalWidth * scale)
+  );
+
+  const newHeight = Math.max(
+    1,
+    Math.round(originalHeight * scale)
+  );
+
+  /* Resize while preserving aspect ratio */
+
+  image.resize({
+    w: newWidth,
+    h: newHeight,
+    mode:
+      ResizeStrategy.BILINEAR,
+  });
+
+  /*
+   * Create square canvas.
+   *
+   * The image stays completely visible.
+   * Remaining area is filled with black.
+   */
+
+  const canvas = new Jimp({
+    width: canvasSize,
+    height: canvasSize,
+    color: 0xff000000,
+  });
+
+  const x = Math.floor(
+    (canvasSize - newWidth) / 2
+  );
+
+  const y = Math.floor(
+    (canvasSize - newHeight) / 2
+  );
+
+  canvas.composite(
+    image,
+    x,
+    y
+  );
+
+  /*
+   * JPEG buffer for WhatsApp.
+   */
+
+  return await canvas.getBuffer(
+    "image/jpeg",
+    {
+      quality: 90,
+    }
+  );
+}
+
+/* =========================================================
+   SET PROFILE PICTURE
 ========================================================= */
 
 module.exports = {
@@ -104,7 +218,7 @@ module.exports = {
   category: "owner",
 
   description:
-    "Set the bot profile picture.",
+    "Set the bot profile picture without cropping long images.",
 
   usage:
     ".setpp (reply to an image)",
@@ -121,7 +235,7 @@ module.exports = {
 
     try {
       /* =====================================================
-         OWNER
+         OWNER CHECK
       ===================================================== */
 
       const senderId =
@@ -135,7 +249,10 @@ module.exports = {
           chatId
         );
 
-      if (!message.key.fromMe && !owner) {
+      if (
+        !message.key.fromMe &&
+        !owner
+      ) {
         return await sock.sendMessage(
           chatId,
           {
@@ -150,7 +267,7 @@ module.exports = {
       }
 
       /* =====================================================
-         QUOTED MESSAGE
+         GET REPLIED MESSAGE
       ===================================================== */
 
       const quotedMessage =
@@ -195,14 +312,14 @@ module.exports = {
          DOWNLOAD
       ===================================================== */
 
-      const image =
+      const originalImage =
         await downloadImage(
           imageMessage
         );
 
       if (
-        !Buffer.isBuffer(image) ||
-        image.length === 0
+        !Buffer.isBuffer(originalImage) ||
+        originalImage.length === 0
       ) {
         throw new Error(
           "Image download failed."
@@ -210,7 +327,25 @@ module.exports = {
       }
 
       /* =====================================================
-         UPDATE PROFILE
+         PREPARE WITHOUT CROPPING
+      ===================================================== */
+
+      const profilePicture =
+        await prepareProfilePicture(
+          originalImage
+        );
+
+      if (
+        !Buffer.isBuffer(profilePicture) ||
+        profilePicture.length === 0
+      ) {
+        throw new Error(
+          "Profile picture processing failed."
+        );
+      }
+
+      /* =====================================================
+         CHECK CONNECTION
       ===================================================== */
 
       if (!sock.user?.id) {
@@ -219,9 +354,13 @@ module.exports = {
         );
       }
 
+      /* =====================================================
+         UPDATE PROFILE
+      ===================================================== */
+
       await sock.updateProfilePicture(
         sock.user.id,
-        image
+        profilePicture
       );
 
       /* =====================================================
