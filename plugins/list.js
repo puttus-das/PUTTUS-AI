@@ -8,7 +8,8 @@ const os = require("os");
 
 function getDateTime() {
   const now = new Date();
-  const timeZone = settings.timeZone || "Asia/Kolkata";
+  const timeZone =
+    settings.timeZone || "Asia/Kolkata";
 
   return {
     date: now.toLocaleDateString("en-GB", {
@@ -31,12 +32,24 @@ function getDateTime() {
 /* ───────────── UPTIME ───────────── */
 
 function formatUptime() {
-  const totalSeconds = Math.floor(process.uptime());
+  const totalSeconds =
+    Math.floor(process.uptime());
 
-  const days = Math.floor(totalSeconds / 86400);
-  const hours = Math.floor((totalSeconds % 86400) / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
+  const days =
+    Math.floor(totalSeconds / 86400);
+
+  const hours =
+    Math.floor(
+      (totalSeconds % 86400) / 3600,
+    );
+
+  const minutes =
+    Math.floor(
+      (totalSeconds % 3600) / 60,
+    );
+
+  const seconds =
+    totalSeconds % 60;
 
   return `${days}d ${hours}h ${minutes}m ${seconds}s`;
 }
@@ -46,7 +59,10 @@ function formatUptime() {
 function getServerMemory() {
   try {
     const totalGB =
-      os.totalmem() / 1024 / 1024 / 1024;
+      os.totalmem() /
+      1024 /
+      1024 /
+      1024;
 
     return `${totalGB.toFixed(1)} GB`;
   } catch {
@@ -121,7 +137,7 @@ function getMenuImage() {
 
 /* ───────────── PUTTUS VCARD ───────────── */
 
-function getPuttusVCard() {
+function getPuttusVCardQuote() {
   const botJid =
     "919641092392@s.whatsapp.net";
 
@@ -138,7 +154,9 @@ function getPuttusVCard() {
     key: {
       remoteJid: "status@broadcast",
       fromMe: false,
-      id: "PUTTUS-" + Date.now(),
+      id:
+        "PUTTUS-" +
+        Date.now(),
       participant: botJid,
     },
 
@@ -152,36 +170,6 @@ function getPuttusVCard() {
   };
 }
 
-/* ───────────── SEND PUTTUS VCARD ───────────── */
-
-async function sendPuttusVCard(
-  sock,
-  chatId,
-) {
-  try {
-    const vcardMessage =
-      getPuttusVCard();
-
-    await sock.relayMessage(
-      chatId,
-      vcardMessage.message,
-      {
-        messageId:
-          vcardMessage.key.id,
-      },
-    );
-
-    return true;
-  } catch (error) {
-    console.error(
-      "[MENU] VCard send failed:",
-      error.message,
-    );
-
-    return false;
-  }
-}
-
 /* ───────────── BOT INFO ───────────── */
 
 function createBotInfo({
@@ -189,43 +177,45 @@ function createBotInfo({
   prefix,
   pluginCount,
 }) {
-  const { date, time } =
-    getDateTime();
+  const {
+    date,
+    time,
+  } = getDateTime();
 
   return `
-╭━━〔 愛 ᴘᴜᴛᴛᴜs 〕━━╮
+╭━━〔 *愛 ᴘᴜᴛᴛᴜs* 〕━━╮
 │
-│  𖤐 ɴᴀᴍᴇ     ➜ ${smallFont(
+│  *𖤐 ɴᴀᴍᴇ     ➜ ${smallFont(
     settings.botName ||
       "PUTTUS-XD",
-  )}
-│  𖤐 ᴍᴏᴅᴇ     ➜ ${
+  )}*
+│  *𖤐 ᴍᴏᴅᴇ     ➜ ${
     settings.mode || "public"
-  }
-│  𖤐 ᴘʀᴇꜰɪx    ➜ ${prefix}
-│  𖤐 ᴜꜱᴇʀ      ➜ ${smallFont(
+  }*
+│  *𖤐 ᴘʀᴇꜰɪx    ➜ ${prefix}*
+│  *𖤐 ᴜꜱᴇʀ      ➜ ${smallFont(
     pushName || "ᴘᴜᴛᴛᴜs",
-  )}
-│  𖤐 ᴅᴇᴠ       ➜ ᴘᴜᴛᴛᴜs ᴅᴀs
-│  𖤐 ᴏᴡɴᴇʀ     ➜ ᴘᴜᴛᴛᴜs ᴅᴀs
-│  𖤐 ᴅᴀᴛᴇ      ➜ ${date}
-│  𖤐 ᴛɪᴍᴇ      ➜ ${time}
-│  𖤐 ᴜᴘᴛɪᴍᴇ    ➜ ${formatUptime()}
-│  𖤐 ᴘʟᴜɢɪɴꜱ   ➜ ${pluginCount}
-│  𖤐 ᴠᴇʀꜱɪᴏɴ   ➜ ${
+  )}*
+│  *𖤐 ᴅᴇᴠ       ➜ ᴘᴜᴛᴛᴜs ᴅᴀs*
+│  *𖤐 ᴏᴡɴᴇʀ     ➜ ᴘᴜᴛᴛᴜs ᴅᴀs*
+│  *𖤐 ᴅᴀᴛᴇ      ➜ ${date}*
+│  *𖤐 ᴛɪᴍᴇ      ➜ ${time}*
+│  *𖤐 ᴜᴘᴛɪᴍᴇ    ➜ ${formatUptime()}*
+│  *𖤐 ᴘʟᴜɢɪɴꜱ   ➜ ${pluginCount}*
+│  *𖤐 ᴠᴇʀꜱɪᴏɴ   ➜ ${
     settings.version ||
     "1.0.0"
-  }
-│  𖤐 ᴛᴢ        ➜ ${
+  }*
+│  *𖤐 ᴛᴢ        ➜ ${
     settings.timeZone ||
     "Asia/Kolkata"
-  }
-│  𖤐 ꜱᴛᴀᴛᴜꜱ    ➜ ᴏɴʟɪɴᴇ
-│  𖤐 ʟɪʙʀᴀʀʏ  ➜ ʙᴀɪʟᴇʏs
-│  𖤐 ᴘʟᴀᴛғᴏʀᴍ  ➜ ɴᴏᴅᴇ.ᴊs
-│  𖤐 ꜱᴇʀᴠᴇʀ   ➜ ${getServerMemory()}
+  }*
+│  *𖤐 ꜱᴛᴀᴛᴜꜱ    ➜ ᴏɴʟɪɴᴇ*
+│  *𖤐 ʟɪʙʀᴀʀʏ  ➜ ʙᴀɪʟᴇʏs*
+│  *𖤐 ᴘʟᴀᴛғᴏʀᴍ  ➜ ɴᴏᴅᴇ.ᴊs*
+│  *𖤐 ꜱᴇʀᴠᴇʀ   ➜ ${getServerMemory()}*
 │
-╰━━〔 愛 ᴘᴜᴛᴛᴜs 〕━━╯
+╰━━〔 *愛 ᴘᴜᴛᴛᴜs* 〕━━╯
 `;
 }
 
@@ -253,9 +243,9 @@ const menuStyles = [
 
         for (const command of commands) {
           text +=
-            `┃ ➤ ${prefix}${smallFont(
+            `┃ ➤ *${prefix}${smallFont(
               command,
-            )}\n`;
+            )}*\n`;
         }
       }
 
@@ -287,9 +277,9 @@ const menuStyles = [
 
         for (const command of commands) {
           text +=
-            `◈├• ${prefix}${smallFont(
+            `◈├• *${prefix}${smallFont(
               command,
-            )}\n`;
+            )}*\n`;
         }
       }
 
@@ -321,9 +311,9 @@ const menuStyles = [
 
         for (const command of commands) {
           text +=
-            `┃ ▸ ${prefix}${smallFont(
+            `┃ ▸ *${prefix}${smallFont(
               command,
-            )}\n`;
+            )}*\n`;
         }
       }
 
@@ -355,9 +345,9 @@ const menuStyles = [
 
         for (const command of commands) {
           text +=
-            `║ ✦ ${prefix}${smallFont(
+            `║ ✦ *${prefix}${smallFont(
               command,
-            )}\n`;
+            )}*\n`;
         }
       }
 
@@ -389,9 +379,9 @@ const menuStyles = [
 
         for (const command of commands) {
           text +=
-            `┃☞ ${prefix}${smallFont(
+            `┃☞ *${prefix}${smallFont(
               command,
-            )}\n`;
+            )}*\n`;
         }
       }
 
@@ -423,9 +413,9 @@ const menuStyles = [
 
         for (const command of commands) {
           text +=
-            `┃ ¤ ${prefix}${smallFont(
+            `┃ ¤ *${prefix}${smallFont(
               command,
-            )}\n`;
+            )}*\n`;
         }
       }
 
@@ -457,9 +447,9 @@ const menuStyles = [
 
         for (const command of commands) {
           text +=
-            ` | ● ${prefix}${smallFont(
+            ` | ● *${prefix}${smallFont(
               command,
-            )}\n`;
+            )}*\n`;
         }
       }
 
@@ -495,9 +485,11 @@ module.exports = {
 
   category: "general",
 
-  description: "Show all commands",
+  description:
+    "Show all commands",
 
-  usage: ".menu [command]",
+  usage:
+    ".menu [command]",
 
   async handler(
     sock,
@@ -551,44 +543,44 @@ module.exports = {
           chatId,
           {
             text:
-              `❌ Command "${args[0]}" not found.\n\n` +
-              `Use ${prefix}menu to see all commands.`,
+              `❌ *𝐂ᴏᴍᴍᴀɴᴅ "${args[0]}" ɴᴏᴛ ғᴏᴜɴᴅ.*\n\n` +
+              `*𝐔sᴇ:* ${prefix}menu *ᴛᴏ sᴇᴇ ᴀʟʟ ᴄᴏᴍᴍᴀɴᴅs.*\n\n` +
+              `*ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*`,
             ...channelInfo,
           },
           {
-            quoted: message,
+            quoted:
+              getPuttusVCardQuote(),
           },
         );
       }
 
       const text =
         `╭━━━━━━━━━━━━━━⬣\n` +
-        `┃ 📌 *COMMAND INFO*\n` +
+        `┃ 📌 *𝐂ᴏᴍᴍᴀɴᴅ 𝐈ɴғᴏ*\n` +
         `┃\n` +
-        `┃ ⚡ *Command:* ${prefix}${smallFont(
+        `┃ ⚡ *𝐂ᴏᴍᴍᴀɴᴅ:* ${prefix}${smallFont(
           command.command,
         )}\n` +
-        `┃ 📝 *Desc:* ${
+        `┃ 📝 *𝐃ᴇsᴄ:* ${
           command.description ||
           "No description"
         }\n` +
-        `┃ 📖 *Usage:* ${
+        `┃ 📖 *𝐔sᴀɢᴇ:* ${
           command.usage ||
           `${prefix}${command.command}`
         }\n` +
-        `┃ 🏷️ *Category:* ${
+        `┃ 🏷️ *𝐂ᴀᴛᴇɢᴏʀʏ:* ${
           command.category ||
           "misc"
         }\n` +
-        `┃ 🔖 *Aliases:* ${
+        `┃ 🔖 *𝐀ʟɪᴀsᴇs:* ${
           command.aliases?.length
             ? command.aliases
                 .map(
                   (alias) =>
                     prefix +
-                    smallFont(
-                      alias,
-                    ),
+                    smallFont(alias),
                 )
                 .join(", ")
             : "None"
@@ -609,13 +601,9 @@ module.exports = {
               ...channelInfo,
             },
             {
-              quoted: message,
+              quoted:
+                getPuttusVCardQuote(),
             },
-          );
-
-          await sendPuttusVCard(
-            sock,
-            chatId,
           );
 
           return;
@@ -634,13 +622,9 @@ module.exports = {
           ...channelInfo,
         },
         {
-          quoted: message,
+          quoted:
+            getPuttusVCardQuote(),
         },
-      );
-
-      await sendPuttusVCard(
-        sock,
-        chatId,
       );
 
       return;
@@ -653,8 +637,7 @@ module.exports = {
         pushName,
         prefix,
         pluginCount:
-          commandHandler.commands
-            .size,
+          commandHandler.commands.size,
       });
 
     /* ───────── FULL MENU ───────── */
@@ -685,13 +668,9 @@ module.exports = {
             ...channelInfo,
           },
           {
-            quoted: message,
+            quoted:
+              getPuttusVCardQuote(),
           },
-        );
-
-        await sendPuttusVCard(
-          sock,
-          chatId,
         );
 
         return;
@@ -712,13 +691,9 @@ module.exports = {
         ...channelInfo,
       },
       {
-        quoted: message,
+        quoted:
+          getPuttusVCardQuote(),
       },
-    );
-
-    await sendPuttusVCard(
-      sock,
-      chatId,
     );
   },
 };
