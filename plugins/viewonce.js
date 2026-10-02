@@ -1,154 +1,289 @@
-const { downloadContentFromMessage } = require("@whiskeysockets/baileys");
+const {
+  downloadContentFromMessage,
+} = require("@whiskeysockets/baileys");
+
+/* =========================================================
+   PUTTUS VCard
+========================================================= */
+
+const PUTTUS_VCARD = {
+  displayName: "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
+  vcard: `BEGIN:VCARD
+VERSION:3.0
+FN:🌸•𝐏ᴜᴛᴛᴜꜱ•⌲
+ORG:PUTTUS BOT;
+TEL;type=CELL;type=VOICE;waid=918967360566:+91 8967360566
+END:VCARD`,
+};
+
+/* =========================================================
+   GET VIEW-ONCE MESSAGE
+========================================================= */
+
+function getViewOnceMessage(message) {
+  if (!message?.message) return null;
+
+  const msg = message.message;
+
+  if (msg.viewOnceMessage?.message) {
+    return msg.viewOnceMessage.message;
+  }
+
+  if (msg.viewOnceMessageV2?.message) {
+    return msg.viewOnceMessageV2.message;
+  }
+
+  if (msg.viewOnceMessageV2Extension?.message) {
+    return msg.viewOnceMessageV2Extension.message;
+  }
+
+  return null;
+}
+
+/* =========================================================
+   DOWNLOAD MEDIA
+========================================================= */
+
+async function downloadMedia(media, type) {
+  const stream = await downloadContentFromMessage(media, type);
+
+  const chunks = [];
+
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+
+  return Buffer.concat(chunks);
+}
+
+/* =========================================================
+   PLUGIN
+========================================================= */
 
 module.exports = {
   command: "viewonce",
-  aliases: ["viewmedia", "vv"],
+  aliases: ["vv", "view", "viewmedia"],
   category: "general",
-  description: "Re-send a view-once image or video.",
-  usage: ".viewonce (reply to a view-once media)",
 
-  async handler(sock, message, args, context = {}) {
-    const chatId = context.chatId || message.key.remoteJid;
+  description: "Recover and resend a view-once photo or video",
+
+  usage: ".vv (reply to a view-once photo/video)",
+
+  async handler(sock, message, args = [], context = {}) {
+    const chatId =
+      context?.chatId ||
+      message?.key?.remoteJid;
 
     try {
+      /* =====================================================
+         CHECK REPLIED MESSAGE
+      ===================================================== */
+
       const quoted =
-        message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+        message?.message?.extendedTextMessage?.contextInfo
+          ?.quotedMessage;
 
-      const quotedImage = quoted?.imageMessage;
-      const quotedVideo = quoted?.videoMessage;
-
-      let sentMessage;
-
-      /* =========================================================
-         VIEW ONCE IMAGE
-      ========================================================= */
-
-      if (quotedImage && quotedImage.viewOnce) {
-        const stream = await downloadContentFromMessage(
-          quotedImage,
-          "image"
-        );
-
-        let buffer = Buffer.from([]);
-
-        for await (const chunk of stream) {
-          buffer = Buffer.concat([buffer, chunk]);
-        }
-
-        sentMessage = await sock.sendMessage(
+      if (!quoted) {
+        return await sock.sendMessage(
           chatId,
           {
-            image: buffer,
-            fileName: "media.jpg",
-            caption: quotedImage.caption || "",
+            text:
+              "👁️ *View Once*\n\n" +
+              "❯ Reply to a *view-once photo/video*\n" +
+              "❯ Then use *.vv*",
           },
-          { quoted: message }
+          {
+            quoted: message,
+          },
         );
       }
 
-      /* =========================================================
-         VIEW ONCE VIDEO
-      ========================================================= */
+      /* =====================================================
+         FIND VIEW ONCE
+      ===================================================== */
 
-      else if (quotedVideo && quotedVideo.viewOnce) {
-        const stream = await downloadContentFromMessage(
-          quotedVideo,
-          "video"
-        );
+      const viewOnce = getViewOnceMessage({
+        message: quoted,
+      });
 
-        let buffer = Buffer.from([]);
-
-        for await (const chunk of stream) {
-          buffer = Buffer.concat([buffer, chunk]);
-        }
-
-        sentMessage = await sock.sendMessage(
+      if (!viewOnce) {
+        return await sock.sendMessage(
           chatId,
           {
-            video: buffer,
-            fileName: "media.mp4",
-            caption: quotedVideo.caption || "",
+            text:
+              "❌ *Not a View-Once message!*\n\n" +
+              "Reply directly to a view-once photo or video.",
           },
-          { quoted: message }
+          {
+            quoted: message,
+          },
         );
       }
 
-      /* =========================================================
-         NO VIEW ONCE MEDIA
-      ========================================================= */
+      /* =====================================================
+         VIEW-ONCE IMAGE
+      ===================================================== */
 
-      else {
+      if (viewOnce.imageMessage) {
+        const media = viewOnce.imageMessage;
+
+        await sock.sendMessage(chatId, {
+          react: {
+            text: "👁️",
+            key: message.key,
+          },
+        });
+
+        const buffer = await downloadMedia(
+          media,
+          "image",
+        );
+
         await sock.sendMessage(
           chatId,
           {
-            text: "*Please reply to a view-once image or video.*",
+            image: buffer,
+            caption:
+              media.caption ||
+              "👁️ *View Once Photo*\n\n" +
+              "🤖 *𝙋𝙐𝙏𝙏𝙐𝙎-𝘼𝙄*",
           },
-          { quoted: message }
+          {
+            quoted: message,
+          },
         );
+
+        /* VCard */
+
+        await sock.sendMessage(
+          chatId,
+          {
+            contacts: {
+              displayName: PUTTUS_VCARD.displayName,
+              contacts: [PUTTUS_VCARD],
+            },
+          },
+          {
+            quoted: message,
+          },
+        );
+
+        await sock.sendMessage(chatId, {
+          react: {
+            text: "✅",
+            key: message.key,
+          },
+        });
 
         return;
       }
 
-      /* =========================================================
-         PUTTUS VCARD
-      ========================================================= */
+      /* =====================================================
+         VIEW-ONCE VIDEO
+      ===================================================== */
 
-      const botJid = "919641092392@s.whatsapp.net";
+      if (viewOnce.videoMessage) {
+        const media = viewOnce.videoMessage;
 
-      const vcard =
-        "BEGIN:VCARD\n" +
-        "VERSION:3.0\n" +
-        "N:PUTTUS;BOT;;;\n" +
-        "FN:🌸•𝐏ᴜᴛᴛᴜꜱ•⌲\n" +
-        "ORG:PUTTUS BOT\n" +
-        "TEL;TYPE=CELL;TYPE=VOICE;waid=919641092392:+919641092392\n" +
-        "END:VCARD";
-
-      /* =========================================================
-         STATUS-STYLE CONTACT PREVIEW
-      ========================================================= */
-
-      const statusQuote = {
-        key: {
-          remoteJid: "status@broadcast",
-          fromMe: false,
-          id: "PUTTUS-" + Date.now(),
-          participant: botJid,
-        },
-        message: {
-          contactMessage: {
-            displayName: "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
-            vcard: vcard,
+        await sock.sendMessage(chatId, {
+          react: {
+            text: "👁️",
+            key: message.key,
           },
-        },
-      };
+        });
 
-      /* =========================================================
-         SEND VCARD
-      ========================================================= */
+        const buffer = await downloadMedia(
+          media,
+          "video",
+        );
 
-      await sock.sendMessage(
-        chatId,
-        {
-          text: "🌸 *𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*",
-        },
-        {
-          quoted: statusQuote,
-        }
-      );
+        await sock.sendMessage(
+          chatId,
+          {
+            video: buffer,
+            mimetype:
+              media.mimetype || "video/mp4",
+            caption:
+              media.caption ||
+              "👁️ *View Once Video*\n\n" +
+              "🤖 *𝙋𝙐𝙏𝙏𝙐𝙎-𝘼𝙄*",
+          },
+          {
+            quoted: message,
+          },
+        );
 
-    } catch (error) {
-      console.error("Error in viewonceCommand:", error);
+        /* VCard */
 
-      await sock.sendMessage(
+        await sock.sendMessage(
+          chatId,
+          {
+            contacts: {
+              displayName: PUTTUS_VCARD.displayName,
+              contacts: [PUTTUS_VCARD],
+            },
+          },
+          {
+            quoted: message,
+          },
+        );
+
+        await sock.sendMessage(chatId, {
+          react: {
+            text: "✅",
+            key: message.key,
+          },
+        });
+
+        return;
+      }
+
+      /* =====================================================
+         OTHER MEDIA
+      ===================================================== */
+
+      return await sock.sendMessage(
         chatId,
         {
           text:
-            "❌ *Failed to retrieve the view-once media.*\n\n" +
-            "Please try again later.",
+            "❌ *Unsupported View-Once Media!*\n\n" +
+            "Only view-once *photos and videos* are supported.",
         },
-        { quoted: message }
+        {
+          quoted: message,
+        },
       );
+    } catch (error) {
+      console.error(
+        "[PUTTUS VIEWONCE ERROR]",
+        error,
+      );
+
+      try {
+        await sock.sendMessage(
+          chatId,
+          {
+            text:
+              "❌ *View-Once Failed!*\n\n" +
+              "The media could not be recovered.",
+          },
+          {
+            quoted: message,
+          },
+        );
+
+        await sock.sendMessage(chatId, {
+          react: {
+            text: "❌",
+            key: message.key,
+          },
+        });
+      } catch (sendError) {
+        console.error(
+          "[PUTTUS VIEWONCE SEND ERROR]",
+          sendError,
+        );
+      }
     }
   },
 };
