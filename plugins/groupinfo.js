@@ -32,6 +32,7 @@ function getPuttusVCardQuote() {
   };
 }
 
+
 /* =========================================================
    GROUP INFO
 ========================================================= */
@@ -50,7 +51,8 @@ module.exports = {
   description:
     "Display detailed group information",
 
-  usage: ".groupinfo",
+  usage:
+    ".groupinfo",
 
   groupOnly: true,
 
@@ -66,23 +68,24 @@ module.exports = {
 
     try {
       /* =====================================================
-         GROUP METADATA
+         GET GROUP METADATA
       ===================================================== */
 
       const groupMetadata =
         await sock.groupMetadata(chatId);
 
       /* =====================================================
-         GROUP PROFILE
+         GROUP PROFILE PICTURE
       ===================================================== */
 
       let pp;
 
       try {
-        pp = await sock.profilePictureUrl(
-          chatId,
-          "image",
-        );
+        pp =
+          await sock.profilePictureUrl(
+            chatId,
+            "image",
+          );
       } catch {
         pp =
           "https://files.catbox.moe/fhifrt.jpeg";
@@ -95,27 +98,25 @@ module.exports = {
       const participants =
         groupMetadata.participants || [];
 
-      /* =====================================================
-         ADMINS
-      ===================================================== */
-
       const groupAdmins =
         participants.filter(
           (p) => p.admin,
         );
 
+      /* =====================================================
+         ADMIN LIST
+      ===================================================== */
+
       const listAdmin =
-        groupAdmins.length
-          ? groupAdmins
-              .map(
-                (v, i) =>
-                  `*${i + 1}. @${v.id.split("@")[0]}*`,
-              )
-              .join("\n")
-          : "*No admins found*";
+        groupAdmins
+          .map(
+            (v, i) =>
+              `*${i + 1}. @${v.id.split("@")[0]}*`,
+          )
+          .join("\n");
 
       /* =====================================================
-         OWNER
+         GROUP OWNER
       ===================================================== */
 
       const owner =
@@ -128,24 +129,17 @@ module.exports = {
           "@s.whatsapp.net";
 
       /* =====================================================
-         DESCRIPTION
-      ===================================================== */
-
-      const description =
-        groupMetadata.desc?.toString() ||
-        "No description";
-
-      /* =====================================================
          GROUP INFO TEXT
       ===================================================== */
 
       const text = `
 ┌──「 *𝐆ʀᴏᴜᴘ 𝐈ɴғᴏ* 」
+
 ▢ *♻️ 𝐈𝐃:*
 • *${groupMetadata.id}*
 
 ▢ *🔖 𝐍𝐀𝐌𝐄:*
-• *${groupMetadata.subject}*
+• *${groupMetadata.subject || "Unknown"}*
 
 ▢ *👥 𝐌𝐄𝐌𝐁𝐄𝐑𝐒:*
 • *${participants.length}*
@@ -154,10 +148,12 @@ module.exports = {
 • *@${owner.split("@")[0]}*
 
 ▢ *🕵🏻‍♂️ 𝐀𝐃𝐌𝐈𝐍𝐒:*
-${listAdmin}
+${listAdmin || "*No admins found*"}
 
 ▢ *📌 𝐃𝐄𝐒𝐂𝐑𝐈𝐏𝐓𝐈𝐎𝐍:*
-• *${description}*
+• *${groupMetadata.desc?.toString() || "No description"}*
+
+*ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*
 `.trim();
 
       /* =====================================================
@@ -172,7 +168,9 @@ ${listAdmin}
       ];
 
       /* =====================================================
-         SEND GROUP INFO
+         IMPORTANT
+         VCard is ONLY used as quoted message.
+         No separate VCard message is sent.
       ===================================================== */
 
       await sock.sendMessage(
@@ -187,38 +185,27 @@ ${listAdmin}
           mentions,
         },
         {
-          quoted: message,
-        },
-      );
-
-      /* =====================================================
-         PUTTUS VCARD
-      ===================================================== */
-
-      const vcardMessage =
-        getPuttusVCardQuote();
-
-      await sock.sendMessage(
-        chatId,
-        {
-          text: "‎",
-        },
-        {
-          quoted: vcardMessage,
+          quoted:
+            getPuttusVCardQuote(),
         },
       );
 
     } catch (error) {
       console.error(
-        "Error in groupinfo command:",
+        "GroupInfo Error:",
         error,
       );
+
+      /* =====================================================
+         ERROR MESSAGE
+      ===================================================== */
 
       await sock.sendMessage(
         chatId,
         {
           text:
-            "*❌ 𝐅𝐚𝐢𝐥𝐞𝐝 𝐭𝐨 𝐠𝐞𝐭 𝐠𝐫𝐨ᴜᴘ 𝐢𝐧ғᴏ!*",
+            "*❌ Failed to get group information.*\n\n" +
+            "*Please try again later.*",
         },
         {
           quoted: message,
