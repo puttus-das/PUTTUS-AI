@@ -6,8 +6,6 @@ const isOwnerOrSudo = require("../lib/isOwner");
 
 /* =========================================================
    PUTTUS-BOT VCARD
-   VCard will be quoted with the response.
-   No separate VCard message.
 ========================================================= */
 
 function getPuttusVCardQuote() {
@@ -98,19 +96,19 @@ module.exports = {
         message.key.participant ||
         message.key.remoteJid;
 
-      const isOwner =
+      const owner =
         await isOwnerOrSudo(
           senderId,
           sock,
           chatId,
         );
 
-      if (!message.key.fromMe && !isOwner) {
+      if (!message.key.fromMe && !owner) {
         await sock.sendMessage(
           chatId,
           {
             text:
-              "*This command is only available for the owner!*",
+              "*❌ This command is only available for the owner!*",
           },
           {
             quoted: message,
@@ -121,7 +119,7 @@ module.exports = {
       }
 
       /* =====================================================
-         GET REPLIED MESSAGE
+         GET QUOTED MESSAGE
       ===================================================== */
 
       const quotedMessage =
@@ -157,7 +155,7 @@ module.exports = {
           chatId,
           {
             text:
-              "*❌ The replied message must contain an image!*",
+              "*❌ Please reply to an image.*",
           },
           {
             quoted: message,
@@ -168,20 +166,30 @@ module.exports = {
       }
 
       /* =====================================================
-         DOWNLOAD IMAGE
+         DOWNLOAD
       ===================================================== */
 
       const image =
-        await downloadImage(imageMessage);
+        await downloadImage(
+          imageMessage,
+        );
 
-      if (!image || !image.length) {
+      if (
+        !Buffer.isBuffer(image) ||
+        image.length === 0
+      ) {
         throw new Error(
-          "Image download failed",
+          "Image download failed.",
         );
       }
 
       /* =====================================================
-         UPDATE BOT PROFILE PICTURE
+         UPDATE PROFILE PICTURE
+         
+         IMPORTANT:
+         Baileys internally processes this image.
+         Jimp is used as fallback because sharp
+         is unavailable on Android ARM64.
       ===================================================== */
 
       await sock.updateProfilePicture(
@@ -191,8 +199,9 @@ module.exports = {
 
       /* =====================================================
          SUCCESS
-         VCARD IS QUOTED HERE
-         NO SEPARATE VCARD MESSAGE
+         
+         VCard is QUOTED.
+         No separate VCard message.
       ===================================================== */
 
       await sock.sendMessage(
@@ -214,12 +223,28 @@ module.exports = {
         error,
       );
 
+      let errorMessage =
+        "*❌ Failed to update profile picture.*";
+
+      if (
+        String(error?.message || "")
+          .toLowerCase()
+          .includes(
+            "no image processing library",
+          )
+      ) {
+        errorMessage +=
+          "\n\n_Image processor is unavailable. Install Jimp with:_\n" +
+          "`npm install jimp`";
+      } else {
+        errorMessage +=
+          `\n\n_${error?.message || "Unknown error"}_`;
+      }
+
       await sock.sendMessage(
         chatId,
         {
-          text:
-            "*❌ Failed to update profile picture.*\n\n" +
-            `_${error?.message || "Unknown error"}_`,
+          text: errorMessage,
         },
         {
           quoted:
