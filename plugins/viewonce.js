@@ -4,8 +4,7 @@ const {
 
 /* =========================================================
    PUTTUS VCARD
-   EXACT SAME AS ANTILINK
-========================================================= */
+   ========================================================= */
 
 function getPuttusVCardQuote() {
   const botJid = "919641092392@s.whatsapp.net";
@@ -29,12 +28,27 @@ function getPuttusVCardQuote() {
 
     message: {
       contactMessage: {
-        displayName:
-          "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
-        vcard: vcard,
+        displayName: "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
+        vcard,
       },
     },
   };
+}
+
+/* =========================================================
+   DOWNLOAD BUFFER
+========================================================= */
+
+async function downloadMedia(media, type) {
+  const stream = await downloadContentFromMessage(media, type);
+
+  const chunks = [];
+
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+
+  return Buffer.concat(chunks);
 }
 
 /* =========================================================
@@ -45,185 +59,175 @@ module.exports = {
   command: "viewonce",
 
   aliases: [
-    "viewmedia",
     "vv",
+    "viewmedia",
   ],
 
   category: "general",
 
-  description:
-    "Re-send a view-once image or video.",
+  description: "Recover view-once image or video.",
 
-  usage:
-    ".viewonce (reply to a view-once media)",
+  usage: ".vv",
 
-  async handler(
-    sock,
-    message,
-    args,
-    context = {},
-  ) {
+  async handler(sock, message, args = [], context = {}) {
     const chatId =
-      context.chatId ||
+      context?.chatId ||
       message?.key?.remoteJid;
 
     try {
+      if (!chatId) {
+        return;
+      }
+
       /* =====================================================
-         GET QUOTED MESSAGE
+         GET REPLIED MESSAGE
       ===================================================== */
 
       const quoted =
-        message.message
+        message?.message
           ?.extendedTextMessage
           ?.contextInfo
           ?.quotedMessage;
 
-      const quotedImage =
-        quoted?.imageMessage;
+      if (!quoted) {
+        await sock.sendMessage(
+          chatId,
+          {
+            text: "❌ *Reply to a View Once photo or video.*",
+          },
+          {
+            quoted: message,
+          }
+        );
 
-      const quotedVideo =
-        quoted?.videoMessage;
+        return;
+      }
 
       /* =====================================================
          IMAGE
       ===================================================== */
 
-      if (
-        quotedImage &&
-        quotedImage.viewOnce
-      ) {
-        const stream =
-          await downloadContentFromMessage(
-            quotedImage,
-            "image",
-          );
+      let image = quoted.imageMessage;
 
-        let buffer = Buffer.from([]);
+      if (image?.viewOnceMessage) {
+        image = image.viewOnceMessage.message?.imageMessage;
+      }
 
-        for await (const chunk of stream) {
-          buffer = Buffer.concat([
-            buffer,
-            chunk,
-          ]);
-        }
+      if (image?.viewOnceMessageV2) {
+        image =
+          image.viewOnceMessageV2.message?.imageMessage;
+      }
 
-        /* ===================================================
-           SEND RECOVERED PHOTO
-           
-           IMPORTANT:
-           AntiLink VCard is used directly
-           as the quoted message.
-        =================================================== */
-
-        await sock.sendMessage(
-          chatId,
-          {
-            image: buffer,
-
-            fileName: "media.jpg",
-
-            caption:
-              quotedImage.caption ||
-              "👁️ *View Once Photo*\n\n" +
-              "🤖 *𝙋𝙐𝙏𝙏𝙐𝙎-𝘼𝙄*",
-          },
-          {
-            quoted:
-              getPuttusVCardQuote(),
-          },
-        );
-
-        return;
+      if (image?.viewOnceMessageV2Extension) {
+        image =
+          image.viewOnceMessageV2Extension.message
+            ?.imageMessage;
       }
 
       /* =====================================================
          VIDEO
       ===================================================== */
 
-      if (
-        quotedVideo &&
-        quotedVideo.viewOnce
-      ) {
-        const stream =
-          await downloadContentFromMessage(
-            quotedVideo,
-            "video",
-          );
+      let video = quoted.videoMessage;
 
-        let buffer = Buffer.from([]);
+      if (video?.viewOnceMessage) {
+        video = video.viewOnceMessage.message?.videoMessage;
+      }
 
-        for await (const chunk of stream) {
-          buffer = Buffer.concat([
-            buffer,
-            chunk,
-          ]);
-        }
+      if (video?.viewOnceMessageV2) {
+        video =
+          video.viewOnceMessageV2.message?.videoMessage;
+      }
 
-        /* ===================================================
-           SEND RECOVERED VIDEO
-           
-           IMPORTANT:
-           AntiLink VCard is used directly
-           as the quoted message.
-        =================================================== */
+      if (video?.viewOnceMessageV2Extension) {
+        video =
+          video.viewOnceMessageV2Extension.message
+            ?.videoMessage;
+      }
+
+      /* =====================================================
+         IMAGE FOUND
+      ===================================================== */
+
+      if (image) {
+        const buffer = await downloadMedia(
+          image,
+          "image"
+        );
 
         await sock.sendMessage(
           chatId,
           {
-            video: buffer,
-
-            fileName: "media.mp4",
-
-            mimetype:
-              quotedVideo.mimetype ||
-              "video/mp4",
-
-            caption:
-              quotedVideo.caption ||
-              "👁️ *View Once Video*\n\n" +
-              "🤖 *𝙋𝙐𝙏𝙏𝙐𝙎-𝘼𝙄*",
+            image: buffer,
+            mimetype: image.mimetype || "image/jpeg",
+            caption: image.caption || "",
           },
           {
-            quoted:
-              getPuttusVCardQuote(),
-          },
+            quoted: getPuttusVCardQuote(),
+          }
         );
 
         return;
       }
 
       /* =====================================================
-         NOT VIEW ONCE
+         VIDEO FOUND
+      ===================================================== */
+
+      if (video) {
+        const buffer = await downloadMedia(
+          video,
+          "video"
+        );
+
+        await sock.sendMessage(
+          chatId,
+          {
+            video: buffer,
+            mimetype: video.mimetype || "video/mp4",
+            caption: video.caption || "",
+          },
+          {
+            quoted: getPuttusVCardQuote(),
+          }
+        );
+
+        return;
+      }
+
+      /* =====================================================
+         NOT VIEW ONCE MEDIA
       ===================================================== */
 
       await sock.sendMessage(
         chatId,
         {
           text:
-            "❌ *Please reply to a view-once image or video.*",
+            "❌ *Reply to a View Once photo or video.*",
         },
         {
           quoted: message,
-        },
+        }
       );
 
     } catch (error) {
-      console.error(
-        "Error in viewonceCommand:",
-        error,
-      );
+      console.error("VV ERROR:", error);
 
-      await sock.sendMessage(
-        chatId,
-        {
-          text:
-            "❌ *Failed to retrieve the view-once media.*\n\n" +
-            "Please try again later.",
-        },
-        {
-          quoted: message,
-        },
-      );
+      try {
+        await sock.sendMessage(
+          chatId,
+          {
+            text:
+              "❌ *View Once media recover করা যায়নি.*\n\n" +
+              "Please reply directly to the View Once photo/video and try again.",
+          },
+          {
+            quoted: message,
+          }
+        );
+      } catch (sendError) {
+        console.error("VV SEND ERROR:", sendError);
+      }
     }
   },
 };
