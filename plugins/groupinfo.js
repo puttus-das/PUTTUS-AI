@@ -1,4 +1,8 @@
-const getPuttusVCardQuote = () => {
+/* =========================================================
+   PUTTUS VCARD
+========================================================= */
+
+function getPuttusVCardQuote() {
   const botJid = "919641092392@s.whatsapp.net";
 
   const vcard =
@@ -17,6 +21,7 @@ const getPuttusVCardQuote = () => {
       id: "PUTTUS-" + Date.now(),
       participant: botJid,
     },
+
     message: {
       contactMessage: {
         displayName:
@@ -25,7 +30,11 @@ const getPuttusVCardQuote = () => {
       },
     },
   };
-};
+}
+
+/* =========================================================
+   GROUP INFO
+========================================================= */
 
 module.exports = {
   command: "groupinfo",
@@ -45,14 +54,27 @@ module.exports = {
 
   groupOnly: true,
 
-  async handler(sock, message, args, context = {}) {
+  async handler(
+    sock,
+    message,
+    args,
+    context = {},
+  ) {
     const chatId =
       context.chatId ||
       message.key.remoteJid;
 
     try {
+      /* =====================================================
+         GROUP METADATA
+      ===================================================== */
+
       const groupMetadata =
         await sock.groupMetadata(chatId);
+
+      /* =====================================================
+         GROUP PROFILE
+      ===================================================== */
 
       let pp;
 
@@ -66,8 +88,16 @@ module.exports = {
           "https://files.catbox.moe/fhifrt.jpeg";
       }
 
+      /* =====================================================
+         PARTICIPANTS
+      ===================================================== */
+
       const participants =
         groupMetadata.participants || [];
+
+      /* =====================================================
+         ADMINS
+      ===================================================== */
 
       const groupAdmins =
         participants.filter(
@@ -84,6 +114,10 @@ module.exports = {
               .join("\n")
           : "*No admins found*";
 
+      /* =====================================================
+         OWNER
+      ===================================================== */
+
       const owner =
         groupMetadata.owner ||
         groupAdmins.find(
@@ -93,9 +127,17 @@ module.exports = {
         chatId.split("-")[0] +
           "@s.whatsapp.net";
 
+      /* =====================================================
+         DESCRIPTION
+      ===================================================== */
+
       const description =
         groupMetadata.desc?.toString() ||
         "No description";
+
+      /* =====================================================
+         GROUP INFO TEXT
+      ===================================================== */
 
       const text = `
 ┌──「 *𝐆ʀᴏᴜᴘ 𝐈ɴғᴏ* 」
@@ -118,6 +160,10 @@ ${listAdmin}
 • *${description}*
 `.trim();
 
+      /* =====================================================
+         MENTIONS
+      ===================================================== */
+
       const mentions = [
         ...groupAdmins.map(
           (v) => v.id,
@@ -125,13 +171,19 @@ ${listAdmin}
         owner,
       ];
 
+      /* =====================================================
+         SEND GROUP INFO
+      ===================================================== */
+
       await sock.sendMessage(
         chatId,
         {
           image: {
             url: pp,
           },
+
           caption: text,
+
           mentions,
         },
         {
@@ -166,7 +218,7 @@ ${listAdmin}
         chatId,
         {
           text:
-            "*❌ 𝐅𝐚𝐢𝐥𝐞𝐝 𝐭𝐨 𝐠𝐞𝐭 𝐠𝐫𝐨ᴜᴘ 𝐢ɴғᴏ!*",
+            "*❌ 𝐅𝐚𝐢𝐥𝐞𝐝 𝐭𝐨 𝐠𝐞𝐭 𝐠𝐫𝐨ᴜᴘ 𝐢𝐧ғᴏ!*",
         },
         {
           quoted: message,
