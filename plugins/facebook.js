@@ -26,6 +26,10 @@ module.exports = {
         "TEL;TYPE=CELL;TYPE=VOICE;waid=919641092392:+919641092392\n" +
         "END:VCARD";
 
+      /* =========================================================
+         STATUS-STYLE CONTACT PREVIEW
+      ========================================================= */
+
       const statusQuote = {
         key: {
           remoteJid: "status@broadcast",
@@ -42,7 +46,7 @@ module.exports = {
       };
 
       /* =========================================================
-         GET FACEBOOK URL
+         GET URL
       ========================================================= */
 
       const url = args.join(" ").trim();
@@ -52,10 +56,9 @@ module.exports = {
           chatId,
           {
             text:
-              "📘 *⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜*\n\n" +
-              "❯ *Usage:* .fb <Facebook video link>\n\n" +
-              "❯ Example:\n" +
-              "*.fb https://www.facebook.com/...*",
+              "📘 *𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*\n\n" +
+              "Usage:\n" +
+              "*.fb <facebook video link>*",
           },
           { quoted: statusQuote }
         );
@@ -65,7 +68,11 @@ module.exports = {
          FACEBOOK URL CHECK
       ========================================================= */
 
-      if (!/(facebook\.com|fb\.watch)/i.test(url)) {
+      if (
+        !/(?:https?:\/\/)?(?:www\.|m\.|web\.)?(facebook\.com|fb\.watch)\//i.test(
+          url
+        )
+      ) {
         return await sock.sendMessage(
           chatId,
           {
@@ -78,7 +85,7 @@ module.exports = {
       }
 
       /* =========================================================
-         DOWNLOADING REACTION
+         DOWNLOADING
       ========================================================= */
 
       await sock.sendMessage(chatId, {
@@ -88,90 +95,138 @@ module.exports = {
         },
       });
 
-      /* =========================================================
-         RABBIT API
-      ========================================================= */
+      const apiUrl =
+        "https://gtech-api-xtp1.onrender.com/api/download/fb" +
+        `?url=${encodeURIComponent(url)}` +
+        "&apikey=APIKEY";
 
-      const apiUrl = "https://rabbitapi.zone.id/api/fb";
-
-      const response = await axios.get(apiUrl, {
-        params: {
-          url: url,
-        },
+      const res = await axios.get(apiUrl, {
         timeout: 60000,
         headers: {
           "User-Agent":
-            "Mozilla/5.0 (Linux; Android 10; Mobile) " +
-            "AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36",
-          Accept: "application/json",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+            "AppleWebKit/537.36 Chrome/140.0 Safari/537.36",
+          Accept: "application/json, text/plain, */*",
         },
       });
 
-      const data = response?.data;
-
-      console.log(
-        "[PUTTUS FB API]",
-        JSON.stringify(data, null, 2)
-      );
+      const body = res?.data;
 
       /* =========================================================
-         API STATUS CHECK
+         FIND VIDEO RESULTS
       ========================================================= */
 
-      if (!data || data.status !== true) {
-        throw new Error("Facebook API returned an unsuccessful response");
+      let videos = [];
+
+      if (Array.isArray(body?.data?.data)) {
+        videos = body.data.data;
+      } else if (Array.isArray(body?.data)) {
+        videos = body.data;
+      } else if (Array.isArray(body?.result)) {
+        videos = body.result;
+      } else if (Array.isArray(body?.results)) {
+        videos = body.results;
       }
 
       /* =========================================================
-         GET VIDEO
+         SINGLE VIDEO
       ========================================================= */
 
-      const hd = data?.hd;
-      const sd = data?.sd;
+      if (!videos.length) {
+        const videoUrl =
+          body?.data?.url ||
+          body?.data?.video ||
+          body?.data?.hd ||
+          body?.data?.sd ||
+          body?.url ||
+          body?.video;
 
-      const videoUrl =
-        typeof hd === "string" && /^https?:\/\//i.test(hd)
-          ? hd
-          : typeof sd === "string" && /^https?:\/\//i.test(sd)
-          ? sd
-          : null;
+        if (
+          typeof videoUrl === "string" &&
+          /^https?:\/\//i.test(videoUrl)
+        ) {
+          videos = [
+            {
+              url: videoUrl,
+              resolution: "Unknown",
+            },
+          ];
+        }
+      }
 
-      const quality =
-        videoUrl === hd
-          ? "HD"
-          : videoUrl === sd
-          ? "SD"
-          : "Unknown";
-
-      if (!videoUrl) {
-        throw new Error("No HD/SD video URL returned by API");
+      if (!videos.length) {
+        throw new Error("No downloadable Facebook video found");
       }
 
       /* =========================================================
-         TITLE
+         CLEAN RESULTS
       ========================================================= */
 
-      const title =
-        typeof data?.title === "string"
-          ? data.title.trim()
-          : "Facebook Video";
+      const cleaned = videos
+        .map((item) => {
+          if (typeof item === "string") {
+            return {
+              url: item,
+              resolution: "Unknown",
+            };
+          }
+
+          return {
+            url:
+              item?.url ||
+              item?.download ||
+              item?.downloadUrl ||
+              item?.video ||
+              item?.link,
+
+            resolution:
+              item?.resolution ||
+              item?.quality ||
+              item?.qualityLabel ||
+              item?.format ||
+              "Unknown",
+          };
+        })
+        .filter(
+          (item) =>
+            typeof item.url === "string" &&
+            /^https?:\/\//i.test(item.url)
+        );
+
+      if (!cleaned.length) {
+        throw new Error("No valid video URL found");
+      }
 
       /* =========================================================
-         SEND VIDEO
+         SELECT BEST QUALITY
+      ========================================================= */
+
+      cleaned.sort((a, b) => {
+        const qa =
+          parseInt(String(a.resolution).replace(/\D/g, "")) || 0;
+
+        const qb =
+          parseInt(String(b.resolution).replace(/\D/g, "")) || 0;
+
+        return qb - qa;
+      });
+
+      const selected = cleaned[0];
+
+      /* =========================================================
+         SEND VIDEO + VCARD QUOTE
       ========================================================= */
 
       await sock.sendMessage(
         chatId,
         {
           video: {
-            url: videoUrl,
+            url: selected.url,
           },
           mimetype: "video/mp4",
           caption:
             "📘 *⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜*\n\n" +
-            `🎬 *${title}*\n\n` +
-            `🎞 Quality: *${quality}*\n` +
-            `👤 Creator: *${data.creator || "Rabbit API"}*\n\n` +
+            `🎞 Quality: *${selected.resolution}*\n\n` +
             "> *_Downloaded by PUTTUS-AI_*",
         },
         {
@@ -180,7 +235,7 @@ module.exports = {
       );
 
       /* =========================================================
-         SUCCESS REACTION
+         SUCCESS
       ========================================================= */
 
       await sock.sendMessage(chatId, {
@@ -189,10 +244,10 @@ module.exports = {
           key: message.key,
         },
       });
-    } catch (error) {
+    } catch (err) {
       console.error(
-        "[PUTTUS-AI FACEBOOK ERROR]",
-        error?.response?.data || error?.message || error
+        "[FACEBOOK ERROR]",
+        err?.message || err
       );
 
       try {
@@ -217,7 +272,7 @@ module.exports = {
         );
       } catch (sendError) {
         console.error(
-          "[PUTTUS-AI FACEBOOK SEND ERROR]",
+          "[FACEBOOK SEND ERROR]",
           sendError?.message || sendError
         );
       }
