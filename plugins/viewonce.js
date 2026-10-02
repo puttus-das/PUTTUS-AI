@@ -3,18 +3,43 @@ const {
 } = require("@whiskeysockets/baileys");
 
 /* =========================================================
-   PUTTUS VCARD
+   PUTTUS PING VCARD
 ========================================================= */
 
-const PUTTUS_VCARD = {
-  displayName: "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
-  vcard: `BEGIN:VCARD
-VERSION:3.0
-FN:🌸•𝐏ᴜᴛᴛᴜꜱ•⌲
-ORG:PUTTUS BOT;
-TEL;type=CELL;type=VOICE;waid=918967360566:+91 8967360566
-END:VCARD`,
-};
+const botJid = "919641092392@s.whatsapp.net";
+
+const vcard =
+  "BEGIN:VCARD\n" +
+  "VERSION:3.0\n" +
+  "N:PUTTUS;BOT;;;\n" +
+  "FN:🌸•𝐏ᴜᴛᴛᴜꜱ•⌲\n" +
+  "ORG:PUTTUS BOT\n" +
+  "TEL;TYPE=CELL;TYPE=VOICE;waid=919641092392:+919641092392\n" +
+  "END:VCARD";
+
+/* =========================================================
+   STATUS STYLE VCARD
+========================================================= */
+
+function createVCardQuote() {
+  return {
+    key: {
+      remoteJid: "status@broadcast",
+      fromMe: false,
+      id: "PUTTUS-" + Date.now(),
+      participant: botJid,
+    },
+
+    message: {
+      contactMessage: {
+        displayName:
+          "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
+
+        vcard,
+      },
+    },
+  };
+}
 
 /* =========================================================
    GET QUOTED MESSAGE
@@ -24,7 +49,8 @@ function getQuotedMessage(message) {
   const contextInfo =
     message?.message?.extendedTextMessage?.contextInfo ||
     message?.message?.imageMessage?.contextInfo ||
-    message?.message?.videoMessage?.contextInfo;
+    message?.message?.videoMessage?.contextInfo ||
+    message?.message?.documentMessage?.contextInfo;
 
   return contextInfo?.quotedMessage || null;
 }
@@ -76,9 +102,9 @@ function unwrapViewOnce(message) {
    DOWNLOAD MEDIA
 ========================================================= */
 
-async function downloadMedia(message, type) {
+async function downloadMedia(media, type) {
   const stream = await downloadContentFromMessage(
-    message,
+    media,
     type,
   );
 
@@ -92,12 +118,17 @@ async function downloadMedia(message, type) {
 }
 
 /* =========================================================
-   PLUGIN
+   VIEW ONCE PLUGIN
 ========================================================= */
 
 module.exports = {
   command: "viewonce",
-  aliases: ["vv", "view", "viewmedia"],
+
+  aliases: [
+    "vv",
+    "view",
+    "viewmedia",
+  ],
 
   category: "general",
 
@@ -107,7 +138,12 @@ module.exports = {
   usage:
     ".vv - reply to a view-once photo/video",
 
-  async handler(sock, message, args = [], context = {}) {
+  async handler(
+    sock,
+    message,
+    args = [],
+    context = {},
+  ) {
     const chatId =
       context?.chatId ||
       message?.key?.remoteJid;
@@ -135,27 +171,23 @@ module.exports = {
       }
 
       /* =====================================================
-         DEBUG STRUCTURE
-      ===================================================== */
-
-      console.log(
-        "[PUTTUS VV] Quoted message:",
-        JSON.stringify(
-          Object.keys(quoted),
-          null,
-          2,
-        ),
-      );
-
-      /* =====================================================
          UNWRAP
       ===================================================== */
 
       const media = unwrapViewOnce(quoted);
 
       if (!media) {
-        throw new Error(
-          "Unable to unwrap quoted message",
+        return await sock.sendMessage(
+          chatId,
+          {
+            text:
+              "❌ *Not a View-Once message!*\n\n" +
+              "Reply directly to the original " +
+              "view-once photo or video.",
+          },
+          {
+            quoted: message,
+          },
         );
       }
 
@@ -182,6 +214,7 @@ module.exports = {
           chatId,
           {
             image: buffer,
+
             caption:
               image.caption ||
               "👁️ *View Once Photo*\n\n" +
@@ -192,22 +225,17 @@ module.exports = {
           },
         );
 
-        /* VCard */
+        /* ===================================================
+           PING VCARD
+        =================================================== */
 
         await sock.sendMessage(
           chatId,
           {
-            contacts: {
-              displayName:
-                PUTTUS_VCARD.displayName,
-
-              contacts: [
-                PUTTUS_VCARD,
-              ],
-            },
+            text: "🌸 *PUTTUS-BOT*",
           },
           {
-            quoted: message,
+            quoted: createVCardQuote(),
           },
         );
 
@@ -244,6 +272,7 @@ module.exports = {
           chatId,
           {
             video: buffer,
+
             mimetype:
               video.mimetype ||
               "video/mp4",
@@ -258,22 +287,17 @@ module.exports = {
           },
         );
 
-        /* VCard */
+        /* ===================================================
+           PING VCARD
+        =================================================== */
 
         await sock.sendMessage(
           chatId,
           {
-            contacts: {
-              displayName:
-                PUTTUS_VCARD.displayName,
-
-              contacts: [
-                PUTTUS_VCARD,
-              ],
-            },
+            text: "🌸 *PUTTUS-BOT*",
           },
           {
-            quoted: message,
+            quoted: createVCardQuote(),
           },
         );
 
@@ -288,7 +312,7 @@ module.exports = {
       }
 
       /* =====================================================
-         NOT SUPPORTED
+         UNSUPPORTED
       ===================================================== */
 
       return await sock.sendMessage(
@@ -296,8 +320,7 @@ module.exports = {
         {
           text:
             "❌ *Not a View-Once photo/video!*\n\n" +
-            "Reply directly to the original\n" +
-            "view-once photo or video and use *.vv*.",
+            "Only view-once photos and videos are supported.",
         },
         {
           quoted: message,
@@ -305,7 +328,7 @@ module.exports = {
       );
     } catch (error) {
       console.error(
-        "[PUTTUS VV ERROR]",
+        "PUTTUS VIEWONCE ERROR:",
         error,
       );
 
@@ -330,7 +353,7 @@ module.exports = {
         });
       } catch (sendError) {
         console.error(
-          "[PUTTUS VV SEND ERROR]",
+          "PUTTUS VIEWONCE SEND ERROR:",
           sendError,
         );
       }
