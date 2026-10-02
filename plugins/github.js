@@ -39,7 +39,7 @@ function getPuttusVCardQuote() {
 
 
 /* =========================================================
-   SCRIPT / REPO
+   SCRIPT / REPOSITORY
 ========================================================= */
 
 module.exports = {
@@ -53,7 +53,7 @@ module.exports = {
   category: "info",
 
   description:
-    "Get PUTTUS-AI GitHub repository information",
+    "Get GitHub repository information",
 
   usage:
     ".script",
@@ -75,11 +75,18 @@ module.exports = {
 
       const res = await fetch(
         "https://api.github.com/repos/puttus-das/PUTTUS-AI",
+        {
+          headers: {
+            "User-Agent": "PUTTUS-BOT",
+            Accept:
+              "application/vnd.github+json",
+          },
+        },
       );
 
       if (!res.ok) {
         throw new Error(
-          "Error fetching repository data",
+          `GitHub API Error: ${res.status}`,
         );
       }
 
@@ -87,44 +94,48 @@ module.exports = {
         await res.json();
 
       /* =====================================================
-         REPO TEXT
+         REPOSITORY TEXT
       ===================================================== */
 
       let txt =
-        `𝆹꯭𝅥𝐏꯭ᴜ꯭ᴛ꯭ᴛ꯭ᴜ꯭s꯭ 𝐑꯭ᴇ꯭ᴘ꯭ᴏ꯭𝆺𝅥𝆺꯭𝅥\n\n`;
+        `╭━━〔 *𝐆ɪᴛʜᴜʙ 𝐑ᴇᴘᴏsɪᴛᴏʀʏ* 〕━━╮\n\n`;
 
       txt +=
-        `ᐟᴘᴜᴛᴛᴜꜱ^᪲᪲᪲ *𝐍ᴀᴍᴇ:* ${json.name}\n`;
+        `┃ ❯ *𝐍ᴀᴍᴇ:* ${json.name}\n`;
 
       txt +=
-        `ᐟᴘᴜᴛᴛᴜꜱ^᪲᪲᪲ *𝐖ᴀᴛᴄʜᴇʀs:* ${json.watchers_count}\n`;
+        `┃ ❯ *𝐖ᴀᴛᴄʜᴇʀs:* ${json.watchers_count}\n`;
 
       txt +=
-        `ᐟᴘᴜᴛᴛᴜꜱ^᪲᪲᪲ *𝐒ɪᴢᴇ:* ${(json.size / 1024).toFixed(2)} MB\n`;
+        `┃ ❯ *𝐒ɪᴢᴇ:* ${(json.size / 1024).toFixed(2)} MB\n`;
 
       txt +=
-        `ᐟᴘᴜᴛᴛᴜꜱ^᪲᪲᪲ *𝐔ᴘᴅᴀᴛᴇᴅ:* ${moment(
+        `┃ ❯ *𝐔ᴘᴅᴀᴛᴇᴅ:* ${moment(
           json.updated_at,
         ).format(
           "DD/MM/YY - HH:mm:ss",
         )}\n`;
 
       txt +=
-        `ᐟᴘᴜᴛᴛᴜꜱ^᪲᪲᪲ *𝐅ᴏʀᴋs:* ${json.forks_count}\n`;
+        `┃ ❯ *𝐅ᴏʀᴋs:* ${json.forks_count}\n`;
 
       txt +=
-        `ᐟᴘᴜᴛᴛᴜꜱ^᪲᪲᪲ *𝐒ᴛᴀʀs:* ${json.stargazers_count}\n\n`;
+        `┃ ❯ *𝐒ᴛᴀʀs:* ${json.stargazers_count}\n\n`;
 
       txt +=
-        `𓆩⚡𓆪 *𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*\n\n`;
+        `┃ 🌐 *𝐆ɪᴛʜᴜʙ:* \n`;
+
+      txt +=
+        `┃ ${json.html_url}\n\n`;
+
+      txt +=
+        `╰━━━━━━━━━━━━━━━━╯\n\n`;
 
       txt +=
         `*ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*`;
 
       /* =====================================================
-         IMAGE
-         VCard is quoted directly with the same message.
-         No separate VCard message.
+         REPOSITORY IMAGE
       ===================================================== */
 
       const imgPath =
@@ -132,6 +143,10 @@ module.exports = {
           __dirname,
           "../assets/puttus_bot_image_png.png",
         );
+
+      /* =====================================================
+         SEND IMAGE + VCARD TOGETHER
+      ===================================================== */
 
       if (
         fs.existsSync(imgPath)
@@ -168,19 +183,20 @@ module.exports = {
 
     } catch (error) {
       console.error(
-        "Error in github command:",
+        "Script Error:",
         error,
       );
 
       /* =====================================================
-         ERROR
+         ERROR MESSAGE
       ===================================================== */
 
       await sock.sendMessage(
         chatId,
         {
           text:
-            "❌ *𝐏ᴜᴛᴛᴜs 𝐑ᴇᴘᴏ 𝐈ɴғᴏ 𝐅ᴇᴛᴄʜ 𝐅ᴀɪʟᴇᴅ*\n\n" +
+            "*❌ 𝐏ᴜᴛᴛᴜs 𝐑ᴇᴘᴏ 𝐈ɴғᴏ 𝐅ᴇᴛᴄʜ 𝐅ᴀɪʟᴇᴅ*\n\n" +
+            "*𝐏ʟᴇᴀsᴇ 𝐓ʀʏ 𝐀ɢᴀɪɴ 𝐋ᴀᴛᴇʀ.*\n\n" +
             "*ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*",
         },
         {
