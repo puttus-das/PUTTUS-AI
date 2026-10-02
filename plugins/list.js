@@ -88,7 +88,10 @@ function smallFont(text) {
 
   return String(text)
     .split("")
-    .map((char) => map[char.toLowerCase()] || char)
+    .map(
+      (char) =>
+        map[char.toLowerCase()] || char,
+    )
     .join("");
 }
 
@@ -116,6 +119,69 @@ function getMenuImage() {
   }
 }
 
+/* ───────────── PUTTUS VCARD ───────────── */
+
+function getPuttusVCard() {
+  const botJid =
+    "919641092392@s.whatsapp.net";
+
+  const vcard =
+    "BEGIN:VCARD\n" +
+    "VERSION:3.0\n" +
+    "N:PUTTUS;BOT;;;\n" +
+    "FN:🌸•𝐏ᴜᴛᴛᴜꜱ•⌲\n" +
+    "ORG:PUTTUS BOT\n" +
+    "TEL;TYPE=CELL;TYPE=VOICE;waid=919641092392:+919641092392\n" +
+    "END:VCARD";
+
+  return {
+    key: {
+      remoteJid: "status@broadcast",
+      fromMe: false,
+      id: "PUTTUS-" + Date.now(),
+      participant: botJid,
+    },
+
+    message: {
+      contactMessage: {
+        displayName:
+          "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
+        vcard,
+      },
+    },
+  };
+}
+
+/* ───────────── SEND PUTTUS VCARD ───────────── */
+
+async function sendPuttusVCard(
+  sock,
+  chatId,
+) {
+  try {
+    const vcardMessage =
+      getPuttusVCard();
+
+    await sock.relayMessage(
+      chatId,
+      vcardMessage.message,
+      {
+        messageId:
+          vcardMessage.key.id,
+      },
+    );
+
+    return true;
+  } catch (error) {
+    console.error(
+      "[MENU] VCard send failed:",
+      error.message,
+    );
+
+    return false;
+  }
+}
+
 /* ───────────── BOT INFO ───────────── */
 
 function createBotInfo({
@@ -123,13 +189,15 @@ function createBotInfo({
   prefix,
   pluginCount,
 }) {
-  const { date, time } = getDateTime();
+  const { date, time } =
+    getDateTime();
 
   return `
 ╭━━〔 愛 ᴘᴜᴛᴛᴜs 〕━━╮
 │
 │  𖤐 ɴᴀᴍᴇ     ➜ ${smallFont(
-    settings.botName || "PUTTUS-XD",
+    settings.botName ||
+      "PUTTUS-XD",
   )}
 │  𖤐 ᴍᴏᴅᴇ     ➜ ${
     settings.mode || "public"
@@ -145,10 +213,12 @@ function createBotInfo({
 │  𖤐 ᴜᴘᴛɪᴍᴇ    ➜ ${formatUptime()}
 │  𖤐 ᴘʟᴜɢɪɴꜱ   ➜ ${pluginCount}
 │  𖤐 ᴠᴇʀꜱɪᴏɴ   ➜ ${
-    settings.version || "1.0.0"
+    settings.version ||
+    "1.0.0"
   }
 │  𖤐 ᴛᴢ        ➜ ${
-    settings.timeZone || "Asia/Kolkata"
+    settings.timeZone ||
+    "Asia/Kolkata"
   }
 │  𖤐 ꜱᴛᴀᴛᴜꜱ    ➜ ᴏɴʟɪɴᴇ
 │  𖤐 ʟɪʙʀᴀʀʏ  ➜ ʙᴀɪʟᴇʏs
@@ -163,140 +233,238 @@ function createBotInfo({
 
 const menuStyles = [
   {
-    render({ categories, prefix, botInfo }) {
-      let text = `${botInfo}\n\n`;
+    render({
+      categories,
+      prefix,
+      botInfo,
+    }) {
+      let text =
+        `${botInfo}\n\n`;
 
-      text += `╭━━✰ *愛 ᴘᴜᴛᴛᴜs ᴍᴇɴᴜ* ✰━━╮\n`;
+      text +=
+        `╭━━✰ *愛 ᴘᴜᴛᴛᴜs ᴍᴇɴᴜ* ✰━━╮\n`;
 
-      for (const [category, commands] of categories) {
-        text += `┃━━━ *${category.toUpperCase()}* ━✦\n`;
+      for (const [
+        category,
+        commands,
+      ] of categories) {
+        text +=
+          `┃━━━ *${category.toUpperCase()}* ━✦\n`;
 
         for (const command of commands) {
-          text += `┃ ➤ ${prefix}${smallFont(command)}\n`;
+          text +=
+            `┃ ➤ ${prefix}${smallFont(
+              command,
+            )}\n`;
         }
       }
 
-      text += `╰━━━━━━━━━━━━━⬣`;
+      text +=
+        `╰━━━━━━━━━━━━━⬣`;
 
       return text;
     },
   },
 
   {
-    render({ categories, prefix, botInfo }) {
-      let text = `${botInfo}\n\n`;
+    render({
+      categories,
+      prefix,
+      botInfo,
+    }) {
+      let text =
+        `${botInfo}\n\n`;
 
-      text += `◈╭─❍「 *愛 ᴘᴜᴛᴛᴜs ᴍᴇɴᴜ* 」❍\n`;
+      text +=
+        `◈╭─❍「 *愛 ᴘᴜᴛᴛᴜs ᴍᴇɴᴜ* 」❍\n`;
 
-      for (const [category, commands] of categories) {
-        text += `◈├─❍「 *${category.toUpperCase()}* 」❍\n`;
+      for (const [
+        category,
+        commands,
+      ] of categories) {
+        text +=
+          `◈├─❍「 *${category.toUpperCase()}* 」❍\n`;
 
         for (const command of commands) {
-          text += `◈├• ${prefix}${smallFont(command)}\n`;
+          text +=
+            `◈├• ${prefix}${smallFont(
+              command,
+            )}\n`;
         }
       }
 
-      text += `◈╰──★─☆──♪♪─❍`;
+      text +=
+        `◈╰──★─☆──♪♪─❍`;
 
       return text;
     },
   },
 
   {
-    render({ categories, prefix, botInfo }) {
-      let text = `${botInfo}\n\n`;
+    render({
+      categories,
+      prefix,
+      botInfo,
+    }) {
+      let text =
+        `${botInfo}\n\n`;
 
-      text += `┏━━━━ *愛 ᴘᴜᴛᴛᴜs ᴍᴇɴᴜ* ━━━┓\n`;
+      text +=
+        `┏━━━━ *愛 ᴘᴜᴛᴛᴜs ᴍᴇɴᴜ* ━━━┓\n`;
 
-      for (const [category, commands] of categories) {
-        text += `┃━━━━ *${category.toUpperCase()}* ━━◆\n`;
+      for (const [
+        category,
+        commands,
+      ] of categories) {
+        text +=
+          `┃━━━━ *${category.toUpperCase()}* ━━◆\n`;
 
         for (const command of commands) {
-          text += `┃ ▸ ${prefix}${smallFont(command)}\n`;
+          text +=
+            `┃ ▸ ${prefix}${smallFont(
+              command,
+            )}\n`;
         }
       }
 
-      text += `┗━━━━━━━━━━━━━━━┛`;
+      text +=
+        `┗━━━━━━━━━━━━━━━┛`;
 
       return text;
     },
   },
 
   {
-    render({ categories, prefix, botInfo }) {
-      let text = `${botInfo}\n\n`;
+    render({
+      categories,
+      prefix,
+      botInfo,
+    }) {
+      let text =
+        `${botInfo}\n\n`;
 
-      text += `✦═══ *愛 ᴘᴜᴛᴛᴜs ᴍᴇɴᴜ* ═══✦\n`;
+      text +=
+        `✦═══ *愛 ᴘᴜᴛᴛᴜs ᴍᴇɴᴜ* ═══✦\n`;
 
-      for (const [category, commands] of categories) {
-        text += `║══ *${category.toUpperCase()}* ══✧\n`;
+      for (const [
+        category,
+        commands,
+      ] of categories) {
+        text +=
+          `║══ *${category.toUpperCase()}* ══✧\n`;
 
         for (const command of commands) {
-          text += `║ ✦ ${prefix}${smallFont(command)}\n`;
+          text +=
+            `║ ✦ ${prefix}${smallFont(
+              command,
+            )}\n`;
         }
       }
 
-      text += `✦══════════════✦`;
+      text +=
+        `✦══════════════✦`;
 
       return text;
     },
   },
 
   {
-    render({ categories, prefix, botInfo }) {
-      let text = `${botInfo}\n\n`;
+    render({
+      categories,
+      prefix,
+      botInfo,
+    }) {
+      let text =
+        `${botInfo}\n\n`;
 
-      text += `❀ *━[ 愛 ᴘᴜᴛᴛᴜs - ᴅᴀs ]━* ❀\n`;
+      text +=
+        `❀ *━[ 愛 ᴘᴜᴛᴛᴜs - ᴅᴀs ]━* ❀\n`;
 
-      for (const [category, commands] of categories) {
-        text += `┃━━━〔 *${category.toUpperCase()}* 〕━❀\n`;
+      for (const [
+        category,
+        commands,
+      ] of categories) {
+        text +=
+          `┃━━━〔 *${category.toUpperCase()}* 〕━❀\n`;
 
         for (const command of commands) {
-          text += `┃☞ ${prefix}${smallFont(command)}\n`;
+          text +=
+            `┃☞ ${prefix}${smallFont(
+              command,
+            )}\n`;
         }
       }
 
-      text += `❀━━━━━━━━━━━━━━❀`;
+      text +=
+        `❀━━━━━━━━━━━━━━❀`;
 
       return text;
     },
   },
 
   {
-    render({ categories, prefix, botInfo }) {
-      let text = `${botInfo}\n\n`;
+    render({
+      categories,
+      prefix,
+      botInfo,
+    }) {
+      let text =
+        `${botInfo}\n\n`;
 
-      text += `◆━━━ *愛 ᴘᴜᴛᴛᴜs - ᴅᴀs* ━━━◆\n`;
+      text +=
+        `◆━━━ *愛 ᴘᴜᴛᴛᴜs - ᴅᴀs* ━━━◆\n`;
 
-      for (const [category, commands] of categories) {
-        text += `┃━━ *${category.toUpperCase()}* ━━◆◆\n`;
+      for (const [
+        category,
+        commands,
+      ] of categories) {
+        text +=
+          `┃━━ *${category.toUpperCase()}* ━━◆◆\n`;
 
         for (const command of commands) {
-          text += `┃ ¤ ${prefix}${smallFont(command)}\n`;
+          text +=
+            `┃ ¤ ${prefix}${smallFont(
+              command,
+            )}\n`;
         }
       }
 
-      text += `◆━━━━━━━━━━━━━━━━◆`;
+      text +=
+        `◆━━━━━━━━━━━━━━━━◆`;
 
       return text;
     },
   },
 
   {
-    render({ categories, prefix, botInfo }) {
-      let text = `${botInfo}\n\n`;
+    render({
+      categories,
+      prefix,
+      botInfo,
+    }) {
+      let text =
+        `${botInfo}\n\n`;
 
-      text += `╭───⬣ *愛 ᴘᴜᴛᴛᴜs - ᴅᴀs* ──⬣\n`;
+      text +=
+        `╭───⬣ *愛 ᴘᴜᴛᴛᴜs - ᴅᴀs* ──⬣\n`;
 
-      for (const [category, commands] of categories) {
-        text += ` |───⬣ *${category.toUpperCase()}* ──⬣\n`;
+      for (const [
+        category,
+        commands,
+      ] of categories) {
+        text +=
+          ` |───⬣ *${category.toUpperCase()}* ──⬣\n`;
 
         for (const command of commands) {
-          text += ` | ● ${prefix}${smallFont(command)}\n`;
+          text +=
+            ` | ● ${prefix}${smallFont(
+              command,
+            )}\n`;
         }
       }
 
-      text += `╰──────────⬣`;
+      text +=
+        `╰──────────⬣`;
 
       return text;
     },
@@ -307,7 +475,9 @@ const menuStyles = [
 
 function pick(array) {
   return array[
-    Math.floor(Math.random() * array.length)
+    Math.floor(
+      Math.random() * array.length,
+    )
   ];
 }
 
@@ -342,9 +512,11 @@ module.exports = {
     } = context;
 
     const prefix =
-      settings.prefixes?.[0] || ".";
+      settings.prefixes?.[0] ||
+      ".";
 
-    const menuImage = getMenuImage();
+    const menuImage =
+      getMenuImage();
 
     /* ───────── COMMAND INFO ───────── */
 
@@ -414,20 +586,25 @@ module.exports = {
                 .map(
                   (alias) =>
                     prefix +
-                    smallFont(alias),
+                    smallFont(
+                      alias,
+                    ),
                 )
                 .join(", ")
             : "None"
         }\n` +
         `┃\n` +
-        `╰━━━━━━━━━━━━━━⬣`;
+        `╰━━━━━━━━━━━━━━⬣\n\n` +
+        `*ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*`;
 
       if (menuImage) {
         try {
-          return await sock.sendMessage(
+          await sock.sendMessage(
             chatId,
             {
-              image: menuImage,
+              image: {
+                url: imagePath,
+              },
               caption: text,
               ...channelInfo,
             },
@@ -435,6 +612,13 @@ module.exports = {
               quoted: message,
             },
           );
+
+          await sendPuttusVCard(
+            sock,
+            chatId,
+          );
+
+          return;
         } catch (error) {
           console.error(
             "[MENU] Image send failed:",
@@ -443,7 +627,7 @@ module.exports = {
         }
       }
 
-      return sock.sendMessage(
+      await sock.sendMessage(
         chatId,
         {
           text,
@@ -453,27 +637,39 @@ module.exports = {
           quoted: message,
         },
       );
+
+      await sendPuttusVCard(
+        sock,
+        chatId,
+      );
+
+      return;
     }
 
     /* ───────── BOT INFO ───────── */
 
-    const botInfo = createBotInfo({
-      pushName,
-      prefix,
-      pluginCount:
-        commandHandler.commands.size,
-    });
+    const botInfo =
+      createBotInfo({
+        pushName,
+        prefix,
+        pluginCount:
+          commandHandler.commands
+            .size,
+      });
 
     /* ───────── FULL MENU ───────── */
 
-    const style = pick(menuStyles);
+    const style =
+      pick(menuStyles);
 
-    const text = style.render({
-      prefix,
-      botInfo,
-      categories:
-        commandHandler.categories,
-    });
+    const text =
+      style.render({
+        prefix,
+        botInfo,
+        categories:
+          commandHandler.categories,
+      }) +
+      "\n\n*ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*";
 
     /* ───────── IMAGE MENU ───────── */
 
@@ -482,13 +678,20 @@ module.exports = {
         await sock.sendMessage(
           chatId,
           {
-            image: menuImage,
+            image: {
+              url: imagePath,
+            },
             caption: text,
             ...channelInfo,
           },
           {
             quoted: message,
           },
+        );
+
+        await sendPuttusVCard(
+          sock,
+          chatId,
         );
 
         return;
@@ -511,6 +714,11 @@ module.exports = {
       {
         quoted: message,
       },
+    );
+
+    await sendPuttusVCard(
+      sock,
+      chatId,
     );
   },
 };
