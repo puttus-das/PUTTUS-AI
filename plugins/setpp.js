@@ -1,7 +1,3 @@
-const fs = require("fs");
-const path = require("path");
-const os = require("os");
-const { spawn } = require("child_process");
 const {
   downloadContentFromMessage,
 } = require("@whiskeysockets/baileys");
@@ -9,9 +5,9 @@ const {
 const isOwnerOrSudo = require("../lib/isOwner");
 
 /* =========================================================
-   PUTTUS VCARD
-   VCard will ONLY be used as quoted message.
-   No separate VCard message will be sent.
+   PUTTUS-BOT VCARD
+   VCard will be quoted with the response.
+   No separate VCard message.
 ========================================================= */
 
 function getPuttusVCardQuote() {
@@ -45,13 +41,13 @@ function getPuttusVCardQuote() {
 }
 
 /* =========================================================
-   DOWNLOAD MEDIA
+   DOWNLOAD IMAGE
 ========================================================= */
 
-async function downloadMedia(media, type) {
+async function downloadImage(imageMessage) {
   const stream = await downloadContentFromMessage(
-    media,
-    type,
+    imageMessage,
+    "image",
   );
 
   const chunks = [];
@@ -64,75 +60,7 @@ async function downloadMedia(media, type) {
 }
 
 /* =========================================================
-   RUN FFMPEG
-========================================================= */
-
-function runFFmpeg(inputPath, outputPath) {
-  return new Promise((resolve, reject) => {
-    const ffmpeg = spawn("ffmpeg", [
-      "-y",
-
-      "-i",
-      inputPath,
-
-      // Take frame at 1 second.
-      "-ss",
-      "1",
-
-      "-frames:v",
-      "1",
-
-      // Square profile-picture frame.
-      "-vf",
-      "scale=640:640:force_original_aspect_ratio=decrease," +
-        "pad=640:640:(ow-iw)/2:(oh-ih)/2",
-
-      "-q:v",
-      "3",
-
-      outputPath,
-    ]);
-
-    let stderr = "";
-
-    ffmpeg.stderr.on("data", (data) => {
-      stderr += data.toString();
-    });
-
-    ffmpeg.on("error", (error) => {
-      reject(error);
-    });
-
-    ffmpeg.on("close", (code) => {
-      if (code === 0 && fs.existsSync(outputPath)) {
-        resolve();
-      } else {
-        reject(
-          new Error(
-            stderr ||
-              `FFmpeg exited with code ${code}`,
-          ),
-        );
-      }
-    });
-  });
-}
-
-/* =========================================================
-   GET QUOTED MESSAGE
-========================================================= */
-
-function getQuotedMessage(message) {
-  return (
-    message.message
-      ?.extendedTextMessage
-      ?.contextInfo
-      ?.quotedMessage || null
-  );
-}
-
-/* =========================================================
-   COMMAND
+   SETPP
 ========================================================= */
 
 module.exports = {
@@ -141,17 +69,15 @@ module.exports = {
   aliases: [
     "setppic",
     "setdp",
-    "setfullpp",
-    "fullpp",
   ],
 
   category: "owner",
 
   description:
-    "Set or update the bot profile picture from an image or video.",
+    "Set the bot profile picture.",
 
   usage:
-    ".setpp (reply to an image/video)",
+    ".setpp (reply to an image)",
 
   async handler(
     sock,
@@ -162,8 +88,6 @@ module.exports = {
     const chatId =
       context.chatId ||
       message.key.remoteJid;
-
-    let tempDir = null;
 
     try {
       /* =====================================================
@@ -197,18 +121,21 @@ module.exports = {
       }
 
       /* =====================================================
-         QUOTED MESSAGE
+         GET REPLIED MESSAGE
       ===================================================== */
 
       const quotedMessage =
-        getQuotedMessage(message);
+        message.message
+          ?.extendedTextMessage
+          ?.contextInfo
+          ?.quotedMessage;
 
       if (!quotedMessage) {
         await sock.sendMessage(
           chatId,
           {
             text:
-              "*⚠️ Reply to an image or video with .setpp*",
+              "*⚠️ Reply to an image with .setpp*",
           },
           {
             quoted: message,
@@ -219,38 +146,21 @@ module.exports = {
       }
 
       /* =====================================================
-         IMAGE
+         IMAGE ONLY
       ===================================================== */
 
-      if (quotedMessage.imageMessage) {
-        const image =
-          await downloadMedia(
-            quotedMessage.imageMessage,
-            "image",
-          );
+      const imageMessage =
+        quotedMessage.imageMessage;
 
-        if (!image || !image.length) {
-          throw new Error(
-            "Image download failed",
-          );
-        }
-
-        await sock.updateProfilePicture(
-          sock.user.id,
-          image,
-        );
-
+      if (!imageMessage) {
         await sock.sendMessage(
           chatId,
           {
             text:
-              "✅ *⎯꯭⃜ ꯭𔘓⃪꯭[]꯭🩸꯭𝐒꯭ᴜ꯭ᴄ꯭ᴄ꯭ᴇ꯭ꜱ꯭ꜱ꯭ꜰ꯭ᴜ꯭ʟ꯭ʟ꯭ʏ꯭ 𝐔꯭ᴘ꯭ᴅ꯭ᴀ꯭ᴛ꯭ᴇ꯭ᴅ꯭ 𝐁꯭ᴏ꯭ᴛ꯭ 𝐏꯭ɪ꯭ᴄ꯭ ⚡ 𝐀꯭ᴘ꯭ᴜ꯭ʀ꯭ʙ꯭ᴏ꯭/𝐏꯭ᴜ꯭ᴛ꯭ᴛ꯭ᴜ꯭𝐒꯭ ⟶᯦꯭*\n\n" +
-              "*ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*",
+              "*❌ The replied message must contain an image!*",
           },
           {
-            // VCard is quoted here.
-            // No separate VCard message.
-            quoted: getPuttusVCardQuote(),
+            quoted: message,
           },
         );
 
@@ -258,141 +168,64 @@ module.exports = {
       }
 
       /* =====================================================
-         VIDEO
+         DOWNLOAD IMAGE
       ===================================================== */
 
-      if (quotedMessage.videoMessage) {
-        tempDir = fs.mkdtempSync(
-          path.join(
-            os.tmpdir(),
-            "puttus-setpp-",
-          ),
+      const image =
+        await downloadImage(imageMessage);
+
+      if (!image || !image.length) {
+        throw new Error(
+          "Image download failed",
         );
-
-        const inputPath = path.join(
-          tempDir,
-          "input_video",
-        );
-
-        const outputPath = path.join(
-          tempDir,
-          "profile.jpg",
-        );
-
-        const video =
-          await downloadMedia(
-            quotedMessage.videoMessage,
-            "video",
-          );
-
-        if (!video || !video.length) {
-          throw new Error(
-            "Video download failed",
-          );
-        }
-
-        fs.writeFileSync(
-          inputPath,
-          video,
-        );
-
-        await runFFmpeg(
-          inputPath,
-          outputPath,
-        );
-
-        if (!fs.existsSync(outputPath)) {
-          throw new Error(
-            "Could not create image from video",
-          );
-        }
-
-        const profileImage =
-          fs.readFileSync(outputPath);
-
-        await sock.updateProfilePicture(
-          sock.user.id,
-          profileImage,
-        );
-
-        await sock.sendMessage(
-          chatId,
-          {
-            text:
-              "✅ *⎯꯭⃜ ꯭𔘓⃪꯭[]꯭🩸꯭𝐒꯭ᴜ꯭ᴄ꯭ᴄ꯭ᴇ꯭ꜱ꯭ꜱ꯭ꜰ꯭ᴜ꯭ʟ꯭ʟ꯭ʏ꯭ 𝐔꯭ᴘ꯭ᴅ꯭ᴀ꯭ᴛ꯭ᴇ꯭ᴅ꯭ 𝐁꯭ᴏ꯭ᴛ꯭ 𝐏꯭ɪ꯭ᴄ꯭ ⚡ 𝐀꯭ᴘ꯭ᴜ꯭ʀ꯭ʙ꯭ᴏ꯭/𝐏꯭ᴜ꯭ᴛ꯭ᴛꯜ꯭ᴜ꯭𝐒꯭ ⟶᯦꯭*\n\n" +
-              "_Video frame converted to profile picture._\n\n" +
-              "*ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*",
-          },
-          {
-            // VCard quoted with response.
-            // It will NOT be sent separately.
-            quoted: getPuttusVCardQuote(),
-          },
-        );
-
-        return;
       }
 
       /* =====================================================
-         UNSUPPORTED
+         UPDATE BOT PROFILE PICTURE
+      ===================================================== */
+
+      await sock.updateProfilePicture(
+        sock.user.id,
+        image,
+      );
+
+      /* =====================================================
+         SUCCESS
+         VCARD IS QUOTED HERE
+         NO SEPARATE VCARD MESSAGE
       ===================================================== */
 
       await sock.sendMessage(
         chatId,
         {
           text:
-            "*❌ Reply to an image or video.*",
+            "✅ *⎯꯭⃜ ꯭𔘓⃪꯭[]꯭🩸꯭𝐒꯭ᴜ꯭ᴄ꯭ᴄ꯭ᴇ꯭ꜱ꯭ꜱ꯭ꜰ꯭ᴜ꯭ʟ꯭ʟ꯭ʏ꯭ 𝐔꯭ᴘ꯭ᴅ꯭ᴀ꯭ᴛ꯭ᴇ꯭ᴅ꯭ 𝐁꯭ᴏ꯭ᴛ꯭ 𝐏꯭ɪ꯭ᴄ꯭ ⚡ 𝐀꯭ᴘ꯭ᴜ꯭ʀ꯭ʙ꯭ᴏ꯭/𝐏꯭ᴜ꯭ᴛ꯭ᴛ꯭ᴜ꯭𝐒꯭ ⟶᯦꯭*\n\n" +
+            "*ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*",
         },
         {
-          quoted: message,
+          quoted:
+            getPuttusVCardQuote(),
         },
       );
+
     } catch (error) {
       console.error(
-        "SetPP Command Error:",
+        "SETPP ERROR:",
         error,
       );
-
-      let errorText =
-        "*❌ Failed to update profile picture.*";
-
-      if (
-        String(error?.message)
-          .toLowerCase()
-          .includes("ffmpeg")
-      ) {
-        errorText +=
-          "\n\n_❌ FFmpeg is not installed._\n" +
-          "_Run: pkg install ffmpeg -y_";
-      } else {
-        errorText +=
-          `\n\n_${error?.message || "Unknown error"}_`;
-      }
 
       await sock.sendMessage(
         chatId,
         {
-          text: errorText,
+          text:
+            "*❌ Failed to update profile picture.*\n\n" +
+            `_${error?.message || "Unknown error"}_`,
         },
         {
-          // VCard is quoted with the error too.
-          // No separate VCard message.
-          quoted: getPuttusVCardQuote(),
+          quoted:
+            getPuttusVCardQuote(),
         },
       );
-    } finally {
-      /* =====================================================
-         CLEAN TEMP FILES
-      ===================================================== */
-
-      if (tempDir) {
-        try {
-          fs.rmSync(tempDir, {
-            recursive: true,
-            force: true,
-          });
-        } catch {}
-      }
     }
   },
 };
