@@ -3,25 +3,21 @@ const {
 } = require("@whiskeysockets/baileys");
 
 /* =========================================================
-   PUTTUS PING VCARD
+   PUTTUS VCARD
 ========================================================= */
 
-const botJid = "919641092392@s.whatsapp.net";
+function getPuttusVCardQuote() {
+  const botJid = "919641092392@s.whatsapp.net";
 
-const vcard =
-  "BEGIN:VCARD\n" +
-  "VERSION:3.0\n" +
-  "N:PUTTUS;BOT;;;\n" +
-  "FN:🌸•𝐏ᴜᴛᴛᴜꜱ•⌲\n" +
-  "ORG:PUTTUS BOT\n" +
-  "TEL;TYPE=CELL;TYPE=VOICE;waid=919641092392:+919641092392\n" +
-  "END:VCARD";
+  const vcard =
+    "BEGIN:VCARD\n" +
+    "VERSION:3.0\n" +
+    "N:PUTTUS;BOT;;;\n" +
+    "FN:🌸•𝐏ᴜᴛᴛᴜꜱ•⌲\n" +
+    "ORG:PUTTUS BOT\n" +
+    "TEL;TYPE=CELL;TYPE=VOICE;waid=919641092392:+919641092392\n" +
+    "END:VCARD";
 
-/* =========================================================
-   STATUS STYLE VCARD
-========================================================= */
-
-function createVCardQuote() {
   return {
     key: {
       remoteJid: "status@broadcast",
@@ -34,8 +30,7 @@ function createVCardQuote() {
       contactMessage: {
         displayName:
           "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
-
-        vcard,
+        vcard: vcard,
       },
     },
   };
@@ -171,7 +166,7 @@ module.exports = {
       }
 
       /* =====================================================
-         UNWRAP
+         UNWRAP VIEW ONCE
       ===================================================== */
 
       const media = unwrapViewOnce(quoted);
@@ -192,7 +187,7 @@ module.exports = {
       }
 
       /* =====================================================
-         IMAGE
+         VIEW ONCE IMAGE
       ===================================================== */
 
       if (media.imageMessage) {
@@ -226,7 +221,7 @@ module.exports = {
         );
 
         /* ===================================================
-           PING VCARD
+           PUTTUS VCARD
         =================================================== */
 
         await sock.sendMessage(
@@ -235,7 +230,7 @@ module.exports = {
             text: "🌸 *PUTTUS-BOT*",
           },
           {
-            quoted: createVCardQuote(),
+            quoted: getPuttusVCardQuote(),
           },
         );
 
@@ -250,7 +245,7 @@ module.exports = {
       }
 
       /* =====================================================
-         VIDEO
+         VIEW ONCE VIDEO
       ===================================================== */
 
       if (media.videoMessage) {
@@ -288,7 +283,7 @@ module.exports = {
         );
 
         /* ===================================================
-           PING VCARD
+           PUTTUS VCARD
         =================================================== */
 
         await sock.sendMessage(
@@ -297,7 +292,7 @@ module.exports = {
             text: "🌸 *PUTTUS-BOT*",
           },
           {
-            quoted: createVCardQuote(),
+            quoted: getPuttusVCardQuote(),
           },
         );
 
@@ -312,7 +307,7 @@ module.exports = {
       }
 
       /* =====================================================
-         UNSUPPORTED
+         UNSUPPORTED MEDIA
       ===================================================== */
 
       return await sock.sendMessage(
