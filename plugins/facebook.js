@@ -4,8 +4,8 @@ const API =
   "https://rabbitapi.zone.id/api/fb";
 
 /* =========================================================
-   PUTTUS VCARD — QUOTED ONLY
-   ========================================================= */
+   PUTTUS VCard
+========================================================= */
 
 function getPuttusVCardQuote() {
   const botJid =
@@ -39,8 +39,81 @@ function getPuttusVCardQuote() {
 }
 
 /* =========================================================
-   FACEBOOK DOWNLOADER
-   ========================================================= */
+   GET URL
+========================================================= */
+
+function getFacebookUrl(message, args = [], context = {}) {
+  // 1. Try args first
+  const fromArgs =
+    Array.isArray(args)
+      ? args.join(" ").trim()
+      : String(args || "").trim();
+
+  if (
+    /(?:facebook\.com|fb\.watch)/i.test(
+      fromArgs
+    )
+  ) {
+    const match =
+      fromArgs.match(
+        /https?:\/\/[^\s]+/i
+      );
+
+    if (match) {
+      return match[0].trim();
+    }
+  }
+
+  // 2. Try context text
+  const contextText =
+    context?.text ||
+    context?.body ||
+    context?.messageText ||
+    "";
+
+  if (
+    /(?:facebook\.com|fb\.watch)/i.test(
+      contextText
+    )
+  ) {
+    const match =
+      String(contextText).match(
+        /https?:\/\/[^\s]+/i
+      );
+
+    if (match) {
+      return match[0].trim();
+    }
+  }
+
+  // 3. Try message text directly
+  const messageText =
+    message?.message?.conversation ||
+    message?.message?.extendedTextMessage?.text ||
+    message?.text ||
+    "";
+
+  if (
+    /(?:facebook\.com|fb\.watch)/i.test(
+      messageText
+    )
+  ) {
+    const match =
+      String(messageText).match(
+        /https?:\/\/[^\s]+/i
+      );
+
+    if (match) {
+      return match[0].trim();
+    }
+  }
+
+  return "";
+}
+
+/* =========================================================
+   PLUGIN
+========================================================= */
 
 module.exports = {
   command: "fb",
@@ -63,80 +136,110 @@ module.exports = {
     args = [],
     context = {}
   ) {
-    const chatId =
-      context?.chatId ||
-      message?.key?.remoteJid;
-
-    if (!chatId) return;
-
-    const url =
-      args.join(" ").trim();
-
-    const prefix =
-      settings?.prefixes?.[0] || ".";
-
-    /* =====================================================
-       URL CHECK
-       ===================================================== */
-
-    if (!url) {
-      return await sock.sendMessage(
-        chatId,
-        {
-          text:
-            `*❌ ғᴀᴄᴇʙᴏᴏᴋ ᴜʀʟ ᴅᴀᴏ!*\n\n` +
-            `*ᴇxᴀᴍᴘʟᴇ: ${prefix}ғʙ https://www.facebook.com/...*\n\n` +
-            `*𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*`,
-        },
-        {
-          quoted:
-            getPuttusVCardQuote(),
-        }
-      );
-    }
-
-    if (
-      !/facebook\.com|fb\.watch/i.test(
-        url
-      )
-    ) {
-      return await sock.sendMessage(
-        chatId,
-        {
-          text:
-            `*❌ ɪɴᴠᴀʟɪᴅ ғᴀᴄᴇʙᴏᴏᴋ ᴜʀʟ!*\n\n` +
-            `*𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*`,
-        },
-        {
-          quoted:
-            getPuttusVCardQuote(),
-        }
-      );
-    }
-
     try {
-      /* ===================================================
-         REACTION
-         =================================================== */
+      const chatId =
+        context?.chatId ||
+        message?.key?.remoteJid;
 
-      await sock.sendMessage(
-        chatId,
-        {
-          react: {
-            text: "📥",
-            key: message.key,
-          },
-        }
+      if (!chatId) {
+        return;
+      }
+
+      const prefix =
+        settings?.prefixes?.[0] || ".";
+
+      /* =========================================
+         GET FACEBOOK URL
+      ========================================= */
+
+      let url =
+        getFacebookUrl(
+          message,
+          args,
+          context
+        );
+
+      // Remove trailing punctuation
+      url = url.replace(
+        /[)\]}>.,!?]+$/,
+        ""
       );
 
-      /* ===================================================
-         API REQUEST
-         =================================================== */
+      console.log(
+        "PUTTUS-AI FB URL:",
+        url
+      );
+
+      /* =========================================
+         NO URL
+      ========================================= */
+
+      if (!url) {
+        return await sock.sendMessage(
+          chatId,
+          {
+            text:
+              `*❌ ғᴀᴄᴇʙᴏᴏᴋ ᴜʀʟ ᴅᴀᴏ!*\n\n` +
+              `*ᴇxᴀᴍᴘʟᴇ: ${prefix}ғʙ https://www.facebook.com/...*\n\n` +
+              `*𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*`,
+          },
+          {
+            quoted:
+              getPuttusVCardQuote(),
+          }
+        );
+      }
+
+      /* =========================================
+         VALIDATE URL
+      ========================================= */
+
+      if (
+        !/facebook\.com|fb\.watch/i.test(
+          url
+        )
+      ) {
+        return await sock.sendMessage(
+          chatId,
+          {
+            text:
+              `*❌ ɪɴᴠᴀʟɪᴅ ғᴀᴄᴇʙᴏᴏᴋ ᴜʀʟ!*\n\n` +
+              `*𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*`,
+          },
+          {
+            quoted:
+              getPuttusVCardQuote(),
+          }
+        );
+      }
+
+      /* =========================================
+         DOWNLOADING REACTION
+      ========================================= */
+
+      try {
+        await sock.sendMessage(
+          chatId,
+          {
+            react: {
+              text: "📥",
+              key: message.key,
+            },
+          }
+        );
+      } catch (_) {}
+
+      /* =========================================
+         RABBIT API
+      ========================================= */
 
       const apiUrl =
-        `${API}?url=${encodeURIComponent(
-          url
-        )}`;
+        `${API}?url=${encodeURIComponent(url)}`;
+
+      console.log(
+        "PUTTUS-AI FB API:",
+        apiUrl
+      );
 
       const response =
         await fetch(apiUrl, {
@@ -147,7 +250,7 @@ module.exports = {
               "application/json",
 
             "User-Agent":
-              "PUTTUS-AI",
+              "Mozilla/5.0 PUTTUS-AI",
           },
         });
 
@@ -161,20 +264,23 @@ module.exports = {
         await response.json();
 
       console.log(
-        "PUTTUS-AI FB API:",
-        data
+        "PUTTUS-AI FB RESPONSE:",
+        JSON.stringify(
+          data,
+          null,
+          2
+        )
       );
 
-      /* ===================================================
-         FACEBOOK API RESPONSE
-
-         HD preferred
-         SD fallback
-         =================================================== */
+      /* =========================================
+         GET VIDEO
+      ========================================= */
 
       const videoUrl =
         data?.hd ||
-        data?.sd;
+        data?.sd ||
+        data?.url ||
+        data?.video;
 
       if (
         data?.status !== true ||
@@ -187,9 +293,9 @@ module.exports = {
         );
       }
 
-      /* ===================================================
-         SEND VIDEO + QUOTED VCARD
-         =================================================== */
+      /* =========================================
+         SEND VIDEO
+      ========================================= */
 
       await sock.sendMessage(
         chatId,
@@ -207,35 +313,44 @@ module.exports = {
             `│ ⚡ *ᴅᴏᴡɴʟᴏᴀᴅᴇᴅ sᴜᴄᴄᴇssғᴜʟʟʏ*\n\n` +
             `*ᴘᴏᴡᴇʀᴇᴅ ʙʏ ⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜*`,
         },
+
         {
           quoted:
             getPuttusVCardQuote(),
         }
       );
 
-      /* ===================================================
+      /* =========================================
          SUCCESS REACTION
-         =================================================== */
+      ========================================= */
 
-      await sock.sendMessage(
-        chatId,
-        {
-          react: {
-            text: "✅",
-            key: message.key,
-          },
-        }
-      );
+      try {
+        await sock.sendMessage(
+          chatId,
+          {
+            react: {
+              text: "✅",
+              key: message.key,
+            },
+          }
+        );
+      } catch (_) {}
 
     } catch (error) {
+
       console.error(
         "PUTTUS-AI FB ERROR:",
         error
       );
 
+      /* =========================================
+         ERROR MESSAGE
+      ========================================= */
+
       try {
         await sock.sendMessage(
-          chatId,
+          message?.key?.remoteJid ||
+            context?.chatId,
           {
             text:
               `*❌ ғᴀᴄᴇʙᴏᴏᴋ ᴅᴏᴡɴʟᴏᴀᴅ ғᴀɪʟᴇᴅ!*\n\n` +
@@ -248,9 +363,14 @@ module.exports = {
         );
       } catch (_) {}
 
+      /* =========================================
+         ERROR REACTION
+      ========================================= */
+
       try {
         await sock.sendMessage(
-          chatId,
+          message?.key?.remoteJid ||
+            context?.chatId,
           {
             react: {
               text: "❌",
