@@ -1,59 +1,95 @@
 /*****************************************************************************
- *                     PUTTUS-AI Play Plugin                                 *
+ *                       PUTTUS-AI PLAY DOWNLOADER                           *
  *****************************************************************************/
+
+const SEARCH_API =
+  "https://rabbitapi.zone.id/search/youtube";
 
 const PLAY_API =
   "https://rabbitapi.zone.id/api/play";
 
-const BOT_VCARD = `
-BEGIN:VCARD
-VERSION:3.0
-N:PUTTUS;BOT;;;
-FN:🌸•𝐏ᴜᴛᴛᴜꜱ•⌲
-ORG:PUTTUS BOT
-TEL;TYPE=CELL;TYPE=VOICE;waid=919641092392:+919641092392
-END:VCARD
-`;
 
-async function sendVCard(sock, chatId, quoted) {
-  try {
-    await sock.sendMessage(
-      chatId,
-      {
-        contacts: {
-          displayName: "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
-          contacts: [
-            {
-              vcard: BOT_VCARD
-            }
-          ]
-        }
+/* =========================================================
+   PUTTUS VCARD QUOTE
+========================================================= */
+
+function getPuttusVCardQuote() {
+  const botJid = "919641092392@s.whatsapp.net";
+
+  const vcard =
+    "BEGIN:VCARD\n" +
+    "VERSION:3.0\n" +
+    "N:PUTTUS;BOT;;;\n" +
+    "FN:🌸•𝐏ᴜᴛᴛᴜꜱ•⌲\n" +
+    "ORG:PUTTUS BOT\n" +
+    "TEL;TYPE=CELL;TYPE=VOICE;waid=919641092392:+919641092392\n" +
+    "END:VCARD";
+
+  return {
+    key: {
+      remoteJid: "status@broadcast",
+      fromMe: false,
+      id: "PUTTUS-" + Date.now(),
+      participant: botJid,
+    },
+
+    message: {
+      contactMessage: {
+        displayName:
+          "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
+        vcard,
       },
-      { quoted }
-    );
-  } catch (error) {
-    console.error("PLAY VCARD ERROR:", error);
-  }
+    },
+  };
 }
+
+
+/* =========================================================
+   PLAY COMMAND
+========================================================= */
 
 module.exports = {
   command: "play",
-  aliases: ["ytplay"],
-  category: "download",
-  description: "Play/download YouTube song",
-  usage: ".play <song name or YouTube URL>",
 
-  async handler(sock, message, args = [], context = {}) {
+  aliases: [
+    "ytplay"
+  ],
+
+  category: "download",
+
+  description:
+    "Play YouTube audio",
+
+  usage:
+    ".play <song name>",
+
+
+  async handler(
+    sock,
+    message,
+    args = [],
+    context = {}
+  ) {
+
     const chatId =
       context?.chatId ||
       message?.key?.remoteJid;
 
     if (!chatId) return;
 
+
     try {
-      const query = args.join(" ").trim();
+
+      const query =
+        args.join(" ").trim();
+
+
+      /* =====================================================
+         QUERY CHECK
+      ===================================================== */
 
       if (!query) {
+
         return await sock.sendMessage(
           chatId,
           {
@@ -62,39 +98,202 @@ module.exports = {
               `Example:\n` +
               `.play Alan Walker Faded`
           },
-          { quoted: message }
+          {
+            quoted:
+              getPuttusVCardQuote()
+          }
         );
       }
 
-      await sock.sendMessage(chatId, {
-        react: {
-          text: "🎵",
-          key: message.key
+
+      /* =====================================================
+         REACTION
+      ===================================================== */
+
+      await sock.sendMessage(
+        chatId,
+        {
+          react: {
+            text: "▶️",
+            key: message.key
+          }
         }
-      });
+      );
 
-      const apiUrl =
-        `${PLAY_API}?url=${encodeURIComponent(query)}`;
 
-      const response = await fetch(apiUrl, {
-        headers: {
-          Accept: "application/json",
-          "User-Agent": "PUTTUS-AI"
+      /* =====================================================
+         YOUTUBE SEARCH
+      ===================================================== */
+
+      let videoUrl = query;
+
+
+      const isYouTubeUrl =
+        /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i
+          .test(query);
+
+
+      if (!isYouTubeUrl) {
+
+        const searchUrl =
+          `${SEARCH_API}?q=${encodeURIComponent(query)}&limit=15`;
+
+
+        const searchResponse =
+          await fetch(
+            searchUrl,
+            {
+              method: "GET",
+
+              headers: {
+                Accept:
+                  "application/json",
+
+                "User-Agent":
+                  "PUTTUS-AI"
+              }
+            }
+          );
+
+
+        if (!searchResponse.ok) {
+
+          throw new Error(
+            `Search API HTTP ${searchResponse.status}`
+          );
         }
-      });
 
-      if (!response.ok) {
+
+        const searchData =
+          await searchResponse.json();
+
+
+        if (searchData?.status !== true) {
+
+          return await sock.sendMessage(
+            chatId,
+            {
+              text:
+                `❌ *YouTube search failed.*\n\n` +
+                `${searchData?.message || "No results found."}`
+            },
+            {
+              quoted:
+                getPuttusVCardQuote()
+            }
+          );
+        }
+
+
+        const results =
+          Array.isArray(searchData?.result)
+            ? searchData.result
+            : [];
+
+
+        if (!results.length) {
+
+          return await sock.sendMessage(
+            chatId,
+            {
+              text:
+                "❌ *কোনো YouTube result পাওয়া যায়নি।*"
+            },
+            {
+              quoted:
+                getPuttusVCardQuote()
+            }
+          );
+        }
+
+
+        videoUrl =
+          results[0]?.url;
+
+
+        if (!videoUrl) {
+
+          return await sock.sendMessage(
+            chatId,
+            {
+              text:
+                "❌ *YouTube result-এর URL পাওয়া যায়নি।*"
+            },
+            {
+              quoted:
+                getPuttusVCardQuote()
+            }
+          );
+        }
+      }
+
+
+      /* =====================================================
+         RABBIT PLAY API
+      ===================================================== */
+
+      const playUrl =
+        `${PLAY_API}?url=${encodeURIComponent(videoUrl)}`;
+
+
+      const playResponse =
+        await fetch(
+          playUrl,
+          {
+            method: "GET",
+
+            headers: {
+              Accept:
+                "application/json",
+
+              "User-Agent":
+                "PUTTUS-AI"
+            }
+          }
+        );
+
+
+      if (!playResponse.ok) {
+
         throw new Error(
-          `Play API HTTP ${response.status}`
+          `Play API HTTP ${playResponse.status}`
         );
       }
 
-      const data = await response.json();
+
+      const data =
+        await playResponse.json();
+
+
+      if (
+        data?.success === false ||
+        data?.status === false
+      ) {
+
+        return await sock.sendMessage(
+          chatId,
+          {
+            text:
+              `❌ *Play failed.*\n\n` +
+              `${data?.message || "Rabbit API failed."}`
+          },
+          {
+            quoted:
+              getPuttusVCardQuote()
+          }
+        );
+      }
+
+
+      /* =====================================================
+         GET RESULT
+      ===================================================== */
 
       const result =
         data?.result ||
         data?.data ||
         data;
+
 
       const audioUrl =
         result?.url ||
@@ -107,11 +306,21 @@ module.exports = {
         data?.audio ||
         data?.download;
 
-      if (!audioUrl) {
+
+      if (
+        !audioUrl ||
+        typeof audioUrl !== "string"
+      ) {
+
         console.log(
           "Rabbit Play API Response:",
-          JSON.stringify(data, null, 2)
+          JSON.stringify(
+            data,
+            null,
+            2
+          )
         );
+
 
         return await sock.sendMessage(
           chatId,
@@ -120,17 +329,34 @@ module.exports = {
               `❌ *Audio পাওয়া যায়নি।*\n\n` +
               `Rabbit Play API কোনো valid audio URL দেয়নি।`
           },
-          { quoted: message }
+          {
+            quoted:
+              getPuttusVCardQuote()
+          }
         );
       }
+
+
+      /* =====================================================
+         TITLE
+      ===================================================== */
 
       const title =
         result?.title ||
         data?.title ||
         query;
 
+
       const safeTitle =
-        String(title).replace(/[\\/:*?"<>|]/g, "");
+        title.replace(
+          /[\\/:*?"<>|]/g,
+          ""
+        );
+
+
+      /* =====================================================
+         SEND AUDIO + PUTTUS VCARD QUOTE
+      ===================================================== */
 
       await sock.sendMessage(
         chatId,
@@ -138,27 +364,50 @@ module.exports = {
           audio: {
             url: audioUrl
           },
-          mimetype: "audio/mpeg",
-          fileName: `${safeTitle}.mp3`,
-          ptt: false
+
+          mimetype:
+            "audio/mpeg",
+
+          fileName:
+            `${safeTitle}.mp3`,
+
+          ptt:
+            false
         },
-        { quoted: message }
+        {
+          quoted:
+            getPuttusVCardQuote()
+        }
       );
 
-      await sendVCard(sock, chatId, message);
 
-      await sock.sendMessage(chatId, {
-        react: {
-          text: "✅",
-          key: message.key
+      /* =====================================================
+         SUCCESS
+      ===================================================== */
+
+      await sock.sendMessage(
+        chatId,
+        {
+          react: {
+            text: "✅",
+            key: message.key
+          }
         }
-      });
+      );
+
+
+      console.log(
+        `PUTTUS-AI PLAY SENT: ${title}`
+      );
+
 
     } catch (error) {
+
       console.error(
         "PUTTUS-AI PLAY ERROR:",
         error
       );
+
 
       await sock.sendMessage(
         chatId,
@@ -167,7 +416,10 @@ module.exports = {
             `❌ *Play failed.*\n\n` +
             `আবার একটু পরে try করো।`
         },
-        { quoted: message }
+        {
+          quoted:
+            getPuttusVCardQuote()
+        }
       );
     }
   }
