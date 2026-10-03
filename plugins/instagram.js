@@ -1,127 +1,168 @@
-const { igdl } = require("ruhend-scraper");
+const settings = require("../settings");
 
-const processedMessages = new Set();
-
-function extractUniqueMedia(mediaData = []) {
-  const seen = new Set();
-  return mediaData.filter((m) => {
-    if (!m?.url || seen.has(m.url)) return false;
-    seen.add(m.url);
-    return true;
-  });
-}
+const API =
+  "https://rabbitapi.zone.id/api/insta";
 
 module.exports = {
-  command: "instagram",
-  aliases: ["ig", "igdl", "insta"],
-  category: "download",
-  description: "Download Instagram posts, reels & videos",
-  usage: ".ig <instagram link>",
+  command: "ig",
+  aliases: ["instagram", "insta"],
+  category: "downloader",
+  description: "Download Instagram video",
+  usage: ".ig <Instagram video/reel URL>",
 
-  async handler(sock, message, args, context = {}) {
-    const chatId = context.chatId || message.key.remoteJid;
-    const text =
-      args.join(" ") ||
-      message.message?.conversation ||
-      message.message?.extendedTextMessage?.text;
+  async handler(
+    sock,
+    message,
+    args = [],
+    context = {}
+  ) {
+    const chatId =
+      context?.chatId ||
+      message?.key?.remoteJid;
+
+    if (!chatId) return;
+
+    const url = args.join(" ").trim();
+
+    const prefix =
+      settings?.prefixes?.[0] || ".";
+
+    if (!url) {
+      return await sock.sendMessage(
+        chatId,
+        {
+          text:
+            `❌ *Instagram URL dao!*\n\n` +
+            `Example:\n` +
+            `*${prefix}ig https://www.instagram.com/reel/...*`,
+        },
+        {
+          quoted: message,
+        }
+      );
+    }
+
+    if (
+      !/instagram\.com/i.test(url)
+    ) {
+      return await sock.sendMessage(
+        chatId,
+        {
+          text:
+            `❌ *Invalid Instagram URL!*\n\n` +
+            `Instagram video/reel link dao.`,
+        },
+        {
+          quoted: message,
+        }
+      );
+    }
 
     try {
-      if (processedMessages.has(message.key.id)) return;
-      processedMessages.add(message.key.id);
-      setTimeout(() => processedMessages.delete(message.key.id), 5 * 60 * 1000);
-
-      if (!text) {
-        return await sock.sendMessage(
-          chatId,
-          {
-            text: "📸 *Instagram Downloader*\n\nUsage:\n.ig <post | reel | video link>",
-          },
-          { quoted: message },
-        );
-      }
-
-      const igRegex =
-        /https?:\/\/(www\.)?(instagram\.com|instagr\.am)\/(p|reel|tv)\//i;
-
-      if (!igRegex.test(text)) {
-        return await sock.sendMessage(
-          chatId,
-          {
-            text: "❌ Invalid Instagram link.\nPlease send a valid post, reel, or video URL.",
-          },
-          { quoted: message },
-        );
-      }
-      await sock.sendMessage(chatId, {
-        react: { text: "🔄", key: message.key },
-      });
-
-      const res = await igdl(text);
-
-      if (!res?.data?.length) {
-        return await sock.sendMessage(
-          chatId,
-          {
-            text: "❌ No media found.\nThe post may be private or unavailable.",
-          },
-          { quoted: message },
-        );
-      }
-
-      const mediaList = extractUniqueMedia(res.data).slice(0, 20);
-
-      if (!mediaList.length) {
-        return await sock.sendMessage(
-          chatId,
-          { text: "❌ No downloadable media found." },
-          { quoted: message },
-        );
-      }
-
-      for (let i = 0; i < mediaList.length; i++) {
-        const media = mediaList[i];
-        const url = media.url;
-
-        const isVideo =
-          media.type === "video" ||
-          /\.(mp4|mov|webm|mkv)$/i.test(url) ||
-          text.includes("/reel/") ||
-          text.includes("/tv/");
-
-        if (isVideo) {
-          await sock.sendMessage(
-            chatId,
-            {
-              video: { url },
-              mimetype: "video/mp4",
-              caption: "📥 *Downloaded by PUTTUS-AI*",
-            },
-            { quoted: message },
-          );
-        } else {
-          await sock.sendMessage(
-            chatId,
-            {
-              image: { url },
-              caption: "📥 *Downloaded by PUTTUS-AI*",
-            },
-            { quoted: message },
-          );
-        }
-
-        if (i < mediaList.length - 1) {
-          await new Promise((r) => setTimeout(r, 1000));
-        }
-      }
-    } catch (err) {
-      console.error("Instagram plugin error:", err);
       await sock.sendMessage(
         chatId,
         {
-          text: "❌ Failed to download Instagram media. Please try again later.",
-        },
-        { quoted: message },
+          react: {
+            text: "📥",
+            key: message.key,
+          },
+        }
       );
+
+      const apiUrl =
+        `${API}?url=${encodeURIComponent(url)}`;
+
+      const response =
+        await fetch(apiUrl, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            "User-Agent": "PUTTUS-AI",
+          },
+        });
+
+      if (!response.ok) {
+        throw new Error(
+          `Instagram API HTTP ${response.status}`
+        );
+      }
+
+      const data =
+        await response.json();
+
+      if (
+        data?.status !== true ||
+        !data?.url
+      ) {
+        throw new Error(
+          data?.message ||
+          data?.response?.message ||
+          "Instagram video URL পাওয়া যায়নি"
+        );
+      }
+
+      await sock.sendMessage(
+        chatId,
+        {
+          video: {
+            url: data.url,
+          },
+
+          mimetype:
+            "video/mp4",
+
+          caption:
+            `╭─〔 *𝐏ᴜᴛᴛᴜs-Bᴏᴛ* 〕─╮\n` +
+            `│ 📥 *Instagram Video*\n` +
+            `│\n` +
+            `│ ⚡ Downloaded Successfully\n` +
+            `╰──────────────────╯\n\n` +
+            `*Powered by ⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜*`,
+        }
+      );
+
+      await sock.sendMessage(
+        chatId,
+        {
+          react: {
+            text: "✅",
+            key: message.key,
+          },
+        }
+      );
+
+    } catch (error) {
+      console.error(
+        "PUTTUS-AI IG ERROR:",
+        error
+      );
+
+      try {
+        await sock.sendMessage(
+          chatId,
+          {
+            text:
+              `❌ *Instagram Download Failed!*\n\n` +
+              `ভিডিওটি পাওয়া যায়নি অথবা API সমস্যা করছে।\n\n` +
+              `আবার চেষ্টা করো।`,
+          },
+          {
+            quoted: message,
+          }
+        );
+      } catch (_) {}
+
+      try {
+        await sock.sendMessage(
+          chatId,
+          {
+            react: {
+              text: "❌",
+              key: message.key,
+            },
+          }
+        );
+      } catch (_) {}
     }
   },
 };
