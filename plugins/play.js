@@ -14,7 +14,8 @@ const PLAY_API =
 ========================================================= */
 
 function getPuttusVCardQuote() {
-  const botJid = "919641092392@s.whatsapp.net";
+  const botJid =
+    "919641092392@s.whatsapp.net";
 
   const vcard =
     "BEGIN:VCARD\n" +
@@ -27,16 +28,24 @@ function getPuttusVCardQuote() {
 
   return {
     key: {
-      remoteJid: "status@broadcast",
-      fromMe: false,
-      id: "PUTTUS-" + Date.now(),
-      participant: botJid,
+      remoteJid:
+        "status@broadcast",
+
+      fromMe:
+        false,
+
+      id:
+        "PUTTUS-" + Date.now(),
+
+      participant:
+        botJid,
     },
 
     message: {
       contactMessage: {
         displayName:
           "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
+
         vcard,
       },
     },
@@ -49,13 +58,16 @@ function getPuttusVCardQuote() {
 ========================================================= */
 
 module.exports = {
-  command: "play",
+
+  command:
+    "play",
 
   aliases: [
     "ytplay"
   ],
 
-  category: "download",
+  category:
+    "download",
 
   description:
     "Play YouTube audio",
@@ -75,7 +87,8 @@ module.exports = {
       context?.chatId ||
       message?.key?.remoteJid;
 
-    if (!chatId) return;
+    if (!chatId)
+      return;
 
 
     try {
@@ -114,8 +127,11 @@ module.exports = {
         chatId,
         {
           react: {
-            text: "▶️",
-            key: message.key
+            text:
+              "▶️",
+
+            key:
+              message.key
           }
         }
       );
@@ -125,7 +141,8 @@ module.exports = {
          YOUTUBE URL CHECK
       ===================================================== */
 
-      let videoUrl = query;
+      let videoUrl =
+        query;
 
 
       const isYouTubeUrl =
@@ -147,7 +164,8 @@ module.exports = {
           await fetch(
             searchUrl,
             {
-              method: "GET",
+              method:
+                "GET",
 
               headers: {
                 Accept:
@@ -172,7 +190,9 @@ module.exports = {
           await searchResponse.json();
 
 
-        if (searchData?.status !== true) {
+        if (
+          searchData?.status !== true
+        ) {
 
           return await sock.sendMessage(
             chatId,
@@ -190,7 +210,9 @@ module.exports = {
 
 
         const results =
-          Array.isArray(searchData?.result)
+          Array.isArray(
+            searchData?.result
+          )
             ? searchData.result
             : [];
 
@@ -212,7 +234,7 @@ module.exports = {
 
 
         /* =================================================
-           FIRST YOUTUBE RESULT
+           FIRST RESULT
         ================================================= */
 
         videoUrl =
@@ -248,7 +270,8 @@ module.exports = {
         await fetch(
           playUrl,
           {
-            method: "GET",
+            method:
+              "GET",
 
             headers: {
               Accept:
@@ -298,7 +321,7 @@ module.exports = {
 
 
       /* =====================================================
-         GET RESULT
+         RESULT
       ===================================================== */
 
       const result =
@@ -378,19 +401,151 @@ module.exports = {
 
 
       /* =====================================================
-         SEND NORMAL MP3 AUDIO
+         THUMBNAIL
+      ===================================================== */
+
+      let thumbnailBuffer =
+        Buffer.alloc(0);
+
+
+      const thumbnail =
+        result?.thumbnail ||
+        result?.thumb ||
+        result?.image ||
+        data?.thumbnail ||
+        data?.thumb ||
+        data?.image;
+
+
+      if (thumbnail) {
+
+        try {
+
+          const thumbResponse =
+            await fetch(
+              thumbnail,
+              {
+                method:
+                  "GET",
+
+                headers: {
+                  "User-Agent":
+                    "PUTTUS-AI"
+                }
+              }
+            );
+
+
+          if (thumbResponse.ok) {
+
+            const arrayBuffer =
+              await thumbResponse.arrayBuffer();
+
+
+            thumbnailBuffer =
+              Buffer.from(
+                arrayBuffer
+              );
+          }
+
+        } catch (thumbnailError) {
+
+          console.error(
+            "PUTTUS-AI THUMBNAIL ERROR:",
+            thumbnailError.message
+          );
+        }
+      }
+
+
+      /* =====================================================
+         MUSIC CAPTION
+      ===================================================== */
+
+      const caption =
+        `╭─〔 *𝐏ᴜᴛᴛᴜs-Bᴏᴛ* 〕─╮\n` +
+        `│ 🎵 *${title}*\n` +
+        `│\n` +
+        `│ ▶️ *PLAYING MUSIC*\n` +
+        `│ 🎧 Use headphones for best experience\n` +
+        `╰────────────────────╯`;
+
+
+      /* =====================================================
+         CHANNEL + LARGE THUMBNAIL
+      ===================================================== */
+
+      const contextInfo = {
+
+        isForwarded:
+          true,
+
+        forwardingScore:
+          999,
+
+
+        /* ================================================
+           CHANNEL
+        ================================================= */
+
+        forwardedNewsletterMessageInfo: {
+
+          newsletterJid:
+            "120363411471428911@newsletter",
+
+          newsletterName:
+            "Pᴜᴛᴛᴜs-Bᴏᴛ",
+
+          serverMessageId:
+            -1,
+        },
+
+
+        /* ================================================
+           LARGE MUSIC PREVIEW
+        ================================================= */
+
+        externalAdReply: {
+
+          title:
+            title,
+
+          body:
+            "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
+
+          mediaType:
+            1,
+
+          renderLargerThumbnail:
+            true,
+
+          showAdAttribution:
+            false,
+
+          thumbnail:
+            thumbnailBuffer,
+
+          sourceUrl:
+            videoUrl,
+        },
+      };
+
+
+      /* =====================================================
+         SEND MP3
          
-         - NOT VOICE NOTE
-         - NORMAL MUSIC PLAYER
-         - MP3 FILE
-         - PUTTUS VCARD AS QUOTE
+         LARGE PREVIEW
+         + VCARD QUOTE
+         + CHANNEL
       ===================================================== */
 
       await sock.sendMessage(
         chatId,
         {
+
           audio: {
-            url: audioUrl
+            url:
+              audioUrl
           },
 
           mimetype:
@@ -400,7 +555,13 @@ module.exports = {
             `${safeTitle}.mp3`,
 
           ptt:
-            false
+            false,
+
+          caption:
+            caption,
+
+          contextInfo:
+            contextInfo,
         },
         {
           quoted:
@@ -417,8 +578,12 @@ module.exports = {
         chatId,
         {
           react: {
-            text: "✅",
-            key: message.key
+
+            text:
+              "✅",
+
+            key:
+              message.key
           }
         }
       );
