@@ -1,5 +1,14 @@
-const SEARCH_API = "https://rabbitapi.zone.id/search/youtube";
-const SONG_API = "https://rabbitapi.zone.id/api/song";
+/*****************************************************************************
+ *                     Developed By Puttus Das                              *
+ *                                                                           *
+ *    Description: PUTTUS-AI Song Downloader                                 *
+ *****************************************************************************/
+
+const SEARCH_API =
+  "https://rabbitapi.zone.id/search/youtube";
+
+const SONG_API =
+  "https://rabbitapi.zone.id/api/song";
 
 module.exports = {
   command: "song",
@@ -8,8 +17,10 @@ module.exports = {
   description: "Search and download YouTube song",
   usage: ".song <song name>",
 
-  async handler(sock, message, args = []) {
-    const chatId = message?.key?.remoteJid;
+  async handler(sock, message, args = [], context = {}) {
+    const chatId =
+      context?.chatId ||
+      message?.key?.remoteJid;
 
     if (!chatId) return;
 
@@ -17,84 +28,122 @@ module.exports = {
       const query = args.join(" ").trim();
 
       // ───────────── CHECK QUERY ─────────────
+
       if (!query) {
-        return await sock.sendMessage(chatId, {
-          text:
-            "❌ *Song name dao!*\n\n" +
-            "Example:\n" +
-            "`.song Alan Walker Faded`"
-        });
-      }
-
-      // ───────────── SEARCH YOUTUBE ─────────────
-      const searchUrl =
-        `${SEARCH_API}?q=${encodeURIComponent(query)}&limit=5`;
-
-      const searchResponse = await fetch(searchUrl, {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          "User-Agent": "PUTTUS-AI"
-        }
-      });
-
-      if (!searchResponse.ok) {
-        throw new Error(
-          `Search API HTTP ${searchResponse.status}`
+        return await sock.sendMessage(
+          chatId,
+          {
+            text:
+              `❌ *Song name dao!*\n\n` +
+              `Example:\n` +
+              `.song Alan Walker Faded`
+          },
+          { quoted: message }
         );
       }
 
-      const searchData = await searchResponse.json();
+      // ───────────── REACTION ─────────────
 
-      // ───────────── GET FIRST RESULT ─────────────
-      const results =
-        searchData?.response?.results ||
-        searchData?.results ||
-        searchData?.data ||
-        searchData?.result ||
-        [];
+      await sock.sendMessage(chatId, {
+        react: {
+          text: "🎵",
+          key: message.key
+        }
+      });
 
-      let firstResult = Array.isArray(results)
-        ? results[0]
-        : results;
+      let videoUrl = query;
 
-      if (!firstResult) {
-        return await sock.sendMessage(chatId, {
-          text: "❌ *Song খুঁজে পাওয়া যায়নি।*"
-        });
-      }
+      // ───────────── CHECK DIRECT YOUTUBE URL ─────────────
 
-      // ───────────── FIND YOUTUBE URL ─────────────
-      let videoUrl =
-        firstResult?.url ||
-        firstResult?.videoUrl ||
-        firstResult?.video_url ||
-        firstResult?.link ||
-        firstResult?.video ||
-        firstResult?.watch;
+      const isYouTubeUrl =
+        /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i
+          .test(query);
 
-      // Sometimes API may directly return a URL string
-      if (typeof firstResult === "string") {
-        videoUrl = firstResult;
-      }
+      // ───────────── SEARCH YOUTUBE ─────────────
 
-      if (!videoUrl || !/^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i.test(videoUrl)) {
-        return await sock.sendMessage(chatId, {
-          text: "❌ *YouTube result-এর URL পাওয়া যায়নি।*"
-        });
+      if (!isYouTubeUrl) {
+        const searchUrl =
+          `${SEARCH_API}?q=${encodeURIComponent(query)}&limit=15`;
+
+        const searchResponse = await fetch(
+          searchUrl,
+          {
+            method: "GET",
+            headers: {
+              Accept: "application/json",
+              "User-Agent": "PUTTUS-AI"
+            }
+          }
+        );
+
+        if (!searchResponse.ok) {
+          throw new Error(
+            `Search API HTTP ${searchResponse.status}`
+          );
+        }
+
+        const searchData =
+          await searchResponse.json();
+
+        if (searchData?.status !== true) {
+          return await sock.sendMessage(
+            chatId,
+            {
+              text:
+                `❌ *YouTube search failed.*\n\n` +
+                `${searchData?.message || "No results found."}`
+            },
+            { quoted: message }
+          );
+        }
+
+        const results = Array.isArray(
+          searchData?.result
+        )
+          ? searchData.result
+          : [];
+
+        if (!results.length) {
+          return await sock.sendMessage(
+            chatId,
+            {
+              text:
+                "❌ *এই নামে কোনো গান পাওয়া যায়নি।*"
+            },
+            { quoted: message }
+          );
+        }
+
+        // First YouTube result
+        videoUrl = results[0]?.url;
+
+        if (!videoUrl) {
+          return await sock.sendMessage(
+            chatId,
+            {
+              text:
+                "❌ *YouTube result-এর URL পাওয়া যায়নি।*"
+            },
+            { quoted: message }
+          );
+        }
       }
 
       // ───────────── SONG API ─────────────
+
       const songUrl =
         `${SONG_API}?url=${encodeURIComponent(videoUrl)}`;
 
-      const songResponse = await fetch(songUrl, {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          "User-Agent": "PUTTUS-AI"
+      const songResponse = await fetch(
+        songUrl,
+        {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            "User-Agent": "PUTTUS-AI"
+          }
         }
-      });
+      );
 
       if (!songResponse.ok) {
         throw new Error(
@@ -102,58 +151,132 @@ module.exports = {
         );
       }
 
-      const songData = await songResponse.json();
+      const songData =
+        await songResponse.json();
 
-      // ───────────── GET AUDIO URL ─────────────
-      const audioUrl =
-        songData?.url ||
-        songData?.download ||
-        songData?.downloadUrl ||
-        songData?.download_url ||
-        songData?.audio ||
-        songData?.audioUrl ||
-        songData?.audio_url ||
-        songData?.result?.url ||
-        songData?.result?.download ||
-        songData?.result?.downloadUrl ||
-        songData?.result?.audio ||
-        songData?.result?.audioUrl ||
-        songData?.data?.url ||
-        songData?.data?.download ||
-        songData?.data?.downloadUrl ||
-        songData?.data?.audio ||
-        songData?.data?.audioUrl;
+      // Rabbit successful response:
+      //
+      // {
+      //   success: true,
+      //   query: "...",
+      //   result: {
+      //     title: "...",
+      //     duration: "3.55 min",
+      //     quality: "128kbps",
+      //     thumbnail: "...",
+      //     format: "MP3",
+      //     url: "...mp3",
+      //     mp3: "...mp3",
+      //     audio: "...mp3",
+      //     download: "...mp3"
+      //   }
+      // }
 
-      if (!audioUrl || typeof audioUrl !== "string") {
-        console.log(
-          "Rabbit Song API response:",
-          JSON.stringify(songData, null, 2)
+      if (songData?.success !== true) {
+        return await sock.sendMessage(
+          chatId,
+          {
+            text:
+              `❌ *Song download failed.*\n\n` +
+              `${songData?.message || "Rabbit API failed."}`
+          },
+          { quoted: message }
         );
-
-        return await sock.sendMessage(chatId, {
-          text:
-            "❌ *Audio পাওয়া যায়নি।*\n\n" +
-            "Rabbit API কোনো valid audio URL দেয়নি।"
-        });
       }
 
+      const result =
+        songData?.result || {};
+
+      // ───────────── AUDIO URL ─────────────
+
+      const audioUrl =
+        result?.url ||
+        result?.mp3 ||
+        result?.audio ||
+        result?.download;
+
+      if (
+        !audioUrl ||
+        typeof audioUrl !== "string"
+      ) {
+        console.log(
+          "Rabbit Song API Response:",
+          JSON.stringify(
+            songData,
+            null,
+            2
+          )
+        );
+
+        return await sock.sendMessage(
+          chatId,
+          {
+            text:
+              `❌ *Audio পাওয়া যায়নি।*\n\n` +
+              `Rabbit API কোনো valid audio URL দেয়নি।`
+          },
+          { quoted: message }
+        );
+      }
+
+      // ───────────── SONG INFORMATION ─────────────
+
+      const title =
+        result?.title ||
+        query;
+
+      const duration =
+        result?.duration ||
+        "Unknown";
+
+      const quality =
+        result?.quality ||
+        "128kbps";
+
       // ───────────── SEND AUDIO ─────────────
-      await sock.sendMessage(chatId, {
-        audio: {
-          url: audioUrl
+
+      await sock.sendMessage(
+        chatId,
+        {
+          audio: {
+            url: audioUrl
+          },
+          mimetype: "audio/mpeg",
+          fileName:
+            `${title.replace(/[\\/:*?"<>|]/g, "")}.mp3`,
+          ptt: false
         },
-        mimetype: "audio/mpeg",
-        ptt: false
+        { quoted: message }
+      );
+
+      // ───────────── SUCCESS REACTION ─────────────
+
+      await sock.sendMessage(chatId, {
+        react: {
+          text: "✅",
+          key: message.key
+        }
       });
+
+      console.log(
+        `PUTTUS-AI SONG SENT: ${title} | ${duration} | ${quality}`
+      );
 
     } catch (error) {
-      console.error("PUTTUS-AI SONG ERROR:", error);
+      console.error(
+        "PUTTUS-AI SONG ERROR:",
+        error
+      );
 
-      await sock.sendMessage(chatId, {
-        text:
-          "❌ *Song download failed.*\n\n" +
-          "আবার একটু পরে try করো।"
-      });
+      await sock.sendMessage(
+        chatId,
+        {
+          text:
+            `❌ *Song download failed.*\n\n` +
+            `আবার একটু পরে try করো।`
+        },
+        { quoted: message }
+      );
     }
   }
 };
