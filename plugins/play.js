@@ -45,6 +45,29 @@ function getPuttusVCardQuote() {
 
 
 /* =========================================================
+   CHANNEL INFO
+========================================================= */
+
+const channelInfo = {
+  contextInfo: {
+    forwardingScore: 1,
+
+    isForwarded: true,
+
+    forwardedNewsletterMessageInfo: {
+      newsletterJid:
+        "120363411471428911@newsletter",
+
+      newsletterName:
+        "━━━━━━━━━━━〔 𝐏ᴜᴛᴛᴜs - 𝐃ᴀꜱ 〕━━━━━━━━━━━",
+
+      serverMessageId: -1,
+    },
+  },
+};
+
+
+/* =========================================================
    PLAY COMMAND
 ========================================================= */
 
@@ -80,13 +103,13 @@ module.exports = {
 
     try {
 
-      /* =====================================================
-         QUERY
-      ===================================================== */
-
       const query =
         args.join(" ").trim();
 
+
+      /* =====================================================
+         QUERY CHECK
+      ===================================================== */
 
       if (!query) {
 
@@ -96,7 +119,9 @@ module.exports = {
             text:
               `❌ *Song name dao!*\n\n` +
               `Example:\n` +
-              `.play Alan Walker Faded`
+              `.play Alan Walker Faded`,
+
+            ...channelInfo,
           },
           {
             quoted:
@@ -107,7 +132,7 @@ module.exports = {
 
 
       /* =====================================================
-         START REACTION
+         REACTION
       ===================================================== */
 
       await sock.sendMessage(
@@ -122,7 +147,7 @@ module.exports = {
 
 
       /* =====================================================
-         YOUTUBE URL CHECK
+         YOUTUBE SEARCH
       ===================================================== */
 
       let videoUrl = query;
@@ -132,10 +157,6 @@ module.exports = {
         /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i
           .test(query);
 
-
-      /* =====================================================
-         YOUTUBE SEARCH
-      ===================================================== */
 
       if (!isYouTubeUrl) {
 
@@ -179,7 +200,9 @@ module.exports = {
             {
               text:
                 `❌ *YouTube search failed.*\n\n` +
-                `${searchData?.message || "No results found."}`
+                `${searchData?.message || "No results found."}`,
+
+              ...channelInfo,
             },
             {
               quoted:
@@ -201,7 +224,9 @@ module.exports = {
             chatId,
             {
               text:
-                "❌ *কোনো YouTube result পাওয়া যায়নি।*"
+                "❌ *কোনো YouTube result পাওয়া যায়নি।*",
+
+              ...channelInfo,
             },
             {
               quoted:
@@ -210,10 +235,6 @@ module.exports = {
           );
         }
 
-
-        /* =================================================
-           FIRST YOUTUBE RESULT
-        ================================================= */
 
         videoUrl =
           results[0]?.url;
@@ -225,7 +246,9 @@ module.exports = {
             chatId,
             {
               text:
-                "❌ *YouTube result-এর URL পাওয়া যায়নি।*"
+                "❌ *YouTube result-এর URL পাওয়া যায়নি।*",
+
+              ...channelInfo,
             },
             {
               quoted:
@@ -269,10 +292,6 @@ module.exports = {
       }
 
 
-      /* =====================================================
-         API RESPONSE
-      ===================================================== */
-
       const data =
         await playResponse.json();
 
@@ -287,7 +306,9 @@ module.exports = {
           {
             text:
               `❌ *Play failed.*\n\n` +
-              `${data?.message || "Rabbit API failed."}`
+              `${data?.message || "Rabbit API failed."}`,
+
+            ...channelInfo,
           },
           {
             quoted:
@@ -306,10 +327,6 @@ module.exports = {
         data?.data ||
         data;
 
-
-      /* =====================================================
-         AUDIO URL
-      ===================================================== */
 
       const audioUrl =
         result?.url ||
@@ -343,7 +360,9 @@ module.exports = {
           {
             text:
               `❌ *Audio পাওয়া যায়নি।*\n\n` +
-              `Rabbit Play API কোনো valid audio URL দেয়নি।`
+              `Rabbit Play API কোনো valid audio URL দেয়নি।`,
+
+            ...channelInfo,
           },
           {
             quoted:
@@ -363,27 +382,17 @@ module.exports = {
         query;
 
 
-      /* =====================================================
-         SAFE FILE NAME
-      ===================================================== */
-
       const safeTitle =
-        title
-          .replace(
-            /[\\/:*?"<>|]/g,
-            ""
-          )
-          .trim() ||
-        "PUTTUS-AI Song";
+        title.replace(
+          /[\\/:*?"<>|]/g,
+          ""
+        );
 
 
       /* =====================================================
-         SEND NORMAL MP3 AUDIO
-         
-         - NOT VOICE NOTE
-         - NORMAL MUSIC PLAYER
-         - MP3 FILE
-         - PUTTUS VCARD AS QUOTE
+         SEND AUDIO
+         + PUTTUS VCARD QUOTE
+         + CHANNEL
       ===================================================== */
 
       await sock.sendMessage(
@@ -400,7 +409,9 @@ module.exports = {
             `${safeTitle}.mp3`,
 
           ptt:
-            false
+            false,
+
+          ...channelInfo,
         },
         {
           quoted:
@@ -410,7 +421,7 @@ module.exports = {
 
 
       /* =====================================================
-         SUCCESS REACTION
+         SUCCESS
       ===================================================== */
 
       await sock.sendMessage(
@@ -424,10 +435,6 @@ module.exports = {
       );
 
 
-      /* =====================================================
-         LOG
-      ===================================================== */
-
       console.log(
         `PUTTUS-AI PLAY SENT: ${title}`
       );
@@ -435,26 +442,20 @@ module.exports = {
 
     } catch (error) {
 
-      /* =====================================================
-         ERROR LOG
-      ===================================================== */
-
       console.error(
         "PUTTUS-AI PLAY ERROR:",
         error
       );
 
 
-      /* =====================================================
-         ERROR MESSAGE
-      ===================================================== */
-
       await sock.sendMessage(
         chatId,
         {
           text:
             `❌ *Play failed.*\n\n` +
-            `আবার একটু পরে try করো।`
+            `আবার একটু পরে try করো।`,
+
+          ...channelInfo,
         },
         {
           quoted:
