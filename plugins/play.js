@@ -6,7 +6,7 @@ const SEARCH_API =
   "https://rabbitapi.zone.id/search/youtube";
 
 const PLAY_API =
-  "https://api.sayan-nexuswork.workers.dev/music?query=$";
+  "https://rabbitapi.zone.id/api/play";
 
 
 /* =========================================================
@@ -59,7 +59,7 @@ const channelInfo = {
         "120363411471428911@newsletter",
 
       newsletterName:
-        "━━━━━━━━━━━〔 𝐏ᴜᴛᴛᴜs - 𝐃ᴀꜱ 〕━━━━━━━━━━━",
+        "〔 𝐏ᴜᴛᴛᴜs - 𝐃ᴀꜱ 〕",
 
       serverMessageId: -1,
     },
