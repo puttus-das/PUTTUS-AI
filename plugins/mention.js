@@ -1,6 +1,3 @@
-cd ~/PUTTUS-AI
-
-cat > plugins/mention.js <<'EOF'
 "use strict";
 
 const fs = require("fs");
@@ -33,7 +30,7 @@ const DEFAULT_STATE = {
 };
 
 /* =========================================================
-   LOAD STATE
+   STATE
 ========================================================= */
 
 function loadState() {
@@ -43,7 +40,6 @@ function loadState() {
         STATE_FILE,
         JSON.stringify(DEFAULT_STATE, null, 2)
       );
-
       return { ...DEFAULT_STATE };
     }
 
@@ -65,10 +61,6 @@ function loadState() {
   }
 }
 
-/* =========================================================
-   SAVE STATE
-========================================================= */
-
 function saveState(state) {
   try {
     fs.writeFileSync(
@@ -88,7 +80,7 @@ function saveState(state) {
 }
 
 /* =========================================================
-   GET CHAT ID
+   HELPERS
 ========================================================= */
 
 function getChatId(message) {
@@ -100,10 +92,6 @@ function getChatId(message) {
   );
 }
 
-/* =========================================================
-   GET QUOTED MESSAGE
-========================================================= */
-
 function getQuotedMessage(message) {
   return (
     message?.quoted ||
@@ -113,10 +101,6 @@ function getQuotedMessage(message) {
     null
   );
 }
-
-/* =========================================================
-   GET MESSAGE CONTENT
-========================================================= */
 
 function getMessageContent(message) {
   if (!message) return null;
@@ -129,15 +113,45 @@ function getMessageContent(message) {
 }
 
 /* =========================================================
-   DETECT MEDIA
+   UNWRAP MESSAGE
+========================================================= */
+
+function unwrapMessage(message) {
+  let msg = message;
+
+  if (!msg) return null;
+
+  if (msg.ephemeralMessage?.message) {
+    msg = msg.ephemeralMessage.message;
+  }
+
+  if (msg.viewOnceMessage?.message) {
+    msg = msg.viewOnceMessage.message;
+  }
+
+  if (msg.viewOnceMessageV2?.message) {
+    msg = msg.viewOnceMessageV2.message;
+  }
+
+  if (msg.viewOnceMessageV2Extension?.message) {
+    msg = msg.viewOnceMessageV2Extension.message;
+  }
+
+  return msg;
+}
+
+/* =========================================================
+   MEDIA DETECTION
 ========================================================= */
 
 function detectMedia(message) {
-  const msg = getMessageContent(message);
+  let msg = getMessageContent(message);
 
-  if (!msg) {
-    return null;
-  }
+  if (!msg) return null;
+
+  msg = unwrapMessage(msg);
+
+  if (!msg) return null;
 
   if (msg.imageMessage) {
     return {
@@ -254,8 +268,15 @@ async function saveMedia(media) {
 }
 
 /* =========================================================
-   GET BOT NUMBER
+   BOT NUMBER
 ========================================================= */
+
+function normalizeJid(jid) {
+  return String(jid || "")
+    .split(":")[0]
+    .split("@")[0]
+    .replace(/\D/g, "");
+}
 
 function getBotNumber(sock) {
   try {
@@ -264,13 +285,34 @@ function getBotNumber(sock) {
       sock?.user?.jid ||
       "";
 
-    return String(jid)
-      .split(":")[0]
-      .split("@")[0]
-      .replace(/\D/g, "");
+    return normalizeJid(jid);
   } catch {
     return "";
   }
+}
+
+/* =========================================================
+   CONTEXT INFO
+========================================================= */
+
+function getMessageContextInfo(message) {
+  let msg = getMessageContent(message);
+
+  if (!msg) return null;
+
+  msg = unwrapMessage(msg);
+
+  if (!msg) return null;
+
+  return (
+    msg.extendedTextMessage?.contextInfo ||
+    msg.imageMessage?.contextInfo ||
+    msg.videoMessage?.contextInfo ||
+    msg.stickerMessage?.contextInfo ||
+    msg.audioMessage?.contextInfo ||
+    msg.documentMessage?.contextInfo ||
+    null
+  );
 }
 
 /* =========================================================
@@ -284,17 +326,36 @@ function isBotMentioned(sock, message) {
     return false;
   }
 
-  const msg = getMessageContent(message);
+  const contextInfo =
+    getMessageContextInfo(message);
 
-  if (!msg) {
-    return false;
+  /* REAL WHATSAPP MENTION */
+  const mentionedJid =
+    contextInfo?.mentionedJid || [];
+
+  if (Array.isArray(mentionedJid)) {
+    const found = mentionedJid.some((jid) => {
+      return normalizeJid(jid) === botNumber;
+    });
+
+    if (found) {
+      return true;
+    }
   }
 
+  /* TEXT FALLBACK */
+
+  let msg = getMessageContent(message);
+
+  if (!msg) return false;
+
+  msg = unwrapMessage(msg);
+
   const text =
-    msg.conversation ||
-    msg.extendedTextMessage?.text ||
-    msg.imageMessage?.caption ||
-    msg.videoMessage?.caption ||
+    msg?.conversation ||
+    msg?.extendedTextMessage?.text ||
+    msg?.imageMessage?.caption ||
+    msg?.videoMessage?.caption ||
     "";
 
   if (!text) {
@@ -307,7 +368,7 @@ function isBotMentioned(sock, message) {
   );
 
   const regex = new RegExp(
-    `@?${safeNumber}\\b`
+    `@${safeNumber}\\b`
   );
 
   return regex.test(text);
@@ -378,6 +439,7 @@ async function sendMentionReply(
         chatId,
         {
           image: buffer,
+          mimetype: "image/jpeg",
         },
         {
           quoted: message,
@@ -450,7 +512,7 @@ async function sendMentionReply(
 }
 
 /* =========================================================
-   SET MENTION MEDIA
+   SET MENTION
 ========================================================= */
 
 async function setMentionCommand(
@@ -459,11 +521,10 @@ async function setMentionCommand(
 ) {
   const chatId = getChatId(message);
 
-  if (!chatId) {
-    return;
-  }
+  if (!chatId) return;
 
-  const quoted = getQuotedMessage(message);
+  const quoted =
+    getQuotedMessage(message);
 
   if (!quoted) {
     return sock.sendMessage(
@@ -518,8 +579,9 @@ async function setMentionCommand(
         {
           text:
             "✅ *Mention Reply Set!*\n\n" +
-            "📝 Type: Text\n" +
-            "⚡ Status: ON",
+            "📝 Type: *TEXT*\n" +
+            "⚡ Status: *ON*\n\n" +
+            "Now mention the bot.",
         },
         {
           quoted: message,
@@ -529,7 +591,8 @@ async function setMentionCommand(
 
     /* MEDIA */
 
-    const filePath = await saveMedia(media);
+    const filePath =
+      await saveMedia(media);
 
     const state = {
       enabled: true,
@@ -586,6 +649,7 @@ async function setMentionCommand(
 
 async function handleMentionDetection(
   sock,
+  chatId,
   message
 ) {
   try {
@@ -593,14 +657,25 @@ async function handleMentionDetection(
       return false;
     }
 
-    const chatId = getChatId(message);
+    if (!chatId) {
+      chatId = getChatId(message);
+    }
 
     if (!chatId) {
       return false;
     }
 
+    /* ONLY GROUP */
+
+    if (!chatId.endsWith("@g.us")) {
+      return false;
+    }
+
     const mentioned =
-      isBotMentioned(sock, message);
+      isBotMentioned(
+        sock,
+        message
+      );
 
     if (!mentioned) {
       return false;
@@ -632,9 +707,7 @@ async function handleMentionCommand(
 ) {
   const chatId = getChatId(message);
 
-  if (!chatId) {
-    return;
-  }
+  if (!chatId) return;
 
   const action = String(
     args?.[0] || ""
@@ -653,7 +726,7 @@ async function handleMentionCommand(
         {
           text:
             "❌ *No mention reply is set yet.*\n\n" +
-            "Reply to a photo/video/sticker and send *.mention* first.",
+            "Reply to a photo/video/sticker/audio/text and send *.mention* first.",
         },
         {
           quoted: message,
@@ -723,7 +796,7 @@ async function handleMentionCommand(
     );
   }
 
-  /* DEFAULT = SET */
+  /* SET */
 
   return setMentionCommand(
     sock,
@@ -765,6 +838,3 @@ module.exports = {
 
   handleMentionDetection,
 };
-EOF
-
-node --check plugins/mention.js
