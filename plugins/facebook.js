@@ -5,7 +5,6 @@ module.exports = {
   alias: ["fb", "fbdl"],
   category: "download",
   description: "Download Facebook video",
-  usage: ".facebook <Facebook URL>",
 
   async execute({ bot, message, args }) {
     try {
@@ -13,42 +12,36 @@ module.exports = {
 
       if (!url) {
         return await message.reply(
-          "❌ *Facebook video URL দাও!*\n\nExample:\n.facebook https://www.facebook.com/..."
-        );
-      }
-
-      const apiKey = process.env.SAVENOW_API_KEY;
-
-      if (!apiKey) {
-        return await message.reply(
-          "❌ *SaveNow API key সেট করা নেই!*"
+          "❌ *Facebook video URL দাও!*\n\n" +
+          "Example:\n" +
+          ".facebook https://www.facebook.com/..."
         );
       }
 
       await message.reply("⏳ *Facebook Video Downloading...*");
 
       const apiUrl =
-        `https://p.savenow.to/api/v2/download` +
-        `?format=mp4` +
-        `&url=${encodeURIComponent(url)}` +
-        `&apikey=${encodeURIComponent(apiKey)}`;
+        `https://rabbitapi.zone.id/api/dwnall?url=${encodeURIComponent(url)}`;
 
-      const response = await axios.get(apiUrl);
-      const data = response.data;
+      const { data } = await axios.get(apiUrl, {
+        timeout: 60000
+      });
 
-      console.log("SaveNow Facebook Response:", data);
-
-      const downloadUrl =
-        data?.downloadUrl ||
-        data?.download_url ||
-        data?.url ||
-        data?.result?.downloadUrl ||
-        data?.result?.download_url ||
-        data?.result?.url;
-
-      if (!downloadUrl) {
+      if (!data?.success || !data?.result) {
         return await message.reply(
-          "❌ *Facebook video download link পাওয়া যায়নি.*"
+          `❌ *Facebook video download failed.*\n\n` +
+          `${data?.message || "Video পাওয়া যায়নি।"}`
+        );
+      }
+
+      const { title, thumbnail, ss, hd } = data.result;
+
+      // Prefer HD, fallback to SD
+      const videoUrl = hd || ss;
+
+      if (!videoUrl) {
+        return await message.reply(
+          "❌ *Video download link পাওয়া যায়নি.*"
         );
       }
 
@@ -56,14 +49,16 @@ module.exports = {
         message.key.remoteJid,
         {
           video: {
-            url: downloadUrl
+            url: videoUrl
           },
           mimetype: "video/mp4",
           caption:
             "╭─〔 *𝐏ᴜᴛᴛᴜs-Bᴏᴛ* 〕─╮\n" +
             "│ 📥 *Facebook Video*\n" +
             "│\n" +
-            "│ ⚡ Downloaded Successfully\n" +
+            `│ 🎬 ${title || "Facebook Video"}\n` +
+            "│\n" +
+            "│ ⚡ *Downloaded Successfully*\n" +
             "╰──────────────────╯\n\n" +
             "*Powered by ⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜*"
         },
@@ -75,11 +70,12 @@ module.exports = {
     } catch (error) {
       console.error(
         "FACEBOOK ERROR:",
-        error?.response?.data || error
+        error?.response?.data || error.message || error
       );
 
       await message.reply(
-        "❌ *Failed to download Facebook video.*\n\nPlease try again later."
+        "❌ *Failed to download Facebook video.*\n\n" +
+        "Please try again later."
       );
     }
   }
