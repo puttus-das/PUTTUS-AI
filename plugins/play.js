@@ -6,7 +6,7 @@ const SEARCH_API =
   "https://rabbitapi.zone.id/search/youtube";
 
 const PLAY_API =
-  "https://rabbitapi.zone.id/api/play";
+  "https://api.sayan-nexuswork.workers.dev/music?query=$";
 
 
 /* =========================================================
