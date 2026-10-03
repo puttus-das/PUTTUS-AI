@@ -14,8 +14,7 @@ const PLAY_API =
 ========================================================= */
 
 function getPuttusVCardQuote() {
-  const botJid =
-    "919641092392@s.whatsapp.net";
+  const botJid = "919641092392@s.whatsapp.net";
 
   const vcard =
     "BEGIN:VCARD\n" +
@@ -28,24 +27,16 @@ function getPuttusVCardQuote() {
 
   return {
     key: {
-      remoteJid:
-        "status@broadcast",
-
-      fromMe:
-        false,
-
-      id:
-        "PUTTUS-" + Date.now(),
-
-      participant:
-        botJid,
+      remoteJid: "status@broadcast",
+      fromMe: false,
+      id: "PUTTUS-" + Date.now(),
+      participant: botJid,
     },
 
     message: {
       contactMessage: {
         displayName:
           "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
-
         vcard,
       },
     },
@@ -54,20 +45,40 @@ function getPuttusVCardQuote() {
 
 
 /* =========================================================
+   CHANNEL INFO
+========================================================= */
+
+const channelInfo = {
+  contextInfo: {
+    forwardingScore: 1,
+
+    isForwarded: true,
+
+    forwardedNewsletterMessageInfo: {
+      newsletterJid:
+        "120363411471428911@newsletter",
+
+      newsletterName:
+        "━━━━━━━━〔 𝐏ᴜᴛᴛᴜs - 𝐃ᴀꜱ 〕━━━━━━━━",
+
+      serverMessageId: -1,
+    },
+  },
+};
+
+
+/* =========================================================
    PLAY COMMAND
 ========================================================= */
 
 module.exports = {
-
-  command:
-    "play",
+  command: "play",
 
   aliases: [
     "ytplay"
   ],
 
-  category:
-    "download",
+  category: "download",
 
   description:
     "Play YouTube audio",
@@ -87,19 +98,18 @@ module.exports = {
       context?.chatId ||
       message?.key?.remoteJid;
 
-    if (!chatId)
-      return;
+    if (!chatId) return;
 
 
     try {
 
-      /* =====================================================
-         QUERY
-      ===================================================== */
-
       const query =
         args.join(" ").trim();
 
+
+      /* =====================================================
+         QUERY CHECK
+      ===================================================== */
 
       if (!query) {
 
@@ -109,7 +119,9 @@ module.exports = {
             text:
               `❌ *Song name dao!*\n\n` +
               `Example:\n` +
-              `.play Alan Walker Faded`
+              `.play Alan Walker Faded`,
+
+            ...channelInfo,
           },
           {
             quoted:
@@ -120,39 +132,31 @@ module.exports = {
 
 
       /* =====================================================
-         START REACTION
+         REACTION
       ===================================================== */
 
       await sock.sendMessage(
         chatId,
         {
           react: {
-            text:
-              "▶️",
-
-            key:
-              message.key
+            text: "▶️",
+            key: message.key
           }
         }
       );
 
 
       /* =====================================================
-         YOUTUBE URL CHECK
+         YOUTUBE SEARCH
       ===================================================== */
 
-      let videoUrl =
-        query;
+      let videoUrl = query;
 
 
       const isYouTubeUrl =
         /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i
           .test(query);
 
-
-      /* =====================================================
-         YOUTUBE SEARCH
-      ===================================================== */
 
       if (!isYouTubeUrl) {
 
@@ -164,8 +168,7 @@ module.exports = {
           await fetch(
             searchUrl,
             {
-              method:
-                "GET",
+              method: "GET",
 
               headers: {
                 Accept:
@@ -190,16 +193,16 @@ module.exports = {
           await searchResponse.json();
 
 
-        if (
-          searchData?.status !== true
-        ) {
+        if (searchData?.status !== true) {
 
           return await sock.sendMessage(
             chatId,
             {
               text:
                 `❌ *YouTube search failed.*\n\n` +
-                `${searchData?.message || "No results found."}`
+                `${searchData?.message || "No results found."}`,
+
+              ...channelInfo,
             },
             {
               quoted:
@@ -210,9 +213,7 @@ module.exports = {
 
 
         const results =
-          Array.isArray(
-            searchData?.result
-          )
+          Array.isArray(searchData?.result)
             ? searchData.result
             : [];
 
@@ -223,7 +224,9 @@ module.exports = {
             chatId,
             {
               text:
-                "❌ *কোনো YouTube result পাওয়া যায়নি।*"
+                "❌ *কোনো YouTube result পাওয়া যায়নি।*",
+
+              ...channelInfo,
             },
             {
               quoted:
@@ -232,10 +235,6 @@ module.exports = {
           );
         }
 
-
-        /* =================================================
-           FIRST RESULT
-        ================================================= */
 
         videoUrl =
           results[0]?.url;
@@ -247,7 +246,9 @@ module.exports = {
             chatId,
             {
               text:
-                "❌ *YouTube result-এর URL পাওয়া যায়নি।*"
+                "❌ *YouTube result-এর URL পাওয়া যায়নি।*",
+
+              ...channelInfo,
             },
             {
               quoted:
@@ -270,8 +271,7 @@ module.exports = {
         await fetch(
           playUrl,
           {
-            method:
-              "GET",
+            method: "GET",
 
             headers: {
               Accept:
@@ -292,10 +292,6 @@ module.exports = {
       }
 
 
-      /* =====================================================
-         API RESPONSE
-      ===================================================== */
-
       const data =
         await playResponse.json();
 
@@ -310,7 +306,9 @@ module.exports = {
           {
             text:
               `❌ *Play failed.*\n\n` +
-              `${data?.message || "Rabbit API failed."}`
+              `${data?.message || "Rabbit API failed."}`,
+
+            ...channelInfo,
           },
           {
             quoted:
@@ -321,7 +319,7 @@ module.exports = {
 
 
       /* =====================================================
-         RESULT
+         GET RESULT
       ===================================================== */
 
       const result =
@@ -329,10 +327,6 @@ module.exports = {
         data?.data ||
         data;
 
-
-      /* =====================================================
-         AUDIO URL
-      ===================================================== */
 
       const audioUrl =
         result?.url ||
@@ -366,7 +360,9 @@ module.exports = {
           {
             text:
               `❌ *Audio পাওয়া যায়নি।*\n\n` +
-              `Rabbit Play API কোনো valid audio URL দেয়নি।`
+              `Rabbit Play API কোনো valid audio URL দেয়নি।`,
+
+            ...channelInfo,
           },
           {
             quoted:
@@ -386,166 +382,24 @@ module.exports = {
         query;
 
 
-      /* =====================================================
-         SAFE FILE NAME
-      ===================================================== */
-
       const safeTitle =
-        title
-          .replace(
-            /[\\/:*?"<>|]/g,
-            ""
-          )
-          .trim() ||
-        "PUTTUS-AI Song";
+        title.replace(
+          /[\\/:*?"<>|]/g,
+          ""
+        );
 
 
       /* =====================================================
-         THUMBNAIL
-      ===================================================== */
-
-      let thumbnailBuffer =
-        Buffer.alloc(0);
-
-
-      const thumbnail =
-        result?.thumbnail ||
-        result?.thumb ||
-        result?.image ||
-        data?.thumbnail ||
-        data?.thumb ||
-        data?.image;
-
-
-      if (thumbnail) {
-
-        try {
-
-          const thumbResponse =
-            await fetch(
-              thumbnail,
-              {
-                method:
-                  "GET",
-
-                headers: {
-                  "User-Agent":
-                    "PUTTUS-AI"
-                }
-              }
-            );
-
-
-          if (thumbResponse.ok) {
-
-            const arrayBuffer =
-              await thumbResponse.arrayBuffer();
-
-
-            thumbnailBuffer =
-              Buffer.from(
-                arrayBuffer
-              );
-          }
-
-        } catch (thumbnailError) {
-
-          console.error(
-            "PUTTUS-AI THUMBNAIL ERROR:",
-            thumbnailError.message
-          );
-        }
-      }
-
-
-      /* =====================================================
-         MUSIC CAPTION
-      ===================================================== */
-
-      const caption =
-        `╭─〔 *𝐏ᴜᴛᴛᴜs-Bᴏᴛ* 〕─╮\n` +
-        `│ 🎵 *${title}*\n` +
-        `│\n` +
-        `│ ▶️ *PLAYING MUSIC*\n` +
-        `│ 🎧 Use headphones for best experience\n` +
-        `╰────────────────────╯`;
-
-
-      /* =====================================================
-         CHANNEL + LARGE THUMBNAIL
-      ===================================================== */
-
-      const contextInfo = {
-
-        isForwarded:
-          true,
-
-        forwardingScore:
-          999,
-
-
-        /* ================================================
-           CHANNEL
-        ================================================= */
-
-        forwardedNewsletterMessageInfo: {
-
-          newsletterJid:
-            "120363411471428911@newsletter",
-
-          newsletterName:
-            "Pᴜᴛᴛᴜs-Bᴏᴛ",
-
-          serverMessageId:
-            -1,
-        },
-
-
-        /* ================================================
-           LARGE MUSIC PREVIEW
-        ================================================= */
-
-        externalAdReply: {
-
-          title:
-            title,
-
-          body:
-            "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
-
-          mediaType:
-            1,
-
-          renderLargerThumbnail:
-            true,
-
-          showAdAttribution:
-            false,
-
-          thumbnail:
-            thumbnailBuffer,
-
-          sourceUrl:
-            videoUrl,
-        },
-      };
-
-
-      /* =====================================================
-         SEND MP3
-         
-         LARGE PREVIEW
-         + VCARD QUOTE
+         SEND AUDIO
+         + PUTTUS VCARD QUOTE
          + CHANNEL
       ===================================================== */
 
       await sock.sendMessage(
         chatId,
         {
-
           audio: {
-            url:
-              audioUrl
+            url: audioUrl
           },
 
           mimetype:
@@ -557,11 +411,7 @@ module.exports = {
           ptt:
             false,
 
-          caption:
-            caption,
-
-          contextInfo:
-            contextInfo,
+          ...channelInfo,
         },
         {
           quoted:
@@ -571,27 +421,19 @@ module.exports = {
 
 
       /* =====================================================
-         SUCCESS REACTION
+         SUCCESS
       ===================================================== */
 
       await sock.sendMessage(
         chatId,
         {
           react: {
-
-            text:
-              "✅",
-
-            key:
-              message.key
+            text: "✅",
+            key: message.key
           }
         }
       );
 
-
-      /* =====================================================
-         LOG
-      ===================================================== */
 
       console.log(
         `PUTTUS-AI PLAY SENT: ${title}`
@@ -600,26 +442,20 @@ module.exports = {
 
     } catch (error) {
 
-      /* =====================================================
-         ERROR LOG
-      ===================================================== */
-
       console.error(
         "PUTTUS-AI PLAY ERROR:",
         error
       );
 
 
-      /* =====================================================
-         ERROR MESSAGE
-      ===================================================== */
-
       await sock.sendMessage(
         chatId,
         {
           text:
             `❌ *Play failed.*\n\n` +
-            `আবার একটু পরে try করো।`
+            `আবার একটু পরে try করো।`,
+
+          ...channelInfo,
         },
         {
           quoted:
