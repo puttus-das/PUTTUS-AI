@@ -1,12 +1,42 @@
 /*****************************************************************************
- *                     Developed By Puttus Das                              *
- *                                                                           *
- *    Description: PUTTUS-AI YouTube Search Plugin                          *
+ *                     PUTTUS-AI YouTube Search                              *
  *****************************************************************************/
 
 const settings = require("../settings");
 
-const YT_SEARCH_API = "https://rabbitapi.zone.id/search/youtube";
+const YT_SEARCH_API =
+  "https://rabbitapi.zone.id/search/youtube";
+
+const BOT_VCARD = `
+BEGIN:VCARD
+VERSION:3.0
+N:PUTTUS;BOT;;;
+FN:🌸•𝐏ᴜᴛᴛᴜꜱ•⌲
+ORG:PUTTUS BOT
+TEL;TYPE=CELL;TYPE=VOICE;waid=919641092392:+919641092392
+END:VCARD
+`;
+
+async function sendVCard(sock, chatId, quoted) {
+  try {
+    await sock.sendMessage(
+      chatId,
+      {
+        contacts: {
+          displayName: "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
+          contacts: [
+            {
+              vcard: BOT_VCARD
+            }
+          ]
+        }
+      },
+      { quoted }
+    );
+  } catch (error) {
+    console.error("YTSEARCH VCARD ERROR:", error);
+  }
+}
 
 module.exports = {
   command: "ytsearch",
@@ -23,11 +53,9 @@ module.exports = {
     if (!chatId) return;
 
     const query = args.join(" ").trim();
-    const prefix =
-      settings?.prefixes?.[0] ||
-      ".";
 
-    // ───────────── CHECK QUERY ─────────────
+    const prefix =
+      settings?.prefixes?.[0] || ".";
 
     if (!query) {
       return await sock.sendMessage(
@@ -43,8 +71,6 @@ module.exports = {
     }
 
     try {
-      // ───────────── REACTION ─────────────
-
       await sock.sendMessage(chatId, {
         react: {
           text: "🔍",
@@ -52,13 +78,10 @@ module.exports = {
         }
       });
 
-      // ───────────── RABBIT SEARCH API ─────────────
-
       const apiUrl =
         `${YT_SEARCH_API}?q=${encodeURIComponent(query)}&limit=15`;
 
       const response = await fetch(apiUrl, {
-        method: "GET",
         headers: {
           Accept: "application/json",
           "User-Agent": "PUTTUS-AI"
@@ -72,14 +95,6 @@ module.exports = {
       }
 
       const data = await response.json();
-
-      // Rabbit API:
-      // {
-      //   status: true,
-      //   query: "...",
-      //   total: 15,
-      //   result: [...]
-      // }
 
       if (data?.status !== true) {
         return await sock.sendMessage(
@@ -107,18 +122,14 @@ module.exports = {
         );
       }
 
-      // ───────────── BUILD RESULT ─────────────
-
       let searchText =
         `╭─〔 *𝐏ᴜᴛᴛᴜs-Bᴏᴛ* 〕─╮\n` +
         `│ 🔎 *YOUTUBE SEARCH*\n` +
         `│\n`;
 
       videos.forEach((video, index) => {
-        const number = index + 1;
-
         searchText +=
-          `│ *${number}.* ${video?.title || "Unknown"}\n` +
+          `│ *${index + 1}.* ${video?.title || "Unknown"}\n` +
           `│ ⏱️ ${video?.duration || "Unknown"}\n` +
           `│ 👀 ${video?.views || "Unknown"}\n` +
           `│ 👤 ${video?.author?.name || "Unknown"}\n` +
@@ -130,8 +141,6 @@ module.exports = {
         `╰──────────────────╯\n` +
         `📌 *Results:* ${videos.length}\n` +
         `🔎 *Query:* ${query}`;
-
-      // ───────────── SEND IMAGE + RESULTS ─────────────
 
       const thumbnail = videos[0]?.thumbnail;
 
@@ -156,7 +165,7 @@ module.exports = {
         );
       }
 
-      // ───────────── SUCCESS REACTION ─────────────
+      await sendVCard(sock, chatId, message);
 
       await sock.sendMessage(chatId, {
         react: {
