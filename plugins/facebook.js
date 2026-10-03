@@ -4,11 +4,12 @@ const API =
   "https://rabbitapi.zone.id/api/fb";
 
 /* =========================================================
-   PUTTUS VCard — QUOTED ONLY
+   PUTTUS VCARD — QUOTED ONLY
    ========================================================= */
 
 function getPuttusVCardQuote() {
-  const botJid = "919641092392@s.whatsapp.net";
+  const botJid =
+    "919641092392@s.whatsapp.net";
 
   const vcard =
     "BEGIN:VCARD\n" +
@@ -88,13 +89,16 @@ module.exports = {
             `*𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*`,
         },
         {
-          quoted: getPuttusVCardQuote(),
+          quoted:
+            getPuttusVCardQuote(),
         }
       );
     }
 
     if (
-      !/facebook\.com|fb\.watch/i.test(url)
+      !/facebook\.com|fb\.watch/i.test(
+        url
+      )
     ) {
       return await sock.sendMessage(
         chatId,
@@ -104,7 +108,8 @@ module.exports = {
             `*𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*`,
         },
         {
-          quoted: getPuttusVCardQuote(),
+          quoted:
+            getPuttusVCardQuote(),
         }
       );
     }
@@ -129,7 +134,9 @@ module.exports = {
          =================================================== */
 
       const apiUrl =
-        `${API}?url=${encodeURIComponent(url)}`;
+        `${API}?url=${encodeURIComponent(
+          url
+        )}`;
 
       const response =
         await fetch(apiUrl, {
@@ -159,16 +166,15 @@ module.exports = {
       );
 
       /* ===================================================
-         RESPONSE URL
+         FACEBOOK API RESPONSE
+
+         HD preferred
+         SD fallback
          =================================================== */
 
       const videoUrl =
-        data?.url ||
-        data?.result?.url ||
-        data?.data?.url ||
-        data?.result?.video ||
-        data?.data?.video ||
-        data?.video;
+        data?.hd ||
+        data?.sd;
 
       if (
         data?.status !== true ||
@@ -182,7 +188,7 @@ module.exports = {
       }
 
       /* ===================================================
-         SEND VIDEO + VCARD AS QUOTED
+         SEND VIDEO + QUOTED VCARD
          =================================================== */
 
       await sock.sendMessage(
@@ -202,7 +208,8 @@ module.exports = {
             `*ᴘᴏᴡᴇʀᴇᴅ ʙʏ ⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜*`,
         },
         {
-          quoted: getPuttusVCardQuote(),
+          quoted:
+            getPuttusVCardQuote(),
         }
       );
 
@@ -235,7 +242,8 @@ module.exports = {
               `*𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*`,
           },
           {
-            quoted: getPuttusVCardQuote(),
+            quoted:
+              getPuttusVCardQuote(),
           }
         );
       } catch (_) {}
