@@ -3,12 +3,59 @@ const settings = require("../settings");
 const API =
   "https://rabbitapi.zone.id/api/insta";
 
+/* =========================================================
+   PUTTUS VCard — QUOTED ONLY
+   ========================================================= */
+
+function getPuttusVCardQuote() {
+  const botJid = "919641092392@s.whatsapp.net";
+
+  const vcard =
+    "BEGIN:VCARD\n" +
+    "VERSION:3.0\n" +
+    "N:PUTTUS;BOT;;;\n" +
+    "FN:🌸•𝐏ᴜᴛᴛᴜꜱ•⌲\n" +
+    "ORG:PUTTUS BOT\n" +
+    "TEL;TYPE=CELL;TYPE=VOICE;waid=919641092392:+919641092392\n" +
+    "END:VCARD";
+
+  return {
+    key: {
+      remoteJid: "status@broadcast",
+      fromMe: false,
+      id: "PUTTUS-" + Date.now(),
+      participant: botJid,
+    },
+
+    message: {
+      contactMessage: {
+        displayName:
+          "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
+        vcard,
+      },
+    },
+  };
+}
+
+/* =========================================================
+   INSTAGRAM DOWNLOADER
+   ========================================================= */
+
 module.exports = {
   command: "ig",
-  aliases: ["instagram", "insta"],
+
+  aliases: [
+    "instagram",
+    "insta",
+  ],
+
   category: "downloader",
-  description: "Download Instagram video",
-  usage: ".ig <Instagram video/reel URL>",
+
+  description:
+    "Download Instagram video",
+
+  usage:
+    ".ig <Instagram video/reel URL>",
 
   async handler(
     sock,
@@ -22,22 +69,27 @@ module.exports = {
 
     if (!chatId) return;
 
-    const url = args.join(" ").trim();
+    const url =
+      args.join(" ").trim();
 
     const prefix =
       settings?.prefixes?.[0] || ".";
+
+    /* =====================================================
+       URL CHECK
+       ===================================================== */
 
     if (!url) {
       return await sock.sendMessage(
         chatId,
         {
           text:
-            `❌ *Instagram URL dao!*\n\n` +
-            `Example:\n` +
-            `*${prefix}ig https://www.instagram.com/reel/...*`,
+            `*❌ ɪɴsᴛᴀɢʀᴀᴍ ᴜʀʟ ᴅᴀᴏ!*\n\n` +
+            `*ᴇxᴀᴍᴘʟᴇ: ${prefix}ɪɢ https://www.instagram.com/reel/...*\n\n` +
+            `*𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*`,
         },
         {
-          quoted: message,
+          quoted: getPuttusVCardQuote(),
         }
       );
     }
@@ -49,16 +101,20 @@ module.exports = {
         chatId,
         {
           text:
-            `❌ *Invalid Instagram URL!*\n\n` +
-            `Instagram video/reel link dao.`,
+            `*❌ ɪɴᴠᴀʟɪᴅ ɪɴsᴛᴀɢʀᴀᴍ ᴜʀʟ!*\n\n` +
+            `*𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*`,
         },
         {
-          quoted: message,
+          quoted: getPuttusVCardQuote(),
         }
       );
     }
 
     try {
+      /* ===================================================
+         REACTION
+         =================================================== */
+
       await sock.sendMessage(
         chatId,
         {
@@ -69,15 +125,23 @@ module.exports = {
         }
       );
 
+      /* ===================================================
+         API REQUEST
+         =================================================== */
+
       const apiUrl =
         `${API}?url=${encodeURIComponent(url)}`;
 
       const response =
         await fetch(apiUrl, {
           method: "GET",
+
           headers: {
-            Accept: "application/json",
-            "User-Agent": "PUTTUS-AI",
+            Accept:
+              "application/json",
+
+            "User-Agent":
+              "PUTTUS-AI",
           },
         });
 
@@ -90,6 +154,15 @@ module.exports = {
       const data =
         await response.json();
 
+      console.log(
+        "PUTTUS-AI IG API:",
+        data
+      );
+
+      /* ===================================================
+         API RESPONSE
+         =================================================== */
+
       if (
         data?.status !== true ||
         !data?.url
@@ -97,9 +170,13 @@ module.exports = {
         throw new Error(
           data?.message ||
           data?.response?.message ||
-          "Instagram video URL পাওয়া যায়নি"
+          "Instagram video URL not found"
         );
       }
+
+      /* ===================================================
+         SEND VIDEO + VCARD AS QUOTED
+         =================================================== */
 
       await sock.sendMessage(
         chatId,
@@ -112,14 +189,19 @@ module.exports = {
             "video/mp4",
 
           caption:
-            `╭─〔 *𝐏ᴜᴛᴛᴜs-Bᴏᴛ* 〕─╮\n` +
-            `│ 📥 *Instagram Video*\n` +
+            `│ 📥 *ɪɴsᴛᴀɢʀᴀᴍ ᴠɪᴅᴇᴏ*\n` +
             `│\n` +
-            `│ ⚡ Downloaded Successfully\n` +
-            `╰──────────────────╯\n\n` +
-            `*Powered by ⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜*`,
+            `│ ⚡ *ᴅᴏᴡɴʟᴏᴀᴅᴇᴅ sᴜᴄᴄᴇssғᴜʟʟʏ*\n\n` +
+            `*ᴘᴏᴡᴇʀᴇᴅ ʙʏ ⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜*`,
+        },
+        {
+          quoted: getPuttusVCardQuote(),
         }
       );
+
+      /* ===================================================
+         SUCCESS REACTION
+         =================================================== */
 
       await sock.sendMessage(
         chatId,
@@ -142,12 +224,11 @@ module.exports = {
           chatId,
           {
             text:
-              `❌ *Instagram Download Failed!*\n\n` +
-              `ভিডিওটি পাওয়া যায়নি অথবা API সমস্যা করছে।\n\n` +
-              `আবার চেষ্টা করো।`,
+              `*❌ ɪɴsᴛᴀɢʀᴀᴍ ᴅᴏᴡɴʟᴏᴀᴅ ғᴀɪʟᴇᴅ!*\n\n` +
+              `*𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*`,
           },
           {
-            quoted: message,
+            quoted: getPuttusVCardQuote(),
           }
         );
       } catch (_) {}
