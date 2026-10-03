@@ -1,126 +1,630 @@
 const fs = require("fs");
 const path = require("path");
-const { downloadContentFromMessage } = require("@whiskeysockets/baileys");
+const {
+  downloadContentFromMessage,
+} = require("@whiskeysockets/baileys");
+
 const store = require("../lib/lightweight_store");
+
+/* =========================================================
+   DATABASE
+========================================================= */
 
 const MONGO_URL = process.env.MONGO_URL;
 const POSTGRES_URL = process.env.POSTGRES_URL;
 const MYSQL_URL = process.env.MYSQL_URL;
 const SQLITE_URL = process.env.DB_URL;
-const HAS_DB = !!(MONGO_URL || POSTGRES_URL || MYSQL_URL || SQLITE_URL);
 
-const mentionFilePath = path.join(__dirname, "..", "data", "mention.json");
+const HAS_DB = !!(
+  MONGO_URL ||
+  POSTGRES_URL ||
+  MYSQL_URL ||
+  SQLITE_URL
+);
+
+/* =========================================================
+   FILES
+========================================================= */
+
+const mentionFilePath = path.join(
+  __dirname,
+  "..",
+  "data",
+  "mention.json",
+);
+
+/* =========================================================
+   DEFAULT STATE
+========================================================= */
+
+function defaultState() {
+  return {
+    enabled: false,
+    assetPath: "",
+    type: "text",
+    mimetype: "",
+    ptt: false,
+    gifPlayback: false,
+  };
+}
+
+/* =========================================================
+   LOAD STATE
+========================================================= */
 
 async function loadState() {
   try {
     if (HAS_DB) {
-      const state = await store.getSetting("global", "mention");
-      if (
-        state &&
-        typeof state.assetPath === "string" &&
-        state.assetPath.endsWith("assets/mention_default.webp")
-      ) {
-        return { enabled: !!state.enabled, assetPath: "", type: "text" };
+      const state = await store.getSetting(
+        "global",
+        "mention",
+      );
+
+      if (!state || typeof state !== "object") {
+        return defaultState();
       }
-      return state || { enabled: false, assetPath: "", type: "text" };
-    } else {
-      const raw = fs.readFileSync(mentionFilePath, "utf8");
-      const state = JSON.parse(raw);
-      if (
-        state &&
-        typeof state.assetPath === "string" &&
-        state.assetPath.endsWith("assets/mention_default.webp")
-      ) {
-        return { enabled: !!state.enabled, assetPath: "", type: "text" };
-      }
-      return state;
+
+      return {
+        ...defaultState(),
+        ...state,
+      };
     }
-  } catch {
-    return { enabled: false, assetPath: "", type: "text" };
+
+    if (!fs.existsSync(mentionFilePath)) {
+      return defaultState();
+    }
+
+    const raw = fs.readFileSync(
+      mentionFilePath,
+      "utf8",
+    );
+
+    const state = JSON.parse(raw);
+
+    if (!state || typeof state !== "object") {
+      return defaultState();
+    }
+
+    return {
+      ...defaultState(),
+      ...state,
+    };
+  } catch (e) {
+    console.error("loadState error:", e?.message || e);
+    return defaultState();
   }
 }
+
+/* =========================================================
+   SAVE STATE
+========================================================= */
 
 async function saveState(state) {
   if (HAS_DB) {
-    await store.saveSetting("global", "mention", state);
-  } else {
-    const dataDir = path.join(__dirname, "..", "data");
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
-    }
-    fs.writeFileSync(mentionFilePath, JSON.stringify(state, null, 2));
+    await store.saveSetting(
+      "global",
+      "mention",
+      state,
+    );
+    return;
   }
+
+  const dataDir = path.join(
+    __dirname,
+    "..",
+    "data",
+  );
+
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, {
+      recursive: true,
+    });
+  }
+
+  fs.writeFileSync(
+    mentionFilePath,
+    JSON.stringify(state, null, 2),
+  );
 }
 
-async function ensureDefaultSticker(state) {
+/* =========================================================
+   GET QUOTED MESSAGE
+========================================================= */
+
+function getQuotedMessage(message) {
+  const ctx =
+    message?.message?.extendedTextMessage?.contextInfo ||
+    message?.message?.imageMessage?.contextInfo ||
+    message?.message?.videoMessage?.contextInfo ||
+    message?.message?.documentMessage?.contextInfo ||
+    message?.message?.stickerMessage?.contextInfo;
+
+  if (!ctx?.quotedMessage) {
+    return null;
+  }
+
+  return ctx.quotedMessage;
+}
+
+/* =========================================================
+   DETECT MEDIA TYPE
+========================================================= */
+
+function detectMedia(qMsg) {
+  if (!qMsg) return null;
+
+  if (qMsg.imageMessage) {
+    return {
+      type: "image",
+      dataType: "imageMessage",
+      media: qMsg.imageMessage,
+    };
+  }
+
+  if (qMsg.videoMessage) {
+    return {
+      type: "video",
+      dataType: "videoMessage",
+      media: qMsg.videoMessage,
+    };
+  }
+
+  if (qMsg.stickerMessage) {
+    return {
+      type: "sticker",
+      dataType: "stickerMessage",
+      media: qMsg.stickerMessage,
+    };
+  }
+
+  if (qMsg.audioMessage) {
+    return {
+      type: "audio",
+      dataType: "audioMessage",
+      media: qMsg.audioMessage,
+    };
+  }
+
+  if (qMsg.conversation) {
+    return {
+      type: "text",
+      dataType: null,
+      media: null,
+    };
+  }
+
+  if (qMsg.extendedTextMessage?.text) {
+    return {
+      type: "text",
+      dataType: null,
+      media: null,
+    };
+  }
+
+  return null;
+}
+
+/* =========================================================
+   DOWNLOAD QUOTED MEDIA
+========================================================= */
+
+async function downloadQuotedMedia(info) {
+  if (!info) {
+    throw new Error("No quoted media");
+  }
+
+  if (info.type === "text") {
+    const text =
+      info.media?.conversation ||
+      "";
+
+    return Buffer.from(text, "utf8");
+  }
+
+  const stream = await downloadContentFromMessage(
+    info.media,
+    info.type,
+  );
+
+  const chunks = [];
+
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+
+  return Buffer.concat(chunks);
+}
+
+/* =========================================================
+   SAVE MENTION MEDIA
+========================================================= */
+
+async function setMentionCommand(
+  sock,
+  chatId,
+  message,
+) {
+  const qMsg = getQuotedMessage(message);
+
+  if (!qMsg) {
+    return sock.sendMessage(
+      chatId,
+      {
+        text:
+          "❌ *Reply to a photo, video or sticker*\n\n" +
+          "Example:\n" +
+          "1. Reply to a photo\n" +
+          "2. Send `.mention`",
+      },
+      { quoted: message },
+    );
+  }
+
+  const info = detectMedia(qMsg);
+
+  if (!info) {
+    return sock.sendMessage(
+      chatId,
+      {
+        text:
+          "❌ *Unsupported media*\n\n" +
+          "Supported:\n" +
+          "🖼️ Photo\n" +
+          "🎥 Video\n" +
+          "🎨 Sticker\n" +
+          "🎵 Audio\n" +
+          "📝 Text",
+      },
+      { quoted: message },
+    );
+  }
+
+  let buffer;
+
   try {
-    const assetPath = path.join(__dirname, "..", state.assetPath);
+    buffer = await downloadQuotedMedia(info);
+  } catch (e) {
+    console.error(
+      "Mention media download error:",
+      e,
+    );
+
+    return sock.sendMessage(
+      chatId,
+      {
+        text:
+          "❌ *Failed to download the replied media.*",
+      },
+      { quoted: message },
+    );
+  }
+
+  if (!buffer || !buffer.length) {
+    return sock.sendMessage(
+      chatId,
+      {
+        text: "❌ *Media is empty.*",
+      },
+      { quoted: message },
+    );
+  }
+
+  /*
+   * Keep a reasonable limit for Termux/RAM.
+   * You can increase this later if needed.
+   */
+  const MAX_SIZE = 25 * 1024 * 1024;
+
+  if (buffer.length > MAX_SIZE) {
+    return sock.sendMessage(
+      chatId,
+      {
+        text:
+          "❌ *File too large.*\n\n" +
+          "Maximum size: 25 MB",
+      },
+      { quoted: message },
+    );
+  }
+
+  /* =======================================================
+     FILE EXTENSION
+  ======================================================= */
+
+  let mimetype =
+    info.media?.mimetype || "";
+
+  let ext = "bin";
+
+  if (info.type === "image") {
+    if (mimetype.includes("png")) {
+      ext = "png";
+    } else if (mimetype.includes("webp")) {
+      ext = "webp";
+    } else {
+      ext = "jpg";
+    }
+  }
+
+  if (info.type === "video") {
+    ext = "mp4";
+
+    if (!mimetype) {
+      mimetype = "video/mp4";
+    }
+  }
+
+  if (info.type === "sticker") {
+    ext = "webp";
+
+    if (!mimetype) {
+      mimetype = "image/webp";
+    }
+  }
+
+  if (info.type === "audio") {
     if (
-      state.assetPath.endsWith("mention_default.webp") &&
-      !fs.existsSync(assetPath)
+      mimetype.includes("ogg") ||
+      mimetype.includes("opus")
     ) {
-      const defaultStickerPath = path.join(
-        __dirname,
-        "..",
-        "assets",
-        "stickintro.webp",
-      );
-      if (fs.existsSync(defaultStickerPath)) {
-        fs.copyFileSync(defaultStickerPath, assetPath);
-      } else {
-        const assetsDir = path.dirname(assetPath);
-        if (!fs.existsSync(assetsDir)) {
-          fs.mkdirSync(assetsDir, { recursive: true });
-        }
-        fs.writeFileSync(
-          assetPath.replace(".webp", ".txt"),
-          "Default mention sticker not available",
-        );
+      ext = "ogg";
+      mimetype = "audio/ogg; codecs=opus";
+    } else if (
+      mimetype.includes("mpeg") ||
+      mimetype.includes("mp3")
+    ) {
+      ext = "mp3";
+      mimetype = "audio/mpeg";
+    } else {
+      ext = "mp3";
+      mimetype = "audio/mpeg";
+    }
+  }
+
+  if (info.type === "text") {
+    ext = "txt";
+    mimetype = "text/plain";
+  }
+
+  /* =======================================================
+     CLEAN OLD MENTION FILE
+  ======================================================= */
+
+  const assetsDir = path.join(
+    __dirname,
+    "..",
+    "assets",
+  );
+
+  if (!fs.existsSync(assetsDir)) {
+    fs.mkdirSync(assetsDir, {
+      recursive: true,
+    });
+  }
+
+  try {
+    const files = fs.readdirSync(assetsDir);
+
+    for (const file of files) {
+      if (file.startsWith("mention_custom.")) {
+        try {
+          fs.unlinkSync(
+            path.join(assetsDir, file),
+          );
+        } catch {}
       }
     }
   } catch (e) {
-    console.warn("ensureDefaultSticker failed:", e?.message || e);
+    console.warn(
+      "Mention cleanup error:",
+      e?.message || e,
+    );
   }
+
+  /* =======================================================
+     SAVE NEW FILE
+  ======================================================= */
+
+  const fileName =
+    `mention_custom.${ext}`;
+
+  const filePath = path.join(
+    assetsDir,
+    fileName,
+  );
+
+  try {
+    fs.writeFileSync(
+      filePath,
+      buffer,
+    );
+  } catch (e) {
+    console.error(
+      "Mention save error:",
+      e,
+    );
+
+    return sock.sendMessage(
+      chatId,
+      {
+        text:
+          "❌ *Failed to save mention media.*",
+      },
+      { quoted: message },
+    );
+  }
+
+  /* =======================================================
+     SAVE STATE
+  ======================================================= */
+
+  const state = await loadState();
+
+  state.assetPath = path.join(
+    "assets",
+    fileName,
+  );
+
+  state.type = info.type;
+  state.mimetype = mimetype;
+
+  if (info.type === "video") {
+    state.gifPlayback =
+      !!info.media?.gifPlayback;
+  } else {
+    state.gifPlayback = false;
+  }
+
+  if (info.type === "audio") {
+    state.ptt =
+      !!info.media?.ptt;
+  } else {
+    state.ptt = false;
+  }
+
+  await saveState(state);
+
+  /* =======================================================
+     SUCCESS
+  ======================================================= */
+
+  const typeName = {
+    image: "🖼️ Photo",
+    video: "🎥 Video",
+    sticker: "🎨 Sticker",
+    audio: "🎵 Audio",
+    text: "📝 Text",
+  }[info.type] || info.type;
+
+  return sock.sendMessage(
+    chatId,
+    {
+      text:
+        `✅ *Mention reply updated!*\n\n` +
+        `Type: ${typeName}\n` +
+        `File: ${fileName}\n` +
+        `Storage: ${
+          HAS_DB
+            ? "Database"
+            : "File System"
+        }\n\n` +
+        `Use *.mention on* to enable it.`,
+    },
+    { quoted: message },
+  );
 }
 
-async function handleMentionDetection(sock, chatId, message) {
+/* =========================================================
+   GET BOT JIDS
+========================================================= */
+
+function getBotJids(sock) {
+  const rawId =
+    sock?.user?.id ||
+    sock?.user?.jid ||
+    "";
+
+  if (!rawId) {
+    return [];
+  }
+
+  const botNum = rawId
+    .split("@")[0]
+    .split(":")[0];
+
+  if (!botNum) {
+    return [];
+  }
+
+  return [
+    `${botNum}@s.whatsapp.net`,
+    `${botNum}@whatsapp.net`,
+    rawId,
+  ];
+}
+
+/* =========================================================
+   MENTION DETECTION
+========================================================= */
+
+async function handleMentionDetection(
+  sock,
+  chatId,
+  message,
+) {
   try {
-    if (message.key?.fromMe) return;
+    if (message?.key?.fromMe) {
+      return;
+    }
 
     const state = await loadState();
-    await ensureDefaultSticker(state);
-    if (!state.enabled) return;
 
-    const rawId = sock.user?.id || sock.user?.jid || "";
-    if (!rawId) return;
-    const botNum = rawId.split("@")[0].split(":")[0];
-    const botJids = [
-      `${botNum}@s.whatsapp.net`,
-      `${botNum}@whatsapp.net`,
-      rawId,
-    ];
-    const msg = message.message || {};
+    if (!state.enabled) {
+      return;
+    }
+
+    if (!state.assetPath) {
+      return;
+    }
+
+    const botJids = getBotJids(sock);
+
+    if (!botJids.length) {
+      return;
+    }
+
+    const msg =
+      message?.message || {};
+
     const contexts = [
       msg.extendedTextMessage?.contextInfo,
       msg.imageMessage?.contextInfo,
       msg.videoMessage?.contextInfo,
       msg.documentMessage?.contextInfo,
       msg.stickerMessage?.contextInfo,
-      msg.buttonsResponseMessage?.contextInfo,
-      msg.listResponseMessage?.contextInfo,
+      msg.audioMessage?.contextInfo,
     ].filter(Boolean);
 
     let mentioned = [];
-    for (const c of contexts) {
-      if (Array.isArray(c.mentionedJid)) {
-        mentioned = mentioned.concat(c.mentionedJid);
+
+    for (const ctx of contexts) {
+      if (
+        Array.isArray(
+          ctx.mentionedJid,
+        )
+      ) {
+        mentioned.push(
+          ...ctx.mentionedJid,
+        );
       }
     }
-    const directMentionLists = [
-      msg.extendedTextMessage?.mentionedJid,
-      msg.mentionedJid,
-    ].filter(Array.isArray);
-    for (const arr of directMentionLists) mentioned = mentioned.concat(arr);
+
+    /* Direct mentionedJid */
+    if (
+      Array.isArray(
+        msg.extendedTextMessage
+          ?.mentionedJid,
+      )
+    ) {
+      mentioned.push(
+        ...msg.extendedTextMessage
+          .mentionedJid,
+      );
+    }
+
+    if (
+      Array.isArray(
+        msg.mentionedJid,
+      )
+    ) {
+      mentioned.push(
+        ...msg.mentionedJid,
+      );
+    }
+
+    /* =====================================================
+       TEXT FALLBACK
+    ===================================================== */
 
     if (!mentioned.length) {
       const rawText = (
@@ -130,263 +634,299 @@ async function handleMentionDetection(sock, chatId, message) {
         msg.videoMessage?.caption ||
         ""
       ).toString();
-      if (rawText) {
-        const safeBot = botNum.replace(/[-\s]/g, "");
-        const re = new RegExp(`@?${safeBot}\b`);
-        if (!re.test(rawText.replace(/\s+/g, ""))) return;
-      } else {
-        return;
-      }
-    }
-    const isBotMentioned = mentioned.some((j) => botJids.includes(j));
-    if (!isBotMentioned) return;
 
-    if (!state.assetPath) {
-      await sock.sendMessage(chatId, { text: "Hi" }, { quoted: message });
-      return;
-    }
-    const assetPath = path.join(__dirname, "..", state.assetPath);
-    if (!fs.existsSync(assetPath)) {
-      await sock.sendMessage(chatId, { text: "Hi" }, { quoted: message });
-      return;
-    }
-    try {
-      if (state.type === "sticker") {
-        await sock.sendMessage(
-          chatId,
-          { sticker: fs.readFileSync(assetPath) },
-          { quoted: message },
-        );
+      if (!rawText) {
         return;
       }
-      const payload = {};
-      if (state.type === "image") payload.image = fs.readFileSync(assetPath);
-      else if (state.type === "video") {
-        payload.video = fs.readFileSync(assetPath);
-        if (state.gifPlayback) payload.gifPlayback = true;
-      } else if (state.type === "audio") {
-        payload.audio = fs.readFileSync(assetPath);
-        if (state.mimetype) payload.mimetype = state.mimetype;
-        else payload.mimetype = "audio/mpeg";
-        if (typeof state.ptt === "boolean") payload.ptt = state.ptt;
-      } else if (state.type === "text")
-        payload.text = fs.readFileSync(assetPath, "utf8");
-      else payload.text = "Hi";
-      await sock.sendMessage(chatId, payload, { quoted: message });
-    } catch (e) {
-      await sock.sendMessage(chatId, { text: "Hi" }, { quoted: message });
+
+      const botNum =
+        botJids[0]
+          ?.split("@")[0]
+          ?.split(":")[0];
+
+      if (!botNum) {
+        return;
+      }
+
+      /*
+       * IMPORTANT:
+       * Double slash is required here.
+       */
+      const re = new RegExp(
+        `@?${botNum}\\b`,
+      );
+
+      if (
+        !re.test(
+          rawText.replace(
+            /\s+/g,
+            "",
+          ),
+        )
+      ) {
+        return;
+      }
+    }
+
+    /* =====================================================
+       CHECK BOT MENTION
+    ===================================================== */
+
+    const isBotMentioned =
+      mentioned.some((jid) =>
+        botJids.includes(jid),
+      );
+
+    if (
+      mentioned.length &&
+      !isBotMentioned
+    ) {
+      return;
+    }
+
+    /* =====================================================
+       FILE
+    ===================================================== */
+
+    const assetPath = path.join(
+      __dirname,
+      "..",
+      state.assetPath,
+    );
+
+    if (!fs.existsSync(assetPath)) {
+      return;
+    }
+
+    const buffer =
+      fs.readFileSync(assetPath);
+
+    if (!buffer.length) {
+      return;
+    }
+
+    /* =====================================================
+       SEND SAVED MEDIA
+    ===================================================== */
+
+    if (state.type === "image") {
+      return await sock.sendMessage(
+        chatId,
+        {
+          image: buffer,
+          mimetype:
+            state.mimetype ||
+            "image/jpeg",
+        },
+        {
+          quoted: message,
+        },
+      );
+    }
+
+    if (state.type === "video") {
+      return await sock.sendMessage(
+        chatId,
+        {
+          video: buffer,
+          mimetype:
+            state.mimetype ||
+            "video/mp4",
+          gifPlayback:
+            !!state.gifPlayback,
+        },
+        {
+          quoted: message,
+        },
+      );
+    }
+
+    if (state.type === "sticker") {
+      return await sock.sendMessage(
+        chatId,
+        {
+          sticker: buffer,
+        },
+        {
+          quoted: message,
+        },
+      );
+    }
+
+    if (state.type === "audio") {
+      return await sock.sendMessage(
+        chatId,
+        {
+          audio: buffer,
+          mimetype:
+            state.mimetype ||
+            "audio/mpeg",
+          ptt: !!state.ptt,
+        },
+        {
+          quoted: message,
+        },
+      );
+    }
+
+    if (state.type === "text") {
+      return await sock.sendMessage(
+        chatId,
+        {
+          text: buffer.toString(
+            "utf8",
+          ),
+        },
+        {
+          quoted: message,
+        },
+      );
     }
   } catch (err) {
-    console.error("handleMentionDetection error:", err);
+    console.error(
+      "handleMentionDetection error:",
+      err,
+    );
   }
 }
 
-async function setMentionCommand(sock, chatId, message, isOwner) {
-  if (!isOwner)
-    return sock.sendMessage(
-      chatId,
-      { text: "❌ *Only Owner or Sudo can use this command*" },
-      { quoted: message },
-    );
-  const ctx = message.message?.extendedTextMessage?.contextInfo;
-  const qMsg = ctx?.quotedMessage;
-  if (!qMsg)
-    return sock.sendMessage(
-      chatId,
-      {
-        text: "❌ *Reply to a message or media*\n\nSupported: text, sticker, image, video, audio",
-      },
-      { quoted: message },
-    );
-
-  let type = "sticker",
-    buf,
-    dataType;
-  if (qMsg.stickerMessage) {
-    dataType = "stickerMessage";
-    type = "sticker";
-  } else if (qMsg.imageMessage) {
-    dataType = "imageMessage";
-    type = "image";
-  } else if (qMsg.videoMessage) {
-    dataType = "videoMessage";
-    type = "video";
-  } else if (qMsg.audioMessage) {
-    dataType = "audioMessage";
-    type = "audio";
-  } else if (qMsg.documentMessage) {
-    dataType = "documentMessage";
-    type = "file";
-  } else if (qMsg.conversation || qMsg.extendedTextMessage?.text) {
-    type = "text";
-  } else
-    return sock.sendMessage(
-      chatId,
-      {
-        text: "❌ *Unsupported media type*\n\nReply to: text, sticker, image, video, or audio",
-      },
-      { quoted: message },
-    );
-
-  if (type === "text") {
-    buf = Buffer.from(
-      qMsg.conversation || qMsg.extendedTextMessage?.text || "",
-      "utf8",
-    );
-    if (!buf.length)
-      return sock.sendMessage(
-        chatId,
-        { text: "❌ *Empty text*" },
-        { quoted: message },
-      );
-  } else {
-    try {
-      const media = qMsg[dataType];
-      if (!media) throw new Error("No media");
-      const kind = type === "sticker" ? "sticker" : type;
-      const stream = await downloadContentFromMessage(media, kind);
-      const chunks = [];
-      for await (const chunk of stream) chunks.push(chunk);
-      buf = Buffer.concat(chunks);
-    } catch (e) {
-      console.error("download error", e);
-      return sock.sendMessage(
-        chatId,
-        { text: "❌ *Failed to download media*" },
-        { quoted: message },
-      );
-    }
-  }
-
-  if (buf.length > 1024 * 1024) {
-    return sock.sendMessage(
-      chatId,
-      { text: "❌ *File too large*\n\nMaximum size: 1 MB" },
-      { quoted: message },
-    );
-  }
-  let mimetype = qMsg[dataType]?.mimetype || "";
-  let ptt = !!qMsg.audioMessage?.ptt;
-  let gifPlayback = !!qMsg.videoMessage?.gifPlayback;
-  let ext = "bin";
-  if (type === "sticker") ext = "webp";
-  else if (type === "image") ext = mimetype.includes("png") ? "png" : "jpg";
-  else if (type === "video") ext = "mp4";
-  else if (type === "audio") {
-    if (mimetype.includes("ogg") || mimetype.includes("opus")) {
-      ext = "ogg";
-      mimetype = "audio/ogg; codecs=opus";
-    } else if (mimetype.includes("mpeg") || mimetype.includes("mp3")) {
-      ext = "mp3";
-      mimetype = "audio/mpeg";
-    } else if (mimetype.includes("aac")) {
-      ext = "aac";
-      mimetype = "audio/aac";
-    } else if (mimetype.includes("wav")) {
-      ext = "wav";
-      mimetype = "audio/wav";
-    } else if (mimetype.includes("m4a") || mimetype.includes("mp4")) {
-      ext = "m4a";
-      mimetype = "audio/mp4";
-    } else {
-      ext = "mp3";
-      mimetype = "audio/mpeg";
-    }
-  } else if (type === "text") ext = "txt";
-  const stateBefore = await loadState();
-  try {
-    const assetsDir = path.join(__dirname, "..", "assets");
-    if (fs.existsSync(assetsDir)) {
-      const files = fs.readdirSync(assetsDir);
-      for (const f of files) {
-        if (f.startsWith("mention_custom.")) {
-          try {
-            fs.unlinkSync(path.join(assetsDir, f));
-          } catch {}
-        }
-      }
-    }
-    if (
-      stateBefore.assetPath &&
-      stateBefore.assetPath.startsWith("assets/") &&
-      !stateBefore.assetPath.endsWith("mention_default.webp")
-    ) {
-      const prevPath = path.join(__dirname, "..", stateBefore.assetPath);
-      if (fs.existsSync(prevPath)) {
-        try {
-          fs.unlinkSync(prevPath);
-        } catch {}
-      }
-    }
-  } catch (e) {
-    console.warn("cleanup previous assets failed:", e?.message || e);
-  }
-  const outName = `mention_custom.${ext}`;
-  const assetsDir = path.join(__dirname, "..", "assets");
-  if (!fs.existsSync(assetsDir)) {
-    fs.mkdirSync(assetsDir, { recursive: true });
-  }
-  const outPath = path.join(assetsDir, outName);
-  try {
-    fs.writeFileSync(outPath, buf);
-  } catch (e) {
-    console.error("write error", e);
-    return sock.sendMessage(
-      chatId,
-      { text: "❌ *Failed to save file*" },
-      { quoted: message },
-    );
-  }
-
-  const state = await loadState();
-  state.assetPath = path.join("assets", outName);
-  state.type = type;
-  if (type === "audio") state.mimetype = mimetype;
-  if (type === "audio") state.ptt = ptt;
-  if (type === "video") state.gifPlayback = gifPlayback;
-  await saveState(state);
-  return sock.sendMessage(
-    chatId,
-    {
-      text: `✅ *Mention reply updated!*\n\nType: ${type}\nStorage: ${HAS_DB ? "Database" : "File System"}`,
-    },
-    { quoted: message },
-  );
-}
+/* =========================================================
+   PLUGIN
+========================================================= */
 
 module.exports = {
   command: "mention",
-  aliases: ["setmention", "mentionreply"],
+
+  aliases: [
+    "setmention",
+    "mentionreply",
+  ],
+
   category: "owner",
-  description: "Toggle or set custom mention reply",
-  usage: ".mention <on|off> or .setmention (reply to media)",
+
+  description:
+    "Set photo, video or sticker as automatic mention reply",
+
+  usage:
+    ".mention (reply to media)\n" +
+    ".mention on\n" +
+    ".mention off",
+
   ownerOnly: true,
 
-  async handler(sock, message, args, context = {}) {
-    const chatId = context.chatId || message.key.remoteJid;
-    const onoff = args[0]?.toLowerCase();
+  async handler(
+    sock,
+    message,
+    args,
+    context = {},
+  ) {
+    const chatId =
+      context.chatId ||
+      message?.key?.remoteJid;
 
-    if (!onoff || !["on", "off"].includes(onoff)) {
+    const action =
+      args[0]?.toLowerCase();
+
+    /* =====================================================
+       SET MEDIA
+       .mention
+       .mention set
+    ===================================================== */
+
+    if (
+      !action ||
+      action === "set"
+    ) {
+      return await setMentionCommand(
+        sock,
+        chatId,
+        message,
+      );
+    }
+
+    /* =====================================================
+       ON
+    ===================================================== */
+
+    if (action === "on") {
+      const state =
+        await loadState();
+
+      if (!state.assetPath) {
+        return sock.sendMessage(
+          chatId,
+          {
+            text:
+              "❌ *No mention reply is set yet.*\n\n" +
+              "Reply to a photo/video/sticker and send *.mention* first.",
+          },
+          {
+            quoted: message,
+          },
+        );
+      }
+
+      state.enabled = true;
+
+      await saveState(state);
+
       return sock.sendMessage(
         chatId,
         {
-          text: "❌ *Invalid usage*\n\nUsage: `.mention on|off`",
+          text:
+            "✅ *Mention Reply Enabled*",
         },
-        { quoted: message },
+        {
+          quoted: message,
+        },
       );
     }
-    const state = await loadState();
-    state.enabled = onoff === "on";
-    await saveState(state);
-    return sock.sendMessage(
-      chatId,
-      {
-        text: `✅ *Mention reply ${state.enabled ? "enabled" : "disabled"}*\n\nStorage: ${HAS_DB ? "Database" : "File System"}`,
-      },
-      { quoted: message },
-    );
-  },
 
-  handleMentionDetection,
-  setMentionCommand,
-};
+    /* =====================================================
+       OFF
+    ===================================================== */
+
+    if (action === "off") {
+      const state =
+        await loadState();
+
+      state.enabled = false;
+
+      await saveState(state);
+
+      return sock.sendMessage(
+        chatId,
+        {
+          text:
+            "❌ *Mention Reply Disabled*",
+        },
+        {
+          quoted: message,
+        },
+      );
+    }
+
+    /* =====================================================
+       STATUS
+    ===================================================== */
+
+    if (
+      action === "status" ||
+      action === "info"
+    ) {
+      const state =
+        await loadState();
+
+      return sock.sendMessage(
+        chatId,
+        {
+          text:
+            `╭─〔 *MENTION REPLY* 〕\n` +
+            `│\n` +
+            `│ Status: ${
+              state.enabled
+                ? "ON"
+                : "OFF"
+            }\n` +
+            `│ Type: ${
+              state.type ||
