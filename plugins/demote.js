@@ -1,49 +1,84 @@
+function getPuttusVCardQuote() {
+  const botJid = "919641092392@s.whatsapp.net";
+
+  const vcard =
+    "BEGIN:VCARD\n" +
+    "VERSION:3.0\n" +
+    "N:PUTTUS;BOT;;;\n" +
+    "FN:🌸•𝐏ᴜᴛᴛᴜꜱ•⌲\n" +
+    "ORG:PUTTUS BOT\n" +
+    "TEL;TYPE=CELL;TYPE=VOICE;waid=919641092392:+919641092392\n" +
+    "END:VCARD";
+
+  return {
+    key: {
+      remoteJid: "status@broadcast",
+      fromMe: false,
+      id: "PUTTUS-" + Date.now(),
+      participant: botJid,
+    },
+    message: {
+      contactMessage: {
+        displayName: "⎯꯭̽ꪹ𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ⎯꯭̽💜",
+        vcard,
+      },
+    },
+  };
+}
+
 async function handleDemotionEvent(sock, groupId, participants, author) {
   try {
-    if (!Array.isArray(participants) || participants.length === 0) {
-      return;
-    }
+    if (!Array.isArray(participants) || participants.length === 0) return;
+
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    const demotedUsernames = await Promise.all(
-      participants.map(async (jid) => {
-        const jidString =
-          typeof jid === "string" ? jid : jid.id || jid.toString();
-        return `@${jidString.split("@")[0]}`;
-      }),
+    const demotedUsernames = participants.map((jid) => {
+      const jidString =
+        typeof jid === "string" ? jid : jid.id || jid.toString();
+
+      return `@${jidString.split("@")[0]}`;
+    });
+
+    let demotedBy = "System";
+    const mentionList = participants.map((jid) =>
+      typeof jid === "string" ? jid : jid.id || jid.toString(),
     );
 
-    let demotedBy;
-    let mentionList = participants.map((jid) => {
-      return typeof jid === "string" ? jid : jid.id || jid.toString();
-    });
-
-    if (author && author.length > 0) {
+    if (author) {
       const authorJid =
         typeof author === "string" ? author : author.id || author.toString();
+
       demotedBy = `@${authorJid.split("@")[0]}`;
       mentionList.push(authorJid);
-    } else {
-      demotedBy = "System";
     }
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    const now = new Date();
+
+    const time = now.toLocaleTimeString([], {
+      hour: "numeric",
+      minute: "2-digit",
+    });
 
     const demotionMessage =
-      `*『 GROUP DEMOTION 』*\n\n` +
-      `👤 *Demoted User${participants.length > 1 ? "s" : ""}:*\n` +
-      `${demotedUsernames.map((name) => `• ${name}`).join("\n")}\n\n` +
-      `👑 *Demoted By:* ${demotedBy}\n\n` +
-      `📅 *Date:* ${new Date().toLocaleString()}`;
+      `┌─❖ *ɢʀᴏᴜᴘ ᴅᴇᴍᴏᴛɪᴏɴ*\n` +
+      `│\n` +
+      `${demotedUsernames.map((name) => `├─ 👤 ${name}`).join("\n")}\n` +
+      `├─ 👑 ${demotedBy}\n` +
+      `└─ 🕐 ${time}\n\n` +
+      `*⚡ 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*`;
 
-    await sock.sendMessage(groupId, {
-      text: demotionMessage,
-      mentions: mentionList,
-    });
+    await sock.sendMessage(
+      groupId,
+      {
+        text: demotionMessage,
+        mentions: mentionList,
+      },
+      {
+        quoted: getPuttusVCardQuote(),
+      },
+    );
   } catch (error) {
     console.error("Error handling demotion event:", error);
-    if (error.data === 429) {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-    }
   }
 }
 
@@ -72,12 +107,15 @@ module.exports = {
     }
 
     let userToDemote = [];
+
     const mentionedJids =
       message.message?.extendedTextMessage?.contextInfo?.mentionedJid;
 
-    if (mentionedJids && mentionedJids.length > 0) {
+    if (mentionedJids?.length > 0) {
       userToDemote = mentionedJids;
-    } else if (message.message?.extendedTextMessage?.contextInfo?.participant) {
+    } else if (
+      message.message?.extendedTextMessage?.contextInfo?.participant
+    ) {
       userToDemote = [
         message.message.extendedTextMessage.contextInfo.participant,
       ];
@@ -87,7 +125,9 @@ module.exports = {
       await sock.sendMessage(
         chatId,
         {
-          text: "❌ *Please mention a user or reply to their message*\n\nUsage: `.demote @user` or reply with `.demote`",
+          text:
+            "❌ *Please mention a user or reply to their message*\n\n" +
+            "Usage: `.demote @user` or reply with `.demote`",
         },
         { quoted: message },
       );
@@ -96,61 +136,70 @@ module.exports = {
 
     try {
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      await sock.groupParticipantsUpdate(chatId, userToDemote, "demote");
 
-      const usernames = await Promise.all(
-        userToDemote.map(async (jid) => {
-          return `@${jid.split("@")[0]}`;
-        }),
+      await sock.groupParticipantsUpdate(
+        chatId,
+        userToDemote,
+        "demote",
       );
 
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const usernames = userToDemote.map(
+        (jid) => `@${jid.split("@")[0]}`,
+      );
+
+      const authorJid =
+        message.key.participant || message.key.remoteJid;
+
+      const authorName = `@${authorJid.split("@")[0]}`;
+
+      const time = new Date().toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit",
+      });
 
       const demotionMessage =
-        `*『 GROUP DEMOTION 』*\n\n` +
-        `👤 *Demoted User${userToDemote.length > 1 ? "s" : ""}:*\n` +
-        `${usernames.map((name) => `• ${name}`).join("\n")}\n\n` +
-        `👑 *Demoted By:* @${message.key.participant ? message.key.participant.split("@")[0] : message.key.remoteJid.split("@")[0]}\n\n` +
-        `📅 *Date:* ${new Date().toLocaleString()}`;
+        `┌─❖ *ɢʀᴏᴜᴘ ᴅᴇᴍᴏᴛɪᴏɴ*\n` +
+        `│\n` +
+        `${usernames.map((name) => `├─ 👤 ${name}`).join("\n")}\n` +
+        `├─ 👑 ${authorName}\n` +
+        `└─ 🕐 ${time}\n\n` +
+        `*⚡ 𝐏ᴜᴛᴛᴜs-𝐁ᴏᴛ*`;
 
       await sock.sendMessage(
         chatId,
         {
           text: demotionMessage,
-          mentions: [
-            ...userToDemote,
-            message.key.participant || message.key.remoteJid,
-          ],
+          mentions: [...userToDemote, authorJid],
         },
-        { quoted: message },
+        {
+          quoted: getPuttusVCardQuote(),
+        },
       );
     } catch (error) {
       console.error("Error in demote command:", error);
+
       if (error.data === 429) {
         await new Promise((resolve) => setTimeout(resolve, 2000));
-        try {
-          await sock.sendMessage(
-            chatId,
-            {
-              text: "❌ *Rate limit reached*\n\nPlease try again in a few seconds.",
-            },
-            { quoted: message },
-          );
-        } catch (retryError) {
-          console.error("Error sending retry message:", retryError);
-        }
+
+        await sock.sendMessage(
+          chatId,
+          {
+            text:
+              "❌ *Rate limit reached*\n\n" +
+              "Please try again in a few seconds.",
+          },
+          { quoted: message },
+        );
       } else {
-        try {
-          await sock.sendMessage(
-            chatId,
-            {
-              text: "❌ *Failed to demote user(s)*\n\nMake sure the bot has sufficient permissions.",
-            },
-            { quoted: message },
-          );
-        } catch (sendError) {
-          console.error("Error sending error message:", sendError);
-        }
+        await sock.sendMessage(
+          chatId,
+          {
+            text:
+              "❌ *Failed to demote user(s)*\n\n" +
+              "Make sure the bot has sufficient permissions.",
+          },
+          { quoted: message },
+        );
       }
     }
   },
