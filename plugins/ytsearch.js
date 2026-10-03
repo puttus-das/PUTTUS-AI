@@ -1,20 +1,12 @@
 /*****************************************************************************
- *                                                                           *
  *                     Developed By Puttus Das                              *
  *                                                                           *
- *  🌐  GitHub   : https://github.com/puttus-das                         *
- *  ▶️  WhatsApp  : https://chat.whatsapp.com/FVLqJnjKPywKZiiMqi1XWH                       *
- *  💬  WhatsApp : https://whatsapp.com/channel/0029Vb7pmbEEwEjzdGSM4G3B     *
- *                                                                           *
- *    © 2026 puttus-das. All rights reserved.                            *
- *                                                                           *
- *    Description: This file is part of the PUTTUS-AI Project.                 *
- *                 Unauthorized copying or distribution is prohibited.       *
- *                                                                           *
+ *    Description: PUTTUS-AI YouTube Search Plugin                          *
  *****************************************************************************/
 
-const yts = require("yt-search");
 const settings = require("../settings");
+
+const YT_SEARCH_API = "https://rabbitapi.zone.id/search/youtube";
 
 module.exports = {
   command: "ytsearch",
@@ -23,69 +15,171 @@ module.exports = {
   description: "Search YouTube",
   usage: ".yts [query]",
 
-  async handler(sock, message, args, context) {
-    const { chatId } = context;
-    const query = args.join(" ");
-    const prefix = settings.prefixes[0];
+  async handler(sock, message, args = [], context = {}) {
+    const chatId =
+      context?.chatId ||
+      message?.key?.remoteJid;
+
+    if (!chatId) return;
+
+    const query = args.join(" ").trim();
+    const prefix =
+      settings?.prefixes?.[0] ||
+      ".";
+
+    // ───────────── CHECK QUERY ─────────────
 
     if (!query) {
-      return sock.sendMessage(
+      return await sock.sendMessage(
         chatId,
         {
-          text: `Example: *${prefix}yts* Lil Peep`,
+          text:
+            `❌ *YouTube search query dao!*\n\n` +
+            `Example:\n` +
+            `*${prefix}yts Alan Walker Faded*`
         },
-        { quoted: message },
+        { quoted: message }
       );
     }
 
     try {
+      // ───────────── REACTION ─────────────
+
       await sock.sendMessage(chatId, {
-        react: { text: "🔍", key: message.key },
+        react: {
+          text: "🔍",
+          key: message.key
+        }
       });
 
-      const result = await yts(query);
-      const videos = result.videos.slice(0, 10);
+      // ───────────── RABBIT SEARCH API ─────────────
 
-      if (videos.length === 0) {
-        return sock.sendMessage(chatId, { text: "❌ No results found." });
+      const apiUrl =
+        `${YT_SEARCH_API}?q=${encodeURIComponent(query)}&limit=15`;
+
+      const response = await fetch(apiUrl, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "PUTTUS-AI"
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `YouTube Search HTTP ${response.status}`
+        );
       }
 
-      let searchText = `✨ *MUSIC SEARCH* ✨\n\n`;
+      const data = await response.json();
 
-      videos.forEach((v, index) => {
-        searchText += `*${index + 1}.🎧 ${v.title}*\n`;
-        searchText += `*⌚ Duration:* ${v.timestamp}\n`;
-        searchText += `*👀 Views:* ${v.views}\n`;
-        searchText += `*🔗 URL:* ${v.url}\n`;
-        searchText += `──────────────────\n`;
+      // Rabbit API:
+      // {
+      //   status: true,
+      //   query: "...",
+      //   total: 15,
+      //   result: [...]
+      // }
+
+      if (data?.status !== true) {
+        return await sock.sendMessage(
+          chatId,
+          {
+            text:
+              `❌ *YouTube search failed.*\n\n` +
+              `${data?.message || "No results found."}`
+          },
+          { quoted: message }
+        );
+      }
+
+      const videos = Array.isArray(data?.result)
+        ? data.result
+        : [];
+
+      if (!videos.length) {
+        return await sock.sendMessage(
+          chatId,
+          {
+            text: "❌ *কোনো YouTube result পাওয়া যায়নি।*"
+          },
+          { quoted: message }
+        );
+      }
+
+      // ───────────── BUILD RESULT ─────────────
+
+      let searchText =
+        `╭─〔 *𝐏ᴜᴛᴛᴜs-Bᴏᴛ* 〕─╮\n` +
+        `│ 🔎 *YOUTUBE SEARCH*\n` +
+        `│\n`;
+
+      videos.forEach((video, index) => {
+        const number = index + 1;
+
+        searchText +=
+          `│ *${number}.* ${video?.title || "Unknown"}\n` +
+          `│ ⏱️ ${video?.duration || "Unknown"}\n` +
+          `│ 👀 ${video?.views || "Unknown"}\n` +
+          `│ 👤 ${video?.author?.name || "Unknown"}\n` +
+          `│ 🔗 ${video?.url || "No URL"}\n` +
+          `│\n`;
       });
+
+      searchText +=
+        `╰──────────────────╯\n` +
+        `📌 *Results:* ${videos.length}\n` +
+        `🔎 *Query:* ${query}`;
+
+      // ───────────── SEND IMAGE + RESULTS ─────────────
+
+      const thumbnail = videos[0]?.thumbnail;
+
+      if (thumbnail) {
+        await sock.sendMessage(
+          chatId,
+          {
+            image: {
+              url: thumbnail
+            },
+            caption: searchText
+          },
+          { quoted: message }
+        );
+      } else {
+        await sock.sendMessage(
+          chatId,
+          {
+            text: searchText
+          },
+          { quoted: message }
+        );
+      }
+
+      // ───────────── SUCCESS REACTION ─────────────
+
+      await sock.sendMessage(chatId, {
+        react: {
+          text: "✅",
+          key: message.key
+        }
+      });
+
+    } catch (error) {
+      console.error(
+        "PUTTUS-AI YOUTUBE SEARCH ERROR:",
+        error
+      );
 
       await sock.sendMessage(
         chatId,
         {
-          image: { url: videos[0].image },
-          caption: searchText,
+          text:
+            `❌ *YouTube Search Error*\n\n` +
+            `আবার একটু পরে try করো।`
         },
-        { quoted: message },
+        { quoted: message }
       );
-    } catch (error) {
-      console.error("YouTube Search Error:", error);
-      await sock.sendMessage(chatId, { text: "❌ Error searching YouTube." });
     }
-  },
+  }
 };
-
-/*****************************************************************************
- *                                                                           *
- *                     Developed By Puttus Das                              *
- *                                                                           *
- *  🌐  GitHub   : https://github.com/puttus-das                         *
- *  ▶️  WhatsApp  : https://chat.whatsapp.com/FVLqJnjKPywKZiiMqi1XWH                       *
- *  💬  WhatsApp : https://whatsapp.com/channel/0029Vb7pmbEEwEjzdGSM4G3B     *
- *                                                                           *
- *    © 2026 puttus-das. All rights reserved.                            *
- *                                                                           *
- *    Description: This file is part of the PUTTUS-AI Project.                 *
- *                 Unauthorized copying or distribution is prohibited.       *
- *                                                                           *
- *****************************************************************************/
